@@ -25,3 +25,10 @@ Cargo.lock
 /packaging/arch/git/ipmap/
 /packaging/arch/git/pkg/
 /packaging/arch/git/src/
+
+
+# Added by cargo
+#
+# already existing elements were commented out
+
+#/target
