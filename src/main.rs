@@ -1,22 +1,17 @@
-use web_view::*;
+use pcap::Device;
+use pcap::Capture;
 
 fn main() {
-    web_view::builder()
-        .title("Ip Map")
-        .content(Content::Html(include_str!("index.html")))
-        .size(640, 480)
-        .resizable(true)
-        .debug(true)
-        .invoke_handler(|_webview, arg| {
-            match arg {
-                "foo" => println!("bruh you fooed"),
-                _ => unimplemented!(),
-            };
-            Ok(())
-        })
-        .user_data(())
-        .run()
-        .unwrap();
+    let mut cap = Capture::from_device("wlp1s0").unwrap().open().unwrap();
 
+    while let Ok(packet) = cap.next() {
+        println!("received packet! {:?}", packet);
+    }
 
+    // for device in pcap::Device::list().unwrap() {
+    //     println!("Found device! {:?}", device);
+
+    //     // now you can create a Capture with this Device if you want.
+    //     // see example/easylisten.rs for how
+    // }
 }
