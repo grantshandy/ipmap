@@ -1,0 +1,13 @@
+.container {
+    margin-left: auto;
+    margin-right: auto;
+    margin-top: auto;
+    margin-bottom: auto;
+    background: #F2F2F2;
+    border-radius: 25px;
+    -webkit-border-radius: 10px;
+    text-align: center;
+    width: 90vw;
+    height: 90vh;
+    margin: 0 auto;
+}
