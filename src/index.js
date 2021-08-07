@@ -10,6 +10,7 @@ L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_toke
 }).addTo(mymap);
 
 var alreadyAdded = new Set();
+var cityList = new Set ();
 
 function addMarkers(jsonText) {
 	for(var i = 0; i < jsonText.length; i++) {
@@ -19,7 +20,17 @@ function addMarkers(jsonText) {
 			continue;
 		}
 
-		document.getElementById("totalIps").innerHTML = jsonText.length + " Unique IP's";
+		cityList.add(obj.city);
+
+		var cities = new String ();
+
+		cityList.forEach(a => {
+			cities += a;
+			cities += ", ";
+		});
+		
+		document.getElementById("totalIps").innerHTML = "Unique IPs: " + jsonText.length;
+		document.getElementById("totalCities").innerHTML = "Cities: " + cities;
 
 		L.marker([obj.lat, obj.lon]).addTo(mymap).bindPopup("<b>" + obj.ip + "</b> - " + obj.city);
 		alreadyAdded.add(obj.ip);

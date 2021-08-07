@@ -15,6 +15,7 @@ pub fn web_view() {
             <body>
                 <div id="mapid" class="container""></div>
                 <p id="totalIps"></p>
+                <p id="totalCities"></p>
                 <script type="text/javascript">
                 {}
                 </script>
@@ -25,7 +26,7 @@ pub fn web_view() {
     );
 
     web_view::builder()
-        .title("Ip Map")
+        .title("ip map")
         .content(Content::Html(html))
         .size(800, 600)
         .resizable(true)
