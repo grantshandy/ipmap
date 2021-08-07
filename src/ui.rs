@@ -14,6 +14,7 @@ pub fn web_view() {
             </head>
             <body>
                 <div id="mapid" class="container""></div>
+                <p id="totalIps"></p>
                 <script type="text/javascript">
                 {}
                 </script>
@@ -32,7 +33,7 @@ pub fn web_view() {
         .invoke_handler(|webview, arg| {
             // This is the only place I have access to the webview variable... and it's called when JS calls something...
             match arg {
-                "rustFunc" => println!("javascript did a thing"),
+                "rustFunc" => webview.eval(&format!("addMarkers({})", crate::ip::IP_JSON_DOCUMENT.read().unwrap())).unwrap(),
                 _ => (),
             }
             Ok(())

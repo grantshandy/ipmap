@@ -3,11 +3,17 @@
     margin-right: auto;
     margin-top: auto;
     margin-bottom: auto;
-    background: #F2F2F2;
+    background: #262626;
     border-radius: 25px;
     -webkit-border-radius: 10px;
     text-align: center;
     width: 90vw;
     height: 90vh;
     margin: 0 auto;
+}
+
+body {
+    background-color: #262626;
+    color: #FDFFFC;
+    text-align: center;
 }

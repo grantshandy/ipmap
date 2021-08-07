@@ -19,11 +19,9 @@ function addMarkers(jsonText) {
 			continue;
 		}
 
-		console.log(obj.ip);
+		document.getElementById("totalIps").innerHTML = jsonText.length + " Unique IP's";
 
-		// document.getElementById("totalIps").innerHTML = jsonText.length + " Unique IP's";
-
-		L.marker([obj.lat, obj.lon]).addTo(mymap)
+		L.marker([obj.lat, obj.lon]).addTo(mymap).bindPopup("<b>" + obj.ip + "</b> - " + obj.city);
 		alreadyAdded.add(obj.ip);
 	}
 }
@@ -35,5 +33,6 @@ function addMarkers(jsonText) {
 (function loop() {
 	setTimeout(function () {
 		window.webkit.messageHandlers.external.postMessage('rustFunc');
+		loop();
 	}, 1000);
 }());

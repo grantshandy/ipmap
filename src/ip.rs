@@ -51,16 +51,16 @@ async fn try_add_ip(ip: IpAddr, ip_index: &mut Vec<IpAddr>, lat_index: &mut Vec<
     if !ip_index.contains(&ip) {
         ip_index.push(ip);
 
-        let (lat, lon) = match Locator::get_ipaddr(ip, Service::IpApi).await {
-            Ok(data) => (data.latitude.parse::<f64>().unwrap(), data.longitude.parse::<f64>().unwrap()),
-            Err(_error) => (0.0, 0.0),
+        let (lat, lon, city) = match Locator::get_ipaddr(ip, Service::IpApi).await {
+            Ok(data) => (data.latitude.parse::<f64>().unwrap(), data.longitude.parse::<f64>().unwrap(), data.city),
+            Err(_error) => (0.0, 0.0, String::new()),
         };
 
         if !lat_index.contains(&lat) || !lon_index.contains(&lon) {
             lat_index.push(lat);
             lon_index.push(lon);
 
-            IP_INDEX.write().unwrap().push(IpAddress { ip, lat, lon });
+            IP_INDEX.write().unwrap().push(IpAddress { ip, lat, lon, city });
             create_json_document();
 
             println!("{} - ({}, {})", ip, lat, lon);
@@ -75,9 +75,10 @@ fn create_json_document() {
     IP_JSON_DOCUMENT.write().unwrap().push_str(&json);
 }
 
-#[derive(Debug, PartialEq, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct IpAddress {
     pub ip: IpAddr,
     pub lat: f64,
     pub lon: f64,
+    pub city: String,
 }
