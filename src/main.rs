@@ -1,10 +1,13 @@
 #![feature(ip)]
+
+use std::thread;
+
 mod ui;
 mod ip;
 
 #[tokio::main]
 async fn main() {
-    std::thread::spawn(|| {
+    thread::spawn(|| {
         ui::web_view();
     });
 

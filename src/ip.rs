@@ -1,25 +1,17 @@
-use once_cell::sync::Lazy;
 use std::{ops::Deref, sync::RwLock};
 use std::net::IpAddr;
 
-use serde::{Serialize, Deserialize};
+use once_cell::sync::Lazy;
+use serde::Serialize;
 use etherparse::{SlicedPacket, InternetSlice};
 use ipgeolocate::{Locator, Service};
-
-use pcap::Capture;
+use pcap::{Capture, Device};
 
 pub static IP_INDEX: Lazy<RwLock<Vec<IpAddress>>> = Lazy::new(|| RwLock::new(Vec::new()));
 pub static IP_JSON_DOCUMENT: Lazy<RwLock<String>> = Lazy::new(|| RwLock::new(String::new()));
 
-// for device in pcap::Device::list().unwrap() {
-//     println!("Found device! {:?}", device);
-
-//     // now you can create a Capture with this Device if you want.
-//     // see example/easylisten.rs for how
-// }
-
 pub async fn manage_ip() {
-    let mut cap = Capture::from_device("wlp1s0").unwrap().open().unwrap();
+    let mut cap = Capture::from_device(Device::lookup().unwrap()).unwrap().open().unwrap();
 
     let mut ip_index: Vec<IpAddr> = Vec::new();
     let mut lat_index: Vec<f64> = Vec::new();
@@ -75,7 +67,7 @@ fn create_json_document() {
     IP_JSON_DOCUMENT.write().unwrap().push_str(&json);
 }
 
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Serialize)]
 pub struct IpAddress {
     pub ip: IpAddr,
     pub lat: f64,
