@@ -1,6 +1,6 @@
 [package]
 name = "ipmap"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2018"
 authors = ["Aditya Suresh <ethanaditya@gmail.com>", "Grant H. <grantshandy@gmail.com>", "Nick Z. <nicholasz2510@gmail.com>"]
 license = "GPL-3.0"

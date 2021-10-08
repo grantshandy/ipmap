@@ -1,0 +1,40 @@
+# Maintainer: Grant Handy <grantshandy AT gmail DOT com>
+
+_pkgname='ipmap'
+pkgname=${_pkgname}-git
+pkgver=0.2.1
+pkgrel=1
+pkgdesc="An interactive map that shows connected IP addresses"
+arch=('x86_64')
+url="https://skylinecc.github.io/ipmap/"
+license=('GPL')
+depends=('glibc' 'libpcap' 'webkit2gtk' 'polkit')
+makedepends=('rust' 'git')
+source=("${_pkgname}::file+https://github.com/skylinecc/ipmap.git")
+md5sums=('SKIP')
+
+pkgver() {
+  cd "$srcdir/${_pkgname}"
+  git describe --tags --long | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g'
+}
+
+build() {
+  cd "$srcdir/${_pkgname}"
+  cargo build --release
+}
+
+package() {
+  cd "$srcdir/${_pkgname}"
+
+  # Install policy file
+  install -D -m0644 data/org.freedesktop.policykit.${_pkgname}.policy \
+      "${pkgdir}"/usr/share/polkit-1/actions/org.freedesktop.policykit.${_pkgname}.policy
+
+  # Binary
+  install -Dm755 target/release/$_pkgname $pkgdir/usr/bin/$_pkgname
+
+  install -Dm0644 data/ipmap-256x256.png $pkgdir/usr/share/pixmaps/ipmap.png
+
+  # Desktop file
+  install -Dm0644 -t "$pkgdir/usr/share/applications" "data/ipmap.desktop"
+}
