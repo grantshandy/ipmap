@@ -4,7 +4,9 @@ A map that displays connected IP addresses.
 ![screenshot](screenshot.png)
 
 ## Dependencies
-ipmap requires `libpcap` and `webkit2gtk` on Linux.
+- Linux - [`libpcap`](https://github.com/ebfull/pcap#linux), [`webkit2gtk`](https://github.com/Boscop/web-view#prerequisites)
+- Mac OS X - Should work fine.
+- Windows - [`winpcap`](https://github.com/ebfull/pcap#windows)
 
 ## Using
 Download from the releases page or build it yourself, then give it permissions for `pcap`, or run as root.
