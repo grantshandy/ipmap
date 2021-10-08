@@ -13,13 +13,14 @@ Once the window opens, it should take a few seconds for the pins to start appear
 
 You can get the name of the city and the ip of a marker by either right or left clicking on the marker (depends on your operating system).
 
-You can toggle fullscreen by pressing f, and quit the program by pressing q.
+- <kbd>f</kbd> - Toggle fullscreen
+- <kbd>q</kbd> - Quit the window
+- <kbd>c</kbd> - View credits
 
 ## Testing
 If you really want to see it go crazy just download a torrent for a few seconds. The ip geolocation API service will rate limit you to 100 new markers per minute though.
 
 ## Building
-I use this for building and running:
 ```
-$ cargo build --release && sudo target/release/ipmap
+$ cargo build --release
 ```

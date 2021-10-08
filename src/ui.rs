@@ -51,13 +51,17 @@ pub fn web_view() {
                 "requestData" => {
                     match IP_INDEX.read().unwrap().len() {
                         0 => webview.set_title("Ipmap").unwrap(),
+                        1 => webview.set_title("Ipmap - 1 Connection").unwrap(),
                         _ => webview.set_title(&format!("Ipmap - {} Connections", IP_INDEX.read().unwrap().len())).unwrap(),
                     }
 
                     webview.eval(&format!("addMarkers({})", IP_JSON_DOCUMENT.read().unwrap())).unwrap();
                 }
+                "exitFullscreen" => {
+                    webview.set_fullscreen(false);
+                    is_fullscreen = false;
+                }
                 "toggleFullscreen" => {
-                    println!("Toggling fullscreen");
                     match is_fullscreen {
                         true => {
                             is_fullscreen = false;
@@ -72,6 +76,18 @@ pub fn web_view() {
                 "quit" => {
                     println!("Quitting!");
                     webview.exit();
+                }
+                "credits" => {
+                    web_view::builder()
+                        .title("Credits")
+                        .content(Content::Html(include_str!("credits.html")))
+                        .size(350, 220)
+                        .resizable(false)
+                        .debug(false)
+                        .user_data(())
+                        .invoke_handler(|_webview, _arg| Ok(()))
+                        .run()
+                        .unwrap();
                 }
                 _ => (),
             }

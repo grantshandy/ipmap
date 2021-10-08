@@ -11,7 +11,10 @@ pub static IP_INDEX: Lazy<RwLock<Vec<IpAddress>>> = Lazy::new(|| RwLock::new(Vec
 pub static IP_JSON_DOCUMENT: Lazy<RwLock<String>> = Lazy::new(|| RwLock::new(String::new()));
 
 pub async fn manage_ip() {
+    #[cfg(unix)]
     let mut cap = Capture::from_device(Device::lookup().unwrap()).unwrap().open().unwrap();
+    #[cfg(windows)]
+    let mut cap = user_select_device();
 
     let mut ip_index: Vec<IpAddr> = Vec::new();
     let mut lat_index: Vec<f64> = Vec::new();
@@ -65,6 +68,41 @@ fn create_json_document() {
 
     IP_JSON_DOCUMENT.write().unwrap().clear();
     IP_JSON_DOCUMENT.write().unwrap().push_str(&json);
+}
+
+#[cfg(windows)]
+fn user_select_device() -> Device {
+    let mut devices = Device::list().unwrap();
+    if devices.is_empty() {
+        println!("Found no device to listen on, maybe you need to run as an Adminstrator");
+        std::process::exit(1);
+    }
+    println!("Select which device to listen on: (choose the number of the item)");
+    for (i, d) in devices.iter().enumerate() {
+        println!("{}: {:?}", i, d);
+    }
+    use std::io;
+
+    let mut input = String::new();
+    let n = loop {
+        io::stdin().read_line(&mut input).unwrap();
+        match input.trim().parse() {
+            Ok(n) => {
+                if n < devices.len() {
+                    break n;
+                } else {
+                    println!("Invalid choice, try again");
+                    input.clear();
+                }
+            }
+            Err(_) => {
+                println!("Invalid choice, try again");
+                input.clear();
+            }
+        }
+    };
+    println!("Listening on {:?}", devices[n]);
+    devices.remove(n)
 }
 
 #[derive(Serialize)]

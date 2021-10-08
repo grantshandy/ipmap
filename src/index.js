@@ -1,12 +1,20 @@
 document.addEventListener("keypress", function onEvent(event) {
     if (event.key === "f") {
 		window.webkit.messageHandlers.external.postMessage('toggleFullscreen');
+	} else if (event.key = "Escape") {
+		window.webkit.messageHandlers.external.postMessage('exitFullscreen');
 	}
 	
 	if (event.key == "q") {
 		window.webkit.messageHandlers.external.postMessage('quit');
 	}
+
+	if (event.key == "c") {
+		window.webkit.messageHandlers.external.postMessage('credits');
+	}
 });
+
+window.open("https://google.com");
 
 var mymap = L.map('mapid').setView([20, 0], 2);
 
