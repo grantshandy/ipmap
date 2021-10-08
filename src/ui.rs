@@ -78,9 +78,24 @@ pub fn web_view() {
                     webview.exit();
                 }
                 "credits" => {
+                    let credits_html = r#"
+                    <!doctype html>
+                    <html>
+                    <body>
+                    <h1>Credits</h1>
+                    <ul>
+                    <li>Grant Handy</li>
+                    <li>Nick Zhang</li>
+                    <li>Aditya Suresh</li>
+                    <li>sigmaSd</li>
+                    </ul>
+                    <p>Copyright 2020-2021 Skyline Coding Club</p>
+                    </body>
+                    </html>"#;
+
                     web_view::builder()
                         .title("Credits")
-                        .content(Content::Html(include_str!("credits.html")))
+                        .content(Content::Html(credits_html))
                         .size(350, 220)
                         .resizable(false)
                         .debug(false)

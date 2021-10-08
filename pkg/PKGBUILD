@@ -2,15 +2,15 @@
 
 _pkgname='ipmap'
 pkgname=${_pkgname}-git
-pkgver=0.2.1
+pkgver=0.2.0.r2.gb1f71b8
 pkgrel=1
 pkgdesc="An interactive map that shows connected IP addresses"
 arch=('x86_64')
-url="https://skylinecc.github.io/ipmap/"
 license=('GPL')
 depends=('glibc' 'libpcap' 'webkit2gtk' 'polkit')
 makedepends=('rust' 'git')
-source=("${_pkgname}::file+https://github.com/skylinecc/ipmap.git")
+url="http://github.com/skylinecc/ipmap"
+source=("${_pkgname}::git+https://github.com/skylinecc/ipmap.git")
 md5sums=('SKIP')
 
 pkgver() {
