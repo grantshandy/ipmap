@@ -1,42 +1,26 @@
+use pcap::Device;
 use web_view::Content;
+use web_view::WebViewBuilder;
 
 use crate::ip::IP_INDEX;
 use crate::ip::IP_JSON_DOCUMENT;
 
 pub fn web_view() {
-    let html = format!(
-        r#"
-        <!doctype html>
-        <html>
-            <head>
-            <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A==" crossorigin=""/>
-            <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js" integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA==" crossorigin=""></script>        
-            <style type="text/css" media="screen">
-            .container {{
-                position:fixed;
-                padding:0;
-                margin:0;
-                top:0;
-                left:0;
-                width: 100%;
-                height: 100%;
-            }}
-            </style>
-            </head>
-            <body>
-                <div id="mapid" class="container""></div>
-                <script type="text/javascript">
-                {}
-                </script>
-            </body>
-        </html>"#,
-        include_str!("index.js")
-    );
+    // what a mess... hey it works good whatever.
+    let html = include_str!("web/index.html")
+        .to_string()
+        .replace(
+            "// rust inserts insert js here",
+            include_str!("web/index.js"),
+        )
+        .replace("/* rust inserts css here */", include_str!("web/style.css"));
+
+    // fstream::write_text("end_html_result.html", html.clone(), false).unwrap();
 
     let mut is_fullscreen = false;
 
     println!("Starting UI");
-    web_view::builder()
+    WebViewBuilder::new()
         .title("Ipmap")
         .content(Content::Html(html))
         .size(800, 600)
@@ -49,20 +33,20 @@ pub fn web_view() {
 
             match arg {
                 "requestData" => {
-                    match IP_INDEX.read().expect("My bad from rust.").len() {
-                        0 => webview.set_title("Ipmap").expect("My bad from rust."),
-                        1 => webview.set_title("Ipmap - 1 Connection").expect("My bad from rust."),
+                    match IP_INDEX.read().unwrap().len() {
+                        0 => webview.set_title("Ipmap").unwrap(),
+                        1 => webview.set_title("Ipmap - 1 Connection").unwrap(),
                         _ => webview
                             .set_title(&format!(
                                 "Ipmap - {} Connections",
-                                IP_INDEX.read().expect("My bad from rust.").len()
+                                IP_INDEX.read().unwrap().len()
                             ))
-                            .expect("My bad from rust."),
+                            .unwrap(),
                     }
 
                     webview
-                        .eval(&format!("addMarkers({})", IP_JSON_DOCUMENT.read().expect("My bad from rust.")))
-                        .expect("My bad from rust.");
+                        .eval(&format!("addMarkers({})", IP_JSON_DOCUMENT.read().unwrap()))
+                        .unwrap();
                 }
                 "exitFullscreen" => {
                     webview.set_fullscreen(false);
@@ -83,31 +67,20 @@ pub fn web_view() {
                     webview.exit();
                 }
                 "credits" => {
-                    let credits_html = r#"
-                    <!doctype html>
-                    <html>
-                    <body>
-                    <h1>Credits</h1>
-                    <ul>
-                    <li>Grant Handy</li>
-                    <li>Nick Zhang</li>
-                    <li>Aditya Suresh</li>
-                    <li>sigmaSd</li>
-                    </ul>
-                    <p>Copyright 2020-2021 Skyline Coding Club</p>
-                    </body>
-                    </html>"#;
+                    let html = include_str!("web/credits.html")
+                        .to_string()
+                        .replace("/* rust inserts css here */", include_str!("web/style.css"));
 
                     web_view::builder()
                         .title("Credits")
-                        .content(Content::Html(credits_html))
+                        .content(Content::Html(html))
                         .size(350, 220)
                         .resizable(false)
                         .debug(false)
                         .user_data(())
                         .invoke_handler(|_webview, _arg| Ok(()))
                         .run()
-                        .expect("My bad from rust.");
+                        .unwrap();
                 }
                 _ => (),
             }
@@ -115,7 +88,60 @@ pub fn web_view() {
         })
         .user_data(())
         .run()
-        .expect("My bad from rust.");
+        .unwrap();
 
     std::process::exit(0);
+}
+
+#[cfg(windows)]
+pub fn windows_select_device() -> Device {
+    let html = include_str!("web/device_select.html")
+        .to_string()
+        .replace("/* rust inserts css here */", include_str!("web/style.css"));
+
+    let mut devices = Device::list().unwrap();
+    let mut device: Option<Device> = None;
+
+    if devices.is_empty() {
+        println!("Found no device to listen on, maybe you need to run as an Adminstrator");
+        std::process::exit(1);
+    }
+
+    WebViewBuilder::new()
+        .title("Select Capture Device")
+        .content(Content::Html(html))
+        .size(350, 400)
+        .resizable(true)
+        .debug(false)
+        .user_data(())
+        .invoke_handler(|webview, arg| {
+            match arg {
+                "init" => {
+                    for (i, d) in devices.iter().enumerate() {
+                        let js = format!(r#"document.body.innerHTML += "<p>{} - <button onclick=\"external.invoke(\'use-{}\')\" >Use Me</button></p>";"#, d.desc.clone().unwrap_or("Unknown Name".to_string()), i);
+                        webview.eval(&js).unwrap();
+                    }
+                }
+                _ => (),
+            }
+
+            if let Some(data) = arg.split("-").nth(1) {
+                webview.exit();
+                device = Some(devices.remove(data.parse().unwrap()));
+            };
+
+            Ok(())
+        })
+        .build()
+        .unwrap()
+        .run()
+        .unwrap();
+
+        match device {
+            Some(data) => data,
+            None => {
+                eprintln!("you must choose a device!");
+                std::process::exit(1);
+            }
+        }
 }

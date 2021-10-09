@@ -8,6 +8,7 @@ description = "An interactive map that shows connected IP addresses."
 repository = "https://github.com/skylinecc/ipmap/"
 keywords = ["geolocation", "ip", "locator", "map", "interactive"]
 categories = ["network-programming"]
+build = "build.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -18,7 +19,13 @@ serde = "1.0.127"
 tokio = { version = "1.9.0", features = ["full"] }
 futures = "0.3.16"
 web-view = { version = "0.7", features = ["edge"] }
+# web-view = "0.7" <- this one uses internet explorer instead of edge as a backend (doesn't work)
 pcap = "0.7.0"
 etherparse = "0.9.0"
 ipgeolocate = "0.3.5"
 clap = "2.33.3"
+ip_rfc = "0.1.0"
+# fstream = "0.1.2"
+
+[build-dependencies]
+winres = "0.1"

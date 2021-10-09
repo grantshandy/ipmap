@@ -36,3 +36,4 @@ pkg/ipmap/
 pkg/pkg/
 pkg/src/
 *.tar.zst
+Output/ipmap-0.2.1-installer.exe

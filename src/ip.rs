@@ -17,7 +17,13 @@ pub async fn manage_ip(cap: Capture<Active>) {
     let mut lat_index: Vec<f64> = Vec::new();
     let mut lon_index: Vec<f64> = Vec::new();
 
-    while let Ok(packet) = cap.next() {
+    // I have to do this in a loop because cap.next() hangs or something on mac OSX and windows for some reason. Not great for performance but it had to be done.
+    loop {
+        let packet = match cap.next() {
+            Ok(data) => data,
+            Err(_) => continue,
+        };
+
         match SlicedPacket::from_ethernet(&packet) {
             Err(value) => println!("error {:?}", value),
             Ok(value) => {
@@ -29,7 +35,7 @@ pub async fn manage_ip(cap: Capture<Active>) {
                     InternetSlice::Ipv6(ip, _) => IpAddr::V6(ip.source_addr()),
                 };
 
-                if !ip.is_global() {
+                if !ip_rfc::global(&ip) {
                     continue;
                 }
 
@@ -50,20 +56,20 @@ async fn try_add_ip(
 
         let (lat, lon, city) = match Locator::get_ipaddr(ip, Service::IpApi).await {
             Ok(data) => (
-                data.latitude.parse::<f64>().expect("My bad from rust."),
-                data.longitude.parse::<f64>().expect("My bad from rust."),
+                data.latitude.parse::<f64>().unwrap(),
+                data.longitude.parse::<f64>().unwrap(),
                 data.city,
             ),
             Err(_error) => (0.0, 0.0, String::new()),
         };
 
-        if !lat_index.contains(&lat) || !lon_index.contains(&lon) {
+        if (!lat_index.contains(&lat) || !lon_index.contains(&lon)) && (lat != 0.0 && lon != 0.0) {
             lat_index.push(lat);
             lon_index.push(lon);
 
             IP_INDEX
                 .write()
-                .expect("My bad from rust.")
+                .unwrap()
                 .push(IpAddress { ip, lat, lon, city });
             create_json_document();
 
@@ -73,10 +79,10 @@ async fn try_add_ip(
 }
 
 fn create_json_document() {
-    let json = serde_json::to_string(IP_INDEX.read().expect("My bad from rust.").deref()).expect("My bad from rust.");
+    let json = serde_json::to_string(IP_INDEX.read().unwrap().deref()).unwrap();
 
-    IP_JSON_DOCUMENT.write().expect("My bad from rust.").clear();
-    IP_JSON_DOCUMENT.write().expect("My bad from rust.").push_str(&json);
+    IP_JSON_DOCUMENT.write().unwrap().clear();
+    IP_JSON_DOCUMENT.write().unwrap().push_str(&json);
 }
 
 #[derive(Serialize)]
