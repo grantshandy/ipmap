@@ -1,20 +1,17 @@
-use std::{ops::Deref, sync::RwLock};
 use std::net::IpAddr;
+use std::{ops::Deref, sync::RwLock};
 
-use once_cell::sync::Lazy;
-use serde::Serialize;
-use etherparse::{SlicedPacket, InternetSlice};
+use etherparse::{InternetSlice, SlicedPacket};
 use ipgeolocate::{Locator, Service};
-use pcap::{Capture, Device};
+use once_cell::sync::Lazy;
+use pcap::{Active, Capture};
+use serde::Serialize;
 
 pub static IP_INDEX: Lazy<RwLock<Vec<IpAddress>>> = Lazy::new(|| RwLock::new(Vec::new()));
 pub static IP_JSON_DOCUMENT: Lazy<RwLock<String>> = Lazy::new(|| RwLock::new(String::new()));
 
-pub async fn manage_ip() {
-    // #[cfg(unix)]
-    let mut cap = Capture::from_device(Device::lookup().unwrap()).unwrap().open().unwrap();
-    // #[cfg(windows)]
-    // let mut cap = user_select_device();
+pub async fn manage_ip(cap: Capture<Active>) {
+    let mut cap = cap;
 
     let mut ip_index: Vec<IpAddr> = Vec::new();
     let mut lat_index: Vec<f64> = Vec::new();
@@ -42,12 +39,21 @@ pub async fn manage_ip() {
     }
 }
 
-async fn try_add_ip(ip: IpAddr, ip_index: &mut Vec<IpAddr>, lat_index: &mut Vec<f64>, lon_index: &mut Vec<f64>) {
+async fn try_add_ip(
+    ip: IpAddr,
+    ip_index: &mut Vec<IpAddr>,
+    lat_index: &mut Vec<f64>,
+    lon_index: &mut Vec<f64>,
+) {
     if !ip_index.contains(&ip) {
         ip_index.push(ip);
 
         let (lat, lon, city) = match Locator::get_ipaddr(ip, Service::IpApi).await {
-            Ok(data) => (data.latitude.parse::<f64>().unwrap(), data.longitude.parse::<f64>().unwrap(), data.city),
+            Ok(data) => (
+                data.latitude.parse::<f64>().expect("My bad from rust."),
+                data.longitude.parse::<f64>().expect("My bad from rust."),
+                data.city,
+            ),
             Err(_error) => (0.0, 0.0, String::new()),
         };
 
@@ -55,7 +61,10 @@ async fn try_add_ip(ip: IpAddr, ip_index: &mut Vec<IpAddr>, lat_index: &mut Vec<
             lat_index.push(lat);
             lon_index.push(lon);
 
-            IP_INDEX.write().unwrap().push(IpAddress { ip, lat, lon, city });
+            IP_INDEX
+                .write()
+                .expect("My bad from rust.")
+                .push(IpAddress { ip, lat, lon, city });
             create_json_document();
 
             println!("{} - ({}, {})", ip, lat, lon);
@@ -64,46 +73,11 @@ async fn try_add_ip(ip: IpAddr, ip_index: &mut Vec<IpAddr>, lat_index: &mut Vec<
 }
 
 fn create_json_document() {
-    let json = serde_json::to_string(IP_INDEX.read().unwrap().deref()).unwrap();
+    let json = serde_json::to_string(IP_INDEX.read().expect("My bad from rust.").deref()).expect("My bad from rust.");
 
-    IP_JSON_DOCUMENT.write().unwrap().clear();
-    IP_JSON_DOCUMENT.write().unwrap().push_str(&json);
+    IP_JSON_DOCUMENT.write().expect("My bad from rust.").clear();
+    IP_JSON_DOCUMENT.write().expect("My bad from rust.").push_str(&json);
 }
-
-// #[cfg(windows)]
-// fn user_select_device() -> Device {
-//     let mut devices = Device::list().unwrap();
-//     if devices.is_empty() {
-//         println!("Found no device to listen on, maybe you need to run as an Adminstrator");
-//         std::process::exit(1);
-//     }
-//     println!("Select which device to listen on: (choose the number of the item)");
-//     for (i, d) in devices.iter().enumerate() {
-//         println!("{}: {:?}", i, d);
-//     }
-//     use std::io;
-
-//     let mut input = String::new();
-//     let n = loop {
-//         io::stdin().read_line(&mut input).unwrap();
-//         match input.trim().parse() {
-//             Ok(n) => {
-//                 if n < devices.len() {
-//                     break n;
-//                 } else {
-//                     println!("Invalid choice, try again");
-//                     input.clear();
-//                 }
-//             }
-//             Err(_) => {
-//                 println!("Invalid choice, try again");
-//                 input.clear();
-//             }
-//         }
-//     };
-//     println!("Listening on {:?}", devices[n]);
-//     devices.remove(n)
-// }
 
 #[derive(Serialize)]
 pub struct IpAddress {
