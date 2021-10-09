@@ -27,7 +27,7 @@ function addMarkers(jsonText) {
 
 (function loop() {
 	setTimeout(function () {
-		window.webkit.messageHandlers.external.postMessage('requestData');
+		external.invoke('requestData');
 		loop();
 	}, 1000);
 }());
@@ -35,16 +35,16 @@ function addMarkers(jsonText) {
 document.addEventListener("keypress", function onEvent(event) {
 	switch(event.key) {
 		case "f":
-			window.webkit.messageHandlers.external.postMessage('toggleFullscreen');
+			external.invoke('toggleFullscreen');
 			break;
 		case "q":
-			window.webkit.messageHandlers.external.postMessage('quit');
+			external.invoke('quit');
 			break;
 		case "c":
-			window.webkit.messageHandlers.external.postMessage('credits');
+			external.invoke('credits');
 			break;
 		case "Escape":
-			window.webkit.messageHandlers.external.postMessage('exitFullscreen');
+			external.invoke('exitFullscreen');
 			break;
 	}
 });

@@ -1,7 +1,7 @@
 use web_view::Content;
 
-use crate::ip::IP_JSON_DOCUMENT;
 use crate::ip::IP_INDEX;
+use crate::ip::IP_JSON_DOCUMENT;
 
 pub fn web_view() {
     let html = format!(
@@ -46,33 +46,38 @@ pub fn web_view() {
             // This is the only place I have access to the webview variable... and it's called when JS calls something...
             // This means that I have to run a loop in JS that requests Rust to run a javascript function.
             // It's horrible for performance, but it's the only way to do it without creating a webserver and using websockets or something :/
-            
+
             match arg {
                 "requestData" => {
-                    match IP_INDEX.read().unwrap().len() {
-                        0 => webview.set_title("Ipmap").unwrap(),
-                        1 => webview.set_title("Ipmap - 1 Connection").unwrap(),
-                        _ => webview.set_title(&format!("Ipmap - {} Connections", IP_INDEX.read().unwrap().len())).unwrap(),
+                    match IP_INDEX.read().expect("My bad from rust.").len() {
+                        0 => webview.set_title("Ipmap").expect("My bad from rust."),
+                        1 => webview.set_title("Ipmap - 1 Connection").expect("My bad from rust."),
+                        _ => webview
+                            .set_title(&format!(
+                                "Ipmap - {} Connections",
+                                IP_INDEX.read().expect("My bad from rust.").len()
+                            ))
+                            .expect("My bad from rust."),
                     }
 
-                    webview.eval(&format!("addMarkers({})", IP_JSON_DOCUMENT.read().unwrap())).unwrap();
+                    webview
+                        .eval(&format!("addMarkers({})", IP_JSON_DOCUMENT.read().expect("My bad from rust.")))
+                        .expect("My bad from rust.");
                 }
                 "exitFullscreen" => {
                     webview.set_fullscreen(false);
                     is_fullscreen = false;
                 }
-                "toggleFullscreen" => {
-                    match is_fullscreen {
-                        true => {
-                            is_fullscreen = false;
-                            webview.set_fullscreen(false);
-                        }
-                        false => {
-                            is_fullscreen = true;
-                            webview.set_fullscreen(true);
-                        }
+                "toggleFullscreen" => match is_fullscreen {
+                    true => {
+                        is_fullscreen = false;
+                        webview.set_fullscreen(false);
                     }
-                }
+                    false => {
+                        is_fullscreen = true;
+                        webview.set_fullscreen(true);
+                    }
+                },
                 "quit" => {
                     println!("Quitting!");
                     webview.exit();
@@ -102,7 +107,7 @@ pub fn web_view() {
                         .user_data(())
                         .invoke_handler(|_webview, _arg| Ok(()))
                         .run()
-                        .unwrap();
+                        .expect("My bad from rust.");
                 }
                 _ => (),
             }
@@ -110,7 +115,7 @@ pub fn web_view() {
         })
         .user_data(())
         .run()
-        .unwrap();
+        .expect("My bad from rust.");
 
     std::process::exit(0);
 }
