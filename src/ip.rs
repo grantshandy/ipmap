@@ -1,13 +1,11 @@
 use std::net::IpAddr;
-use std::{ops::Deref, sync::RwLock};
+use std::sync::RwLock;
 
 use etherparse::{InternetSlice, SlicedPacket};
 use ipgeolocate::{Locator, Service};
 use once_cell::sync::Lazy;
 use pcap::{Active, Capture};
-use serde::Serialize;
 
-pub static IP_INDEX: Lazy<RwLock<Vec<IpAddress>>> = Lazy::new(|| RwLock::new(Vec::new()));
 pub static IP_JSON_DOCUMENT: Lazy<RwLock<String>> = Lazy::new(|| RwLock::new(String::new()));
 
 pub async fn manage_ip(cap: Capture<Active>) {
@@ -60,17 +58,27 @@ async fn try_add_ip(
                 data.longitude.parse::<f64>().unwrap(),
                 data.city,
             ),
-            Err(_error) => (0.0, 0.0, String::new()),
+            Err(_error) => match Locator::get_ipaddr(ip, Service::IpWhois).await {
+                Ok(data) => (
+                    data.latitude.parse::<f64>().unwrap(),
+                    data.longitude.parse::<f64>().unwrap(),
+                    data.city,
+                ),
+                Err(_error) => (0.0, 0.0, String::new()),
+            },
         };
 
         if (!lat_index.contains(&lat) || !lon_index.contains(&lon)) && (lat != 0.0 && lon != 0.0) {
             lat_index.push(lat);
             lon_index.push(lon);
 
-            IP_INDEX
-                .write()
-                .unwrap()
-                .push(IpAddress { ip, lat, lon, city });
+            // I do JSON here manually cuz we only need to serialize basic values.
+            // It's much faster because we call create_json_document every second and need performance.
+            IP_JSON_DOCUMENT.write().unwrap().push_str(&format!(
+                r#"{{"ip":"{}","lat":"{}","lon":"{}","city":"{}",}},"#,
+                ip, lat, lon, city
+            ));
+
             create_json_document();
 
             println!("{} - ({}, {})", ip, lat, lon);
@@ -79,13 +87,15 @@ async fn try_add_ip(
 }
 
 fn create_json_document() {
-    let json = serde_json::to_string(IP_INDEX.read().unwrap().deref()).unwrap();
-
-    IP_JSON_DOCUMENT.write().unwrap().clear();
-    IP_JSON_DOCUMENT.write().unwrap().push_str(&json);
+    std::fs::write("res.json", "".as_bytes()).unwrap();
+    std::fs::write(
+        "res.json",
+        format!("[{}]", IP_JSON_DOCUMENT.read().unwrap()).as_bytes(),
+    )
+    .unwrap();
 }
 
-#[derive(Serialize)]
+#[derive(Clone)]
 pub struct IpAddress {
     pub ip: IpAddr,
     pub lat: f64,

@@ -1,21 +1,29 @@
-use pcap::Device;
 use web_view::Content;
 use web_view::WebViewBuilder;
 
-use crate::ip::IP_INDEX;
+#[cfg(windows)]
+use pcap::Device;
+
 use crate::ip::IP_JSON_DOCUMENT;
 
 pub fn web_view() {
     // what a mess... hey it works good whatever.
     let html = include_str!("web/index.html")
         .to_string()
-        .replace(
-            "// rust inserts insert js here",
-            include_str!("web/index.js"),
-        )
         .replace("/* rust inserts css here */", include_str!("web/style.css"));
 
-    // fstream::write_text("end_html_result.html", html.clone(), false).unwrap();
+    // there's a difference between JS files because the web engine backends use different methods for invoking rust functions.
+    #[cfg(windows)]
+    let html = html.replace(
+        "// rust inserts insert js here",
+        include_str!("web/index.windows.js"),
+    );
+
+    #[cfg(unix)]
+    let html = html.replace(
+        "// rust inserts insert js here",
+        include_str!("web/index.unix.js"),
+    );
 
     let mut is_fullscreen = false;
 
@@ -33,19 +41,22 @@ pub fn web_view() {
 
             match arg {
                 "requestData" => {
-                    match IP_INDEX.read().unwrap().len() {
+                    match IP_JSON_DOCUMENT.read().unwrap().matches(",").count() / 5 {
                         0 => webview.set_title("Ipmap").unwrap(),
                         1 => webview.set_title("Ipmap - 1 Connection").unwrap(),
                         _ => webview
                             .set_title(&format!(
                                 "Ipmap - {} Connections",
-                                IP_INDEX.read().unwrap().len()
+                                IP_JSON_DOCUMENT.read().unwrap().matches(",").count() / 5
                             ))
                             .unwrap(),
                     }
 
                     webview
-                        .eval(&format!("addMarkers({})", IP_JSON_DOCUMENT.read().unwrap()))
+                        .eval(&format!(
+                            "addMarkers([{}])",
+                            IP_JSON_DOCUMENT.read().unwrap()
+                        ))
                         .unwrap();
                 }
                 "exitFullscreen" => {
@@ -137,11 +148,11 @@ pub fn windows_select_device() -> Device {
         .run()
         .unwrap();
 
-        match device {
-            Some(data) => data,
-            None => {
-                eprintln!("you must choose a device!");
-                std::process::exit(1);
-            }
+    match device {
+        Some(data) => data,
+        None => {
+            eprintln!("you must choose a device!");
+            std::process::exit(1);
         }
+    }
 }
