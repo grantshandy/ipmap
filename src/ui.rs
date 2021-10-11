@@ -126,14 +126,11 @@ pub fn windows_select_device() -> Device {
         .debug(false)
         .user_data(())
         .invoke_handler(|webview, arg| {
-            match arg {
-                "init" => {
-                    for (i, d) in devices.iter().enumerate() {
-                        let js = format!(r#"document.body.innerHTML += "<p>{} - <button onclick=\"external.invoke(\'use-{}\')\" >Use Me</button></p>";"#, d.desc.clone().unwrap_or("Unknown Name".to_string()), i);
-                        webview.eval(&js).unwrap();
-                    }
+            if arg == "init" {
+                for (i, d) in devices.iter().enumerate() {
+                    let js = format!(r#"document.body.innerHTML += "<p>{} - <button onclick=\"external.invoke(\'use-{}\')\" >Use Me</button></p>";"#, d.desc.clone().unwrap_or("Unknown Name".to_string()), i);
+                    webview.eval(&js).unwrap();
                 }
-                _ => (),
             }
 
             if let Some(data) = arg.split("-").nth(1) {
