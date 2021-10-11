@@ -24,8 +24,6 @@ async fn main() {
         cap.desc.clone().unwrap_or("Unknown Device".to_string())
     );
 
-    let cap = cap.open().unwrap();
-
     thread::spawn(|| {
         ui::web_view();
     });

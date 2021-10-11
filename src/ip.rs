@@ -4,18 +4,19 @@ use std::sync::RwLock;
 use etherparse::{InternetSlice, SlicedPacket};
 use ipgeolocate::{Locator, Service};
 use once_cell::sync::Lazy;
-use pcap::{Active, Capture};
+use pcap::Device;
 
 pub static IP_JSON_DOCUMENT: Lazy<RwLock<String>> = Lazy::new(|| RwLock::new(String::new()));
 
-pub async fn manage_ip(cap: Capture<Active>) {
-    let mut cap = cap;
+pub async fn manage_ip(cap: Device) {
+    let mut cap = cap.open().unwrap();
 
     let mut ip_index: Vec<IpAddr> = Vec::new();
     let mut lat_index: Vec<f64> = Vec::new();
     let mut lon_index: Vec<f64> = Vec::new();
 
-    // I have to do this in a loop because cap.next() hangs or something on mac OSX and windows for some reason. Not great for performance but it had to be done.
+    // I have to do this in a loop because cap.next() hangs or something on mac OSX and windows for some reason.
+    // Not great for performance but it had to be done.
     loop {
         let packet = match cap.next() {
             Ok(data) => data,
@@ -73,26 +74,15 @@ async fn try_add_ip(
             lon_index.push(lon);
 
             // I do JSON here manually cuz we only need to serialize basic values.
-            // It's much faster because we call create_json_document every second and need performance.
+            // We used to call serde_json on each new IP, that was a nightmare, this is much nicer :)
             IP_JSON_DOCUMENT.write().unwrap().push_str(&format!(
                 r#"{{"ip":"{}","lat":"{}","lon":"{}","city":"{}",}},"#,
                 ip, lat, lon, city
             ));
 
-            create_json_document();
-
             println!("{} - ({}, {})", ip, lat, lon);
         }
     }
-}
-
-fn create_json_document() {
-    std::fs::write("res.json", "".as_bytes()).unwrap();
-    std::fs::write(
-        "res.json",
-        format!("[{}]", IP_JSON_DOCUMENT.read().unwrap()).as_bytes(),
-    )
-    .unwrap();
 }
 
 #[derive(Clone)]
