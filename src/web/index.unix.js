@@ -8,7 +8,6 @@ L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_toke
 }).addTo(mymap);
 
 var alreadyAdded = new Set();
-var cityList = new Set ();
 
 function addMarkers(jsonText) {
 	for(var i = 0; i < jsonText.length; i++) {
@@ -17,8 +16,6 @@ function addMarkers(jsonText) {
 		if (alreadyAdded.has(obj.ip)) {
 			continue;
 		}
-
-		cityList.add(obj.city);
 
 		L.marker([obj.lat, obj.lon]).addTo(mymap).bindPopup("<b>" + obj.ip + "</b> - " + obj.city);
 		alreadyAdded.add(obj.ip);
