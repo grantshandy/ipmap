@@ -20,11 +20,11 @@ AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
 DefaultDirName={autopf}\{#MyAppName}
 DisableProgramGroupPage=yes
-LicenseFile=C:\Users\Nicole Handy\Documents\ipmap\LICENSE
+LicenseFile=LICENSE
 ; Uncomment the following line to run in non administrative install mode (install for current user only.)
 ;PrivilegesRequired=lowest
 OutputBaseFilename=ipmap-0.2.1-installer
-SetupIconFile=C:\Users\Nicole Handy\Documents\ipmap\data\ipmap.ico
+SetupIconFile=data\ipmap.ico
 Compression=lzma
 SolidCompression=yes
 ChangesEnvironment=True
@@ -61,9 +61,9 @@ Name: "ukrainian"; MessagesFile: "compiler:Languages\Ukrainian.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "C:\Users\Nicole Handy\Documents\ipmap\target\release\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
-Source: "C:\Users\Nicole Handy\Downloads\npcap-sdk\Lib\x64\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "C:\Users\Nicole Handy\Downloads\npcap-1.55.exe"; Flags: deleteafterinstall createallsubdirs recursesubdirs; DestDir: {tmp}
+Source: "target\release\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "npcap-sdk\Lib\x64\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "npcap-1.55.exe"; Flags: deleteafterinstall createallsubdirs recursesubdirs; DestDir: {tmp}
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Registry]
