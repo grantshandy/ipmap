@@ -11,7 +11,7 @@ Installers will be available for Windows upon release 0.2.1.
 If you're compiling it on your own you need `npcap` for packet capture and the Windows SDK for the interface.
 
 ## Linux
-AUR packages will be rpovided upon release 0.2.1, until then there's a pkgbuild for `ipmap-git` in the [pkg directory](./pkg/).
+AUR packages will be provided upon release 0.2.1, until then there's a pkgbuild for `ipmap-git` in the [pkg directory](./pkg/).
 
 If you're compiling it on your own you need `libpcap` for packet capture and `webkit2gtk` for the interface.
 
