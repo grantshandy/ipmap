@@ -1,32 +1,22 @@
 [package]
 name = "ipmap"
-version = "0.2.1"
-edition = "2018"
-authors = ["Aditya Suresh <ethanaditya@gmail.com>", "Grant H. <grantshandy@gmail.com>", "Nick Z. <nicholasz2510@gmail.com>"]
-license = "GPL-3.0"
-description = "An interactive map that shows connected IP addresses."
-repository = "https://github.com/skylinecc/ipmap/"
-keywords = ["geolocation", "ip", "locator", "map", "interactive"]
-categories = ["network-programming"]
-build = "build.rs"
+version = "0.1.0"
+edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-once_cell = "1.8.0"
-tokio = { version = "1.12.0", features = ["full"] }
-futures = "0.3.17"
-pcap = "0.9.0"
-etherparse = "0.9.0"
-ipgeolocate = "0.3.5"
-clap = "2.33.3"
-ip_rfc = "0.1.0"
+pretty_env_logger = "0.4"
+log = "0.4"
+argh = "0.1"
 
-[target.'cfg(windows)'.build-dependencies]
-winres = "0.1.12"
+actix-web = "4.2"
+actix-web-lab = "0.18"
+web-view = "0.7"
 
-[target.'cfg(windows)'.dependencies]
-web-view = { version = "0.7", features = ["edge"] }
+etherparse = "0.12"
+pcap = "0.11"
+ip_rfc = "0.1"
 
-[target.'cfg(unix)'.dependencies]
-web-view = "0.7.3"
+reqwest = "0.11"
+tokio = { version = "1.21", features = ["full"] }
