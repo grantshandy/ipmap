@@ -1,9 +1,6 @@
-use std::{
-    io,
-    process,
-};
+use std::{io, process};
 
-use actix_web::{get, http::header::ContentType, web, App, HttpResponse, HttpServer};
+use actix_web::{web, App, HttpServer};
 use argh::FromArgs;
 use log::info;
 use pcap::Device;
@@ -15,6 +12,7 @@ use tokio::{
 mod geolocate;
 mod ip_broadcast;
 mod ip_capture;
+mod static_pages;
 mod ui;
 
 pub const STREAM_KEEP_ALIVE_SECS: u64 = 3;
@@ -66,25 +64,19 @@ async fn main() -> io::Result<()> {
 
     let state = AppState { stream_rx };
 
-    info!("starting server on {}:{}", &args.ip, &args.port);
+    info!("starting server on http://{}:{}", &args.ip, &args.port);
 
     HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(state.clone()))
             .service(ip_broadcast::ip_stream)
-            .service(index)
+            .service(static_pages::index)
+            .service(static_pages::marker_icon)
+            .service(static_pages::marker_shadow)
     })
     .bind((args.ip, args.port))?
     .run()
     .await
-}
-
-/// vitejs is setup with a plugin so that all html/js/css is put into a single file for convinience as seen here.
-#[get("/")]
-async fn index() -> HttpResponse {
-    HttpResponse::Ok()
-        .content_type(ContentType::html())
-        .body(include_str!("../frontend/dist/index.html"))
 }
 
 /// Make sure we absolutely exit the program on Ctrl+C.
