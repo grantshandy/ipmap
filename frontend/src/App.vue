@@ -1,11 +1,5 @@
 <template>
   <div>
-    <h1>Data Received</h1>
-    <ul>
-    <li v-for="data in eventData">
-      {{ data }}
-    </li>
-    </ul>
   </div>
 </template>
 
@@ -15,12 +9,16 @@ export default {
   data() {
     return {
       eventSource: new EventSource("/ip_stream"),
-      eventData: new Array(),
+      // eventData: new Array(),
     }
   },
   mounted() {
     this.eventSource.onmessage = (event) => {
-      this.eventData.push(event.data);
+      // this.eventData.push(event.data);
+      
+      let obj = JSON.parse(event.data);
+      
+      console.log(obj.city, obj.country);
     };
   },
 }

@@ -1,4 +1,7 @@
-use std::{io, process};
+use std::{
+    io,
+    process,
+};
 
 use actix_web::{get, http::header::ContentType, web, App, HttpResponse, HttpServer};
 use argh::FromArgs;
@@ -9,10 +12,10 @@ use tokio::{
     sync::watch::{self, Receiver},
 };
 
+mod geolocate;
 mod ip_broadcast;
 mod ip_capture;
 mod ui;
-mod geolocate;
 
 pub const STREAM_KEEP_ALIVE_SECS: u64 = 3;
 
@@ -33,28 +36,26 @@ struct Args {
 /// State that actix_web, the web server, holds onto during excecution
 #[derive(Clone)]
 pub struct AppState {
-    ip_rx: Receiver<String>,
+    stream_rx: Receiver<String>,
 }
 
 #[tokio::main]
 async fn main() -> io::Result<()> {
     let args: Args = argh::from_env();
-
     pretty_env_logger::init();
-
     handle_exit().await;
 
     // a channel for communicating between client "threads" and the ip capture thread
-    let (ip_tx, ip_rx) = watch::channel(String::from("init"));
+    let (stream_tx, stream_rx) = watch::channel("init".to_string());
 
     // spawn a green thread to capture ip addresses and send it to the clients
     tokio::spawn(async move {
         let device = Device::lookup().unwrap().unwrap();
 
-        ip_capture::capture(ip_tx, device).await;
+        ip_capture::capture(stream_tx, device).await;
     });
 
-    // spawn the ui
+    // spawn the gui if wanted
     if !args.headless {
         let args_clone = args.clone();
 
@@ -63,7 +64,7 @@ async fn main() -> io::Result<()> {
         });
     }
 
-    let state = AppState { ip_rx };
+    let state = AppState { stream_rx };
 
     info!("starting server on {}:{}", &args.ip, &args.port);
 

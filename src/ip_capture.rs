@@ -1,17 +1,13 @@
-use std::{
-    net::IpAddr,
-    process,
-    sync::{Arc, Mutex},
-};
+use std::{collections::HashMap, net::IpAddr, process, sync::Arc};
 
 use etherparse::{InternetSlice, SlicedPacket};
-use log::error;
+use log::{error, info};
 use pcap::Device;
 use tokio::sync::watch::Sender;
 
-use crate::geolocate;
+use crate::geolocate::geolocate;
 
-pub async fn capture(sender: Sender<String>, device: Device) {
+pub async fn capture(stream_tx: Sender<String>, device: Device) {
     let mut cap = match device.open() {
         Ok(cap) => cap,
         Err(error) => {
@@ -20,7 +16,8 @@ pub async fn capture(sender: Sender<String>, device: Device) {
         }
     };
 
-    let sender = Arc::new(sender);
+    let mut registry: HashMap<IpAddr, String> = HashMap::new();
+    let stream_tx = Arc::new(stream_tx);
 
     loop {
         let packet = match cap.next_packet() {
@@ -51,14 +48,28 @@ pub async fn capture(sender: Sender<String>, device: Device) {
             continue;
         }
 
-        let sender = sender.clone();
+        if let Some(location) = registry.get(&ip) {
+            send_to_client(stream_tx.clone(), location.to_owned());
+        } else {
+            info!("Making request for {ip}");
 
-        tokio::spawn(async move {
-            // let json = geolocate::geolocate(ip).await;
-            
-            if let Err(error) = sender.send(ip.to_string()) {
-                error!("Error to send across channel from capture: {error}");
+            match geolocate(ip.clone()).await {
+                Ok(location) => {
+                    let json_string = serde_json::to_string(&location).unwrap();
+
+                    registry.insert(ip, json_string.clone());
+                    send_to_client(stream_tx.clone(), json_string);
+                }
+                Err(error) => {
+                    error!("Error geolocating: {}", error.message);
+                }
             };
-        });
+        }
     }
+}
+
+fn send_to_client(stream_tx: Arc<Sender<String>>, location: String) {
+    if let Err(error) = stream_tx.send(location) {
+        error!("Error to send across channel from capture: {error}");
+    };
 }
