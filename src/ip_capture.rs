@@ -1,9 +1,15 @@
-use std::{net::IpAddr, process};
+use std::{
+    net::IpAddr,
+    process,
+    sync::{Arc, Mutex},
+};
 
 use etherparse::{InternetSlice, SlicedPacket};
 use log::error;
 use pcap::Device;
 use tokio::sync::watch::Sender;
+
+use crate::geolocate;
 
 pub async fn capture(sender: Sender<String>, device: Device) {
     let mut cap = match device.open() {
@@ -13,6 +19,8 @@ pub async fn capture(sender: Sender<String>, device: Device) {
             process::exit(1);
         }
     };
+
+    let sender = Arc::new(sender);
 
     loop {
         let packet = match cap.next_packet() {
@@ -43,8 +51,14 @@ pub async fn capture(sender: Sender<String>, device: Device) {
             continue;
         }
 
-        if let Err(error) = sender.send(ip.to_string()) {
-            error!("Error to send across channel from capture: {error}");
-        };
+        let sender = sender.clone();
+
+        tokio::spawn(async move {
+            // let json = geolocate::geolocate(ip).await;
+            
+            if let Err(error) = sender.send(ip.to_string()) {
+                error!("Error to send across channel from capture: {error}");
+            };
+        });
     }
 }

@@ -12,6 +12,7 @@ use tokio::{
 mod ip_broadcast;
 mod ip_capture;
 mod ui;
+mod geolocate;
 
 pub const STREAM_KEEP_ALIVE_SECS: u64 = 3;
 
