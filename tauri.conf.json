@@ -2,9 +2,9 @@
   "build": {
     "beforeBuildCommand": "npm run build",
     "beforeDevCommand": "npm run dev",
-    "beforeBundleCommand": "sudo setcap cap_net_raw,cap_net_admin=eip src-tauri/target/release/ipmap",
+    "beforeBundleCommand": "sudo setcap cap_net_raw,cap_net_admin=eip ../target/release/ipmap",
     "devPath": "http://localhost:5173",
-    "distDir": "../build"
+    "distDir": "src-web/build"
   },
   "package": {
     "productName": "ipmap",

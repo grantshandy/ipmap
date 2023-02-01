@@ -34,22 +34,22 @@ fn main() {
             let capture = match get_capture() {
                 Ok(cap) => cap,
                 Err(err) => {
-                    MessageDialogBuilder::new(
-                        "Ipmap Error",
-                        format!("Initialization Error: {err}"),
-                    )
-                    .kind(MessageDialogKind::Error)
-                    .buttons(MessageDialogButtons::Ok)
-                    .show();
+                    MessageDialogBuilder::new("Ipmap Initialization Error", &err)
+                        .kind(MessageDialogKind::Error)
+                        .buttons(MessageDialogButtons::Ok)
+                        .show();
                     return Err(err.into());
                 }
             };
 
-            WindowBuilder::new(&app.app_handle(), "ipmap", WindowUrl::App("/".parse().unwrap()))
-                .title("ipmap")
-                .center()
-                .build()
-                .expect("failed to start about window");
+            WindowBuilder::new(
+                &app.app_handle(),
+                "ipmap",
+                WindowUrl::App("/".parse().unwrap()),
+            )
+            .title("ipmap")
+            .build()
+            .expect("failed to start about window");
 
             Ok(())
         })
