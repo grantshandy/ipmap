@@ -3,7 +3,7 @@
     windows_subsystem = "windows"
 )]
 
-use std::thread;
+use std::{thread, sync::Arc};
 
 use pcap::{Active, Capture, Device};
 use tauri::{
@@ -41,6 +41,9 @@ fn main() {
                     return Err(err.into());
                 }
             };
+
+            let handle = Arc::new(app.app_handle());
+            thread::spawn(move || poll_connections(handle, capture));
 
             WindowBuilder::new(
                 &app.app_handle(),
@@ -81,4 +84,8 @@ fn get_capture() -> Result<Capture<Active>, String> {
         },
         Err(err) => Err(format!("Failed to lookup network adapters: {:?}", err)),
     }
+}
+
+fn poll_connections(handle: Arc<AppHandle>, mut capture: Capture<Active>) {
+    
 }
