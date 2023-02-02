@@ -5,7 +5,7 @@ version = "0.3.0"
 [build]
 beforeDevCommand = "npm run dev"
 beforeBuildCommand = "npm run build"
-devPath = "http://tauri.app"
+devPath = "http://localhost:5173"
 distDir = "src-web/build"
 
 [tauri.allowlist]
