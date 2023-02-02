@@ -1,12 +1,2 @@
 /Cargo.lock
 /target
-/src-web/.DS_Store
-/src-web/node_modules
-/src-web/build
-/src-web/.svelte-kit
-/src-web/package
-/src-web/.env
-/src-web/.env.*
-/src-web/!.env.example
-/src-web/vite.config.js.timestamp-*
-/src-web/vite.config.ts.timestamp-*
