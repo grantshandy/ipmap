@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
-
+  import { listen } from "@tauri-apps/api/event";
+  import type { Connection } from "../geo";
+  
   import "ol/ol.css";
   import "../tailwind.css";
 
@@ -9,9 +11,14 @@
   import TileLayer from "ol/layer/Tile.js";
   import View from "ol/View.js";
 
+  let connections: Connection[] = [];
   let map;
+
+  onMount(async () => {
+    const conn = await listen("connection", (event) => {
+      console.log(event);
+    });
   
-  onMount(() => {
     map = new Map({
       target: "map",
       layers: [

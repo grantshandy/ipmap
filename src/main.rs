@@ -3,8 +3,9 @@
     windows_subsystem = "windows"
 )]
 
-use std::{thread, sync::Arc};
+use std::{net::IpAddr, sync::Arc, thread};
 
+use etherparse::{InternetSlice, SlicedPacket};
 use pcap::{Active, Capture, Device};
 use tauri::{
     api::dialog::{blocking::MessageDialogBuilder, MessageDialogButtons, MessageDialogKind},
@@ -42,9 +43,6 @@ fn main() {
                 }
             };
 
-            let handle = Arc::new(app.app_handle());
-            thread::spawn(move || poll_connections(handle, capture));
-
             WindowBuilder::new(
                 &app.app_handle(),
                 "ipmap",
@@ -52,7 +50,12 @@ fn main() {
             )
             .title("ipmap")
             .build()
-            .expect("failed to start about window");
+            .expect("failed to start main window");
+
+            app.get_window("ipmap").unwrap().open_devtools();
+
+            let handle = Arc::new(app.app_handle());
+            thread::spawn(move || poll_connections(handle, capture));
 
             Ok(())
         })
@@ -86,6 +89,31 @@ fn get_capture() -> Result<Capture<Active>, String> {
     }
 }
 
+#[derive(Copy, Clone, serde::Serialize)]
+struct Connection {
+    pub ip: IpAddr,
+}
+
 fn poll_connections(handle: Arc<AppHandle>, mut capture: Capture<Active>) {
-    
+    while let Ok(packet) = capture.next_packet() {
+        match SlicedPacket::from_ethernet(&packet) {
+            Ok(packet) if packet.ip.is_some() => {
+                let ip: IpAddr = match packet.ip.unwrap() {
+                    InternetSlice::Ipv4(ip, _) => IpAddr::V4(ip.source_addr()),
+                    InternetSlice::Ipv6(ip, _) => IpAddr::V6(ip.source_addr()),
+                };
+
+                if !ip_rfc::global(&ip) {
+                    continue;
+                }
+
+                handle.emit_all("connection", Connection { ip }).unwrap();
+            }
+            Err(err) => {
+                eprintln!("Error parsing packet: {:?}", err);
+                continue;
+            }
+            _ => (),
+        }
+    }
 }

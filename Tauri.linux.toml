@@ -1,0 +1,3 @@
+[build]
+runner = "./setcap.sh"
+beforeBundleCommand = "./setcap.sh"

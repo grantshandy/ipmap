@@ -3,11 +3,10 @@ product-name = "ipmap"
 version = "0.3.0"
 
 [build]
-before-build-command = "npm run build"
-before-dev-command = "npm run dev"
-before-bundle-command = "sudo setcap cap_net_raw,cap_net_admin=eip ../target/release/ipmap"
-dev-path = "http://localhost:5173"
-dist-dir = "src-web/build"
+beforeDevCommand = "npm run dev"
+beforeBuildCommand = "npm run build"
+devPath = "http://localhost:5173/"
+distDir = "src-web/build"
 
 [tauri.allowlist]
 all = false
