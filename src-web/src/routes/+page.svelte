@@ -1,8 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { listen } from "@tauri-apps/api/event";
-  import type { Connection } from "../geo";
-  
+
   import "ol/ol.css";
   import "../tailwind.css";
 
@@ -11,14 +10,28 @@
   import TileLayer from "ol/layer/Tile.js";
   import View from "ol/View.js";
 
-  let connections: Connection[] = [];
-  let map;
+  let map: Map | null = null;
+  
+  let locations: {
+    ip: string;
+    lat: number;
+    lon: number;
+    city: string;
+    country: string;
+  }[] = [];
+  let connectionCount: number = 0;
+  let uniqueIps: string[] = [];
 
   onMount(async () => {
-    const conn = await listen("connection", (event) => {
-      console.log(event);
+    await listen("connection", async (event: any) => {
+      let payload: { ip: string } = event.payload;
+
+      connectionCount++;
+      if (!uniqueIps.includes(payload.ip)) {
+        uniqueIps.push(payload.ip);
+      }
     });
-  
+
     map = new Map({
       target: "map",
       layers: [
@@ -34,6 +47,7 @@
   });
 </script>
 
+<h1>look at me</h1>
 <div class="w-screen h-screen flex">
   <div class="grow flex flex-col">
     {#if window.backendError}

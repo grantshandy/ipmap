@@ -5,7 +5,7 @@ version = "0.3.0"
 [build]
 beforeDevCommand = "npm run dev"
 beforeBuildCommand = "npm run build"
-devPath = "http://localhost:5173/"
+devPath = "http://tauri.app"
 distDir = "src-web/build"
 
 [tauri.allowlist]
@@ -31,3 +31,8 @@ deb = { depends = ["libpcap0.8"] }
 
 [tauri.updater]
 active = false
+
+[tauri]
+windows = [
+ { label = "ipmap", title = "ipmap" }
+]
