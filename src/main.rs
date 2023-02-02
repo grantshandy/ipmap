@@ -122,6 +122,7 @@ fn poll_connections(handle: Arc<AppHandle>, mut capture: Capture<Active>) {
                     continue;
                 }
 
+                println!("new connection {:?}", ip);
                 handle.emit_all("connection", NewConnection { ip }).unwrap();
             }
             Err(err) => {

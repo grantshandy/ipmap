@@ -33,15 +33,8 @@
   let uniqueIps: string[] = [];
 
   onMount(async () => {
-    await listen("connection", async (event: any) => {
-      let payload: { ip: string } = event.payload;
-
-      connectionCount++;
-      if (!uniqueIps.includes(payload.ip)) {
-        console.log("got a connection");
-        uniqueIps.push(payload.ip);
-        addRandomFeature();
-      }
+    await listen("connection", (event: any) => {
+      console.log(event.payload);
     });
 
     map = new Map({
