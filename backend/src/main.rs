@@ -3,11 +3,11 @@
     windows_subsystem = "windows"
 )]
 
-use std::{env, fs, net::IpAddr, sync::Arc, thread};
+use std::{env, fs, net::IpAddr, path::PathBuf, sync::Arc, thread};
 
 use etherparse::{InternetSlice, SlicedPacket};
+use microkv::{errors as kverror, MicroKV};
 use pcap::{Active, Capture, Device};
-use sled::Db;
 use tauri::{
     api::dialog::{blocking::MessageDialogBuilder, MessageDialogButtons, MessageDialogKind},
     AppHandle, Builder, CustomMenuItem, Manager, Menu, MenuItem, Submenu, WindowBuilder, WindowUrl,
@@ -33,6 +33,19 @@ fn main() {
             _ => (),
         })
         .setup(|app| {
+            // get database handle
+            let db: MicroKV = match get_db() {
+                Ok(db) => db,
+                Err(err) => {
+                    MessageDialogBuilder::new("Database Initialization Error", err.to_string())
+                        .kind(MessageDialogKind::Error)
+                        .buttons(MessageDialogButtons::Ok)
+                        .show();
+                    return Err(err.into());
+                }
+            };
+            app.manage(db);
+
             // start pcap
             let capture = match get_capture() {
                 Ok(cap) => cap,
@@ -45,26 +58,13 @@ fn main() {
                 }
             };
 
-            // start sled cache db
-            let db = match get_database() {
-                Ok(db) => db,
-                Err(err) => {
-                    MessageDialogBuilder::new("Database Initialization Error", &err.to_string())
-                        .kind(MessageDialogKind::Error)
-                        .buttons(MessageDialogButtons::Ok)
-                        .show();
-                    return Err(err.into());
-                }
-            };
-            app.manage(db);
-
             // spawn ip handler in other thread
             let handle = Arc::new(app.app_handle());
             thread::spawn(move || poll_connections(handle, capture));
 
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![write_connection, read_connection])
+        .invoke_handler(tauri::generate_handler![get_cache, fetch_connection])
         .run(tauri::generate_context!())
         .expect("failed to start main application");
 }
@@ -95,18 +95,13 @@ fn get_capture() -> Result<Capture<Active>, String> {
     }
 }
 
-fn get_database() -> sled::Result<Db> {
-    let mut base_dir = dirs_next::data_dir().unwrap_or(env::current_dir()?);
-    base_dir.push("ipmap");
-    base_dir.push("location_cache");
+fn get_db() -> kverror::Result<MicroKV> {
+    let data_dir: PathBuf = dirs_next::data_dir()
+        .unwrap_or(env::current_dir()?)
+        .join("ipmap");
+    fs::create_dir_all(&data_dir)?;
 
-    fs::create_dir_all(&base_dir)?;
-    sled::open(base_dir)
-}
-
-#[derive(Copy, Clone, serde::Serialize)]
-struct NewConnection {
-    pub ip: IpAddr,
+    Ok(MicroKV::open_with_base_path("locations", data_dir)?.set_auto_commit(true))
 }
 
 fn poll_connections(handle: Arc<AppHandle>, mut capture: Capture<Active>) {
@@ -122,27 +117,68 @@ fn poll_connections(handle: Arc<AppHandle>, mut capture: Capture<Active>) {
                     continue;
                 }
 
-                println!("new connection {:?}", ip);
-                handle.emit_all("connection", NewConnection { ip }).unwrap();
-            }
-            Err(err) => {
-                eprintln!("Error parsing packet: {:?}", err);
-                continue;
+                handle.emit_all("connection", ip).unwrap();
             }
             _ => (),
         }
     }
 }
 
-#[derive(Clone, serde::Serialize)]
-struct Connection {}
-
-#[tauri::command]
-fn write_connection(handle: AppHandle) {
-    
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+struct Connection {
+    pub ip: String,
+    pub city: String,
+    pub country: String,
+    pub latitude: f64,
+    pub longitude: f64,
+    pub count: u32,
 }
 
 #[tauri::command]
-fn read_connection(handle: AppHandle) -> Option<Connection> {
-    None
+fn get_cache(query: String, handle: AppHandle) -> Option<Connection> {
+    return match handle.state::<MicroKV>().get::<Connection>(query) {
+        Ok(connection) => connection,
+        Err(err) => {
+            eprintln!("err accessing db: {err}");
+            None
+        }
+    };
+}
+
+#[derive(Clone, serde::Deserialize)]
+struct IpApiResponse {
+    ip: String,
+    city: String,
+    country_name: String,
+    latitude: f64,
+    longitude: f64,
+}
+
+#[tauri::command]
+async fn fetch_connection(query: String, handle: AppHandle) -> Result<Connection, String> {
+    let resp = match ureq::get(&format!("https://ipapi.co/{query}/json/")).call() {
+        Ok(resp) => resp,
+        Err(err) => return Err(err.to_string()),
+    };
+
+    let conn: IpApiResponse = match resp.into_json() {
+        Ok(conn) => conn,
+        Err(err) => return Err(err.to_string()),
+    };
+
+    let conn = Connection {
+        ip: conn.ip,
+        city: conn.city,
+        country: conn.country_name,
+        latitude: conn.latitude,
+        longitude: conn.longitude,
+        count: 0,
+    };
+
+    handle
+        .state::<MicroKV>()
+        .put(&conn.ip, &conn)
+        .map_err(|err| err.to_string())?;
+
+    Ok(conn)
 }
