@@ -33,7 +33,7 @@ pub fn web_view() {
         .content(Content::Html(html))
         .size(800, 600)
         .resizable(true)
-        .debug(false)
+        .debug(true)
         .invoke_handler(|webview, arg| {
             // This is the only place I have access to the webview variable... and it's called when JS calls something...
             // This means that I have to run a loop in JS that requests Rust to run a javascript function.
