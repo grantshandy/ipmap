@@ -1,26 +1,24 @@
 <script>
   import { listen, emit } from "@tauri-apps/api/event";
-  import { invoke } from "@tauri-apps/api";
+  import { invoke as rawInvoke } from "@tauri-apps/api";
   import { createToasts } from "./toasts";
 
   let toasts = createToasts();
   listen("error", (e) => toasts.newError(e.payload));
 
-  // invoke a tauri command, showing the error on screen
-  const invokeWrapper = async (cmd, args) =>
-    await invoke(cmd, args).catch((e) => toasts.newError(e));
-
-  let devices = null;
-  invokeWrapper("device_list").then((x) => (devices = x));
+  // invoke a tauri command, showing the error on screen if error returned
+  const invoke = async (cmd, args) =>
+    await rawInvoke(cmd, args).catch((e) => toasts.newError(e));
 
   listen("new_connection", console.log);
 </script>
 
 <main class="p-4">
-  {#if devices != null}
+  <!-- Network Device Selector -->
+  {#await invoke("device_list") then devices}
     <select
       class="select select-bordered select-sm w-full max-w-xs"
-      on:change={(event) => emit("change_device", { name: event.target.value })}
+      on:change={(event) => emit("change_device", event.target.value)}
     >
       <option disabled selected>Select Network Capture Device</option>
       {#each devices as device}
@@ -34,9 +32,9 @@
         </option>
       {/each}
     </select>
-  {/if}
+  {/await}
 
-  <!-- Messages -->
+  <!-- Info Messages -->
   <div class="toast toast-end">
     {#each $toasts as toast}
       <div

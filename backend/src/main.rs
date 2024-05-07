@@ -1,7 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::{
-    error::Error,
     net::IpAddr,
     sync::{Arc, RwLock},
     thread,
@@ -9,11 +8,19 @@ use std::{
 
 use etherparse::{NetHeaders, PacketHeaders};
 use pcap::{Active, Capture};
-use tauri::{App, AppHandle, Event, Manager};
+use tauri::{AppHandle, Event, Manager};
 
 fn main() {
     tauri::Builder::default()
-        .setup(start_listening)
+        .setup(|app| {
+            let handle = Arc::new(app.handle());
+            app.listen_global("change_device", move |event| {
+                let change_handle = handle.clone();
+                thread::spawn(move || listen_for_packets(event, change_handle));
+            });
+
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![device_list])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -63,29 +70,12 @@ async fn device_list() -> Result<Vec<Device>, String> {
     Ok(out)
 }
 
-fn start_listening(app: &mut App) -> Result<(), Box<dyn Error>> {
-    let handle = Arc::new(app.handle());
-
-    let change_handle = handle.clone();
-    app.listen_global("change_device", move |event| {
-        let change_handle = change_handle.clone();
-        thread::spawn(move || listen_for_ips(event, change_handle));
-    });
-
-    Ok(())
-}
-
-#[derive(serde::Deserialize, Clone)]
-struct ChangeDevicePayload {
-    name: String,
-}
-
-fn listen_for_ips(event: Event, handle: Arc<AppHandle>) {
+fn listen_for_packets(event: Event, handle: Arc<AppHandle>) {
     let device_name = match event
         .payload()
-        .map(|s| serde_json::from_str::<ChangeDevicePayload>(s))
+        .map(|s| serde_json::from_str::<String>(s))
     {
-        Some(Ok(payload)) => payload.name,
+        Some(Ok(payload)) => payload,
         Some(Err(err)) => {
             emit_error(&handle, err.to_string());
             return;
