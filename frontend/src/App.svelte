@@ -13,9 +13,6 @@
   let devices = null;
   invokeWrapper("device_list").then((x) => (devices = x));
 
-  let deviceName;
-  $: if (deviceName != undefined) emit("change_device", { name: deviceName });
-
   listen("new_connection", console.log);
 </script>
 
@@ -23,11 +20,11 @@
   {#if devices != null}
     <select
       class="select select-bordered select-sm w-full max-w-xs"
-      bind:value={deviceName}
+      on:change={(event) => emit("change_device", { name: event.target.value })}
     >
       <option disabled selected>Select Network Capture Device</option>
       {#each devices as device}
-        <option value={device.name} selected={device.prefered}>
+        <option value={device.name}>
           {#if device.desc != null}
             {device.desc}
           {:else}

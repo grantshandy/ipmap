@@ -2,16 +2,17 @@
 
 use std::{
     error::Error,
+    net::IpAddr,
     sync::{
         mpsc::{self, Receiver, Sender},
         Arc,
     },
     thread,
-    time::Duration,
 };
 
+use etherparse::{NetHeaders, PacketHeaders};
 use pcap::{Active, Capture, Inactive};
-use tauri::{async_runtime, App, AppHandle, Event, Manager, Runtime, State, Window};
+use tauri::{App, AppHandle, Event, Manager};
 
 fn main() {
     tauri::Builder::default()
@@ -95,24 +96,28 @@ fn ip_update_loop(handle: Arc<AppHandle>, rx: Receiver<Capture<Inactive>>) {
     };
 
     loop {
-        thread::sleep(Duration::from_millis(200));
-
         // update capture device if needed
         match rx.try_recv().map(|cap| cap.open()) {
             Ok(Ok(new_cap)) => {
                 println!("switched device.");
                 cap = new_cap;
-            },
+            }
             Ok(Err(err)) => emit_error(&handle, format!("failed to open device: {err}")),
             _ => (),
         };
 
-        println!("getting packet...");
         if let Ok(packet) = cap.next_packet() {
-            println!("got packet");
-            handle
-                .emit_all("new_connection", packet.header.len)
-                .expect("emit new_connection");
+            let source: IpAddr = match PacketHeaders::from_ethernet_slice(&packet).map(|h| h.net) {
+                Ok(Some(NetHeaders::Ipv4(header, _))) => IpAddr::from(header.source),
+                Ok(Some(NetHeaders::Ipv6(header, _))) => IpAddr::from(header.source),
+                _ => continue,
+            };
+
+            if ip_rfc::global(&source) {
+                handle
+                    .emit_all("new_connection", source)
+                    .expect("emit new_connection");
+            }
         }
     }
 }
@@ -134,9 +139,12 @@ fn change_device(event: Event, handle: Arc<AppHandle>, tx: Sender<Capture<Inacti
     let cap = match Capture::from_device(name.as_str()) {
         Ok(cap) => cap,
         Err(err) => {
-            emit_error(&handle, format!("failed to get capture from device {name}: {err}"));
+            emit_error(
+                &handle,
+                format!("failed to get capture from device {name}: {err}"),
+            );
             return;
-        },
+        }
     };
 
     if let Err(err) = tx.send(cap) {

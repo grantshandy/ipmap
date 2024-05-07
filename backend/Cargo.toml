@@ -22,6 +22,8 @@ serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 tauri = { version = "1.6.2", features = [] }
 pcap = "2.0.0"
+etherparse = "0.14.3"
+ip_rfc = "0.1.0"
 
 [features]
 custom-protocol = [ "tauri/custom-protocol" ]
