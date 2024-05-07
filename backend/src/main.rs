@@ -3,15 +3,12 @@
 use std::{
     error::Error,
     net::IpAddr,
-    sync::{
-        mpsc::{self, Receiver, Sender},
-        Arc,
-    },
+    sync::{Arc, RwLock},
     thread,
 };
 
 use etherparse::{NetHeaders, PacketHeaders};
-use pcap::{Active, Capture, Inactive};
+use pcap::{Active, Capture};
 use tauri::{App, AppHandle, Event, Manager};
 
 fn main() {
@@ -32,16 +29,7 @@ struct Device {
 #[tauri::command]
 async fn device_list() -> Result<Vec<Device>, String> {
     let mut out: Vec<Device> = Vec::new();
-
     let prefered = pcap::Device::lookup().map_err(|e| e.to_string())?;
-
-    if let Some(prefered) = &prefered {
-        out.push(Device {
-            name: prefered.name.clone(),
-            desc: prefered.desc.clone(),
-            prefered: true,
-        });
-    }
 
     for d in pcap::Device::list().map_err(|e| e.to_string())? {
         if d.flags.is_loopback() || !d.flags.is_running() {
@@ -61,7 +49,30 @@ async fn device_list() -> Result<Vec<Device>, String> {
         });
     }
 
+    if let Some(prefered) = &prefered {
+        out.insert(
+            0,
+            Device {
+                name: prefered.name.clone(),
+                desc: prefered.desc.clone(),
+                prefered: true,
+            },
+        );
+    }
+
     Ok(out)
+}
+
+fn start_listening(app: &mut App) -> Result<(), Box<dyn Error>> {
+    let handle = Arc::new(app.handle());
+
+    let change_handle = handle.clone();
+    app.listen_global("change_device", move |event| {
+        let change_handle = change_handle.clone();
+        thread::spawn(move || listen_for_ips(event, change_handle));
+    });
+
+    Ok(())
 }
 
 #[derive(serde::Deserialize, Clone)]
@@ -69,42 +80,51 @@ struct ChangeDevicePayload {
     name: String,
 }
 
-fn start_listening(app: &mut App) -> Result<(), Box<dyn Error>> {
-    let (tx, rx) = mpsc::channel::<Capture<Inactive>>();
-    let handle = Arc::new(app.handle());
-
-    let change_handle = handle.clone();
-    app.listen_global("change_device", move |event| {
-        change_device(event, change_handle.clone(), tx.clone())
-    });
-
-    thread::spawn(move || ip_update_loop(handle.clone(), rx));
-
-    Ok(())
-}
-
-fn ip_update_loop(handle: Arc<AppHandle>, rx: Receiver<Capture<Inactive>>) {
-    // get first device
-    let mut cap: Capture<Active> = loop {
-        match rx.recv().map(|cap| cap.open()) {
-            Ok(Ok(cap)) => break cap,
-            Ok(Err(err)) => emit_error(&handle, format!("failed to open device: {err}")),
-            _ => (),
-        };
-
-        continue;
+fn listen_for_ips(event: Event, handle: Arc<AppHandle>) {
+    let device_name = match event
+        .payload()
+        .map(|s| serde_json::from_str::<ChangeDevicePayload>(s))
+    {
+        Some(Ok(payload)) => payload.name,
+        Some(Err(err)) => {
+            emit_error(&handle, err.to_string());
+            return;
+        }
+        None => {
+            emit_error(&handle, "change_device must have a payload");
+            return;
+        }
     };
 
-    loop {
-        // update capture device if needed
-        match rx.try_recv().map(|cap| cap.open()) {
-            Ok(Ok(new_cap)) => {
-                println!("switched device.");
-                cap = new_cap;
+    let mut cap: Capture<Active> =
+        match Capture::from_device(device_name.as_str()).map(|cap| cap.open()) {
+            Ok(Ok(cap)) => cap,
+            Ok(Err(err)) => {
+                emit_error(
+                    &handle,
+                    format!("failed to get open capture {device_name}: {err}"),
+                );
+                return;
             }
-            Ok(Err(err)) => emit_error(&handle, format!("failed to open device: {err}")),
-            _ => (),
+            Err(err) => {
+                emit_error(&handle, format!("failed to get {device_name}: {err}"));
+                return;
+            }
         };
+
+    println!("capturing on {device_name}");
+
+    let should_stop = Arc::new(RwLock::new(false));
+    let cancel_should_stop = should_stop.clone();
+    handle.listen_global("change_device", move |_| {
+        *cancel_should_stop.write().expect("write should_stop") = true;
+    });
+
+    loop {
+        if *should_stop.read().expect("read should_stop") {
+            println!("canceled {device_name}");
+            break;
+        }
 
         if let Ok(packet) = cap.next_packet() {
             let source: IpAddr = match PacketHeaders::from_ethernet_slice(&packet).map(|h| h.net) {
@@ -119,39 +139,6 @@ fn ip_update_loop(handle: Arc<AppHandle>, rx: Receiver<Capture<Inactive>>) {
                     .expect("emit new_connection");
             }
         }
-    }
-}
-
-fn change_device(event: Event, handle: Arc<AppHandle>, tx: Sender<Capture<Inactive>>) {
-    let Some(payload_str) = event.payload() else {
-        emit_error(&handle, "change_device must have a payload");
-        return;
-    };
-
-    let name = match serde_json::from_str::<ChangeDevicePayload>(payload_str) {
-        Ok(payload) => payload.name,
-        Err(err) => {
-            emit_error(&handle, err.to_string());
-            return;
-        }
-    };
-
-    let cap = match Capture::from_device(name.as_str()) {
-        Ok(cap) => cap,
-        Err(err) => {
-            emit_error(
-                &handle,
-                format!("failed to get capture from device {name}: {err}"),
-            );
-            return;
-        }
-    };
-
-    if let Err(err) = tx.send(cap) {
-        emit_error(
-            &handle,
-            format!("failed to send over change_device channel: {err}"),
-        );
     }
 }
 

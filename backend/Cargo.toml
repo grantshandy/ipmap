@@ -24,6 +24,9 @@ tauri = { version = "1.6.2", features = [] }
 pcap = "2.0.0"
 etherparse = "0.14.3"
 ip_rfc = "0.1.0"
+concurrent-queue = "2.5.0"
+libtraceroute = "0.1.0"
+csv = "1.3.0"
 
 [features]
 custom-protocol = [ "tauri/custom-protocol" ]
