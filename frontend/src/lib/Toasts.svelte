@@ -1,6 +1,7 @@
 <script>
     import { writable } from "svelte/store";
     import { listen } from "@tauri-apps/api/event";
+    import { fade } from "svelte/transition";
 
     let toasts = (() => {
         const { subscribe, update } = writable([]);
@@ -22,13 +23,14 @@
     listen("info", (e) => toasts.newInfo(e.payload));
 </script>
 
-<div class="toast toast-end">
+<div class="toast toast-end z-[9999]">
     {#each $toasts as toast}
         <div
             role="alert"
             class="alert py-2 flex"
             class:alert-error={toast.error}
             class:alert-info={!toast.error}
+            out:fade={{ duration: 100 }}
         >
             <span class="grow font-semibold">{!toast.error ? "Info:" : ""} {toast.msg}</span>
             <button

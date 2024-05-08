@@ -1,6 +1,6 @@
 use std::{
     collections::HashSet,
-    net::{IpAddr, Ipv4Addr},
+    net::Ipv4Addr,
     sync::{Arc, Mutex, RwLock},
 };
 

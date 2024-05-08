@@ -1,5 +1,6 @@
 import { invoke as rawInvoke } from "@tauri-apps/api";
 import { emit } from "@tauri-apps/api/event";
+import { writable } from "svelte/store";
 
 // invoke a tauri command, showing the error on screen if error returned
 export const invoke = async (cmd, args) => {
