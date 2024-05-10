@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import Settings from "./lib/Settings.svelte";
   import Toasts from "./lib/Toasts.svelte";
   import Map from "./lib/Map.svelte";

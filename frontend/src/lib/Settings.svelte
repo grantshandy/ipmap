@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
     import { onMount } from "svelte";
     import {
         setDatabase,
@@ -6,7 +6,7 @@
         stopCapturing,
         startCapturing,
         listDevices,
-    } from "../bridge";
+    } from "../utils";
     import { open } from "@tauri-apps/api/dialog";
     import { basename } from "@tauri-apps/api/path";
     import { fade } from "svelte/transition";
@@ -19,11 +19,11 @@
     };
 
     // the path to the CSV
-    let database = null;
-    let loadingDatabase = false;
+    let database: string | null = null;
+    let loadingDatabase: boolean = false;
 
-    let capturing = false;
-    let deviceSet = false;
+    let capturing: boolean = false;
+    let deviceSet: boolean = false;
 
     // if the page was previously loaded with a device, revert that so it can quietly cancel in the background.
     onMount(resetBackend);
@@ -73,10 +73,13 @@
             <select
                 class="select select-bordered select-sm w-full max-w-xs"
                 disabled={!database}
-                on:change={(event) =>
-                    setDevice(event.target.value).then(
-                        () => (deviceSet = true),
-                    )}
+                on:change={(event) => {
+                    if (event.target instanceof HTMLSelectElement) {
+                        setDevice(event.target.value).then(
+                            () => (deviceSet = true),
+                        );
+                    }
+                }}
             >
                 <option disabled selected>Select Network Capture Device</option>
                 {#each devices as device}

@@ -1,9 +1,8 @@
-<script>
+<script lang="ts">
     import { fly } from "svelte/transition";
+    import type { LocationSelection } from "../utils";
 
-    export let selection;
-
-    $: console.log(selection);
+    export let selection: LocationSelection | null;
 </script>
 
 {#if selection}

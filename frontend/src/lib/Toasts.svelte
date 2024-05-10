@@ -1,14 +1,28 @@
-<script>
+<script lang="ts">
     import { writable } from "svelte/store";
+    import type { Writable } from "svelte/store";
     import { listen } from "@tauri-apps/api/event";
     import { fade } from "svelte/transition";
 
-    let toasts = (() => {
-        const { subscribe, update } = writable([]);
+    type Toast = {
+        msg: string,
+        id: string,
+        error: boolean,
+    };
+
+    type ToastStore = {
+        subscribe: Writable<Toast[]>["subscribe"],
+        newError: (msg: string) => void,
+        newInfo: (msg: string) => void,
+        remove: (toast: Toast) => void,
+    };
+
+    let toasts = ((): ToastStore => {
+        const { subscribe, update } = writable<Toast[]>([]);
 
         const randomID = () => (Math.random() + 1).toString(36).substring(2);
-        const add = (toast) =>
-            update((toasts) => (toasts = [...toasts, toast]));
+        const add = (toast: Toast): void =>
+            update((toasts: Toast[]) => (toasts = [...toasts, toast]));
 
         return {
             subscribe,
@@ -19,8 +33,8 @@
         };
     })();
 
-    listen("error", (e) => toasts.newError(e.payload));
-    listen("info", (e) => toasts.newInfo(e.payload));
+    listen("error", (e) => toasts.newError(e.payload as string));
+    listen("info", (e) => toasts.newInfo(e.payload as string));
 </script>
 
 <div class="toast toast-end z-[9999]">

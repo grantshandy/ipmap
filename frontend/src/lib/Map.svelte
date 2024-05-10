@@ -1,33 +1,34 @@
-<script>
+<script lang="ts">
     import InfoPane from "./InfoPane.svelte";
 
     import { listen } from "@tauri-apps/api/event";
-    import { lookupIp } from "../bridge";
+    import { lookupIp } from "../utils";
+    import type { LocationSelection } from "../utils";
 
-    import L from "leaflet";
+    import { marker, map, tileLayer, Map } from "leaflet";
     import "leaflet-providers";
     import "leaflet/dist/leaflet.css";
 
-    let selected;
+    let selected: LocationSelection | null = null;
 
-    let locs = {}; // { 'latitudelongitude': { loc, marker, ips: [] } }
-    let map;
+    let locs: { [id: string]: LocationSelection } = {};
+    let mapInstance: Map | null = null;
 
     listen("new_connection", (event) => {
-        const ip = event.payload;
+        const ip = event.payload as string;
 
         lookupIp(ip).then((loc) => {
-            const key = `${loc.latitude}${loc.longitude}`;
+            if (mapInstance != null && loc != null) {
+                const key = `${loc.latitude}${loc.longitude}`;
 
-            if (map != null) {
                 if (locs[key] != null) {
                     locs[key].ips.push(ip);
                 } else {
                     locs[key] = {
                         loc,
-                        marker: L.marker([loc.latitude, loc.longitude])
+                        marker: marker([loc.latitude, loc.longitude])
                             .on("click", () => (selected = locs[key]))
-                            .addTo(map),
+                            .addTo(mapInstance),
                         ips: [ip],
                     };
                 }
@@ -35,21 +36,26 @@
         });
     });
 
-    const mapAction = (container) => {
-        map = L.map(container, { preferCanvas: true }).setView([30, 0], 2);
-        L.tileLayer.provider("OpenStreetMap.Mapnik").addTo(map);
+    const mapAction = (container: HTMLDivElement) => {
+        mapInstance = map(container, { preferCanvas: true }).setView(
+            [30, 0],
+            2,
+        );
+        tileLayer.provider("OpenStreetMap.Mapnik").addTo(mapInstance);
 
         return {
             destroy: () => {
-                map.remove();
-                map = null;
+                if (mapInstance) {
+                    mapInstance.remove();
+                    mapInstance = null;
+                }
             },
         };
     };
 
     const resizeMap = () => {
-        if (map) {
-            map.invalidateSize();
+        if (mapInstance) {
+            mapInstance.invalidateSize();
         }
     };
 </script>
@@ -60,3 +66,7 @@
     <div class="grow select-none rounded-sm" use:mapAction></div>
     <InfoPane selection={selected} />
 </div>
+
+<!-- <style>
+    @import "leaflet/dist/leaflet.css";
+</style> -->
