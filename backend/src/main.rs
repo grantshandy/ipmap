@@ -2,6 +2,7 @@
 
 mod capture;
 mod geoip;
+mod analyze;
 
 fn main() {
     tracing_subscriber::fmt::init();
@@ -15,7 +16,8 @@ fn main() {
             capture::start_capturing,
             capture::stop_capturing,
             geoip::set_database,
-            geoip::lookup_ip
+            geoip::lookup_ip,
+            analyze::dns_lookup_addr
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

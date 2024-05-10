@@ -41,3 +41,4 @@ export const stopCapturing = async (): Promise<void> => invoke("stop_capturing")
 export const startCapturing = async (): Promise<void> => invoke("start_capturing");
 
 export const lookupIp = async (ip: string): Promise<Location | null> => invoke("lookup_ip", { ip });
+export const lookupDns = async (ip: string): Promise<string | null> => invoke("dns_lookup_addr", { ip });
