@@ -1,18 +1,23 @@
 use std::{
     collections::HashSet,
     net::Ipv4Addr,
-    sync::{Arc, Mutex, RwLock},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex, RwLock,
+    },
 };
 
+use base64::{
+    alphabet,
+    engine::{GeneralPurpose, GeneralPurposeConfig},
+    Engine,
+};
 use etherparse::{NetHeaders, PacketHeaders};
 use pcap::{Active, Capture};
 use tauri::{AppHandle, Manager, Runtime, State};
 
-#[derive(Default)]
-pub struct CaptureState {
-    should_stop: Arc<RwLock<bool>>,
-    capture_name: Arc<Mutex<Option<String>>>,
-}
+const BASE64_ENGINE: GeneralPurpose =
+    GeneralPurpose::new(&alphabet::URL_SAFE, GeneralPurposeConfig::new());
 
 #[derive(serde::Serialize, Clone, PartialEq)]
 pub struct Device {
@@ -59,29 +64,7 @@ pub async fn list_devices() -> Result<Vec<Device>, String> {
 }
 
 #[tauri::command]
-pub async fn set_device(
-    state: State<'_, CaptureState>,
-    name: Option<String>,
-) -> Result<(), String> {
-    match &name {
-        Some(name) => tracing::info!("setting device as {name}"),
-        None => tracing::info!("resetting device"),
-    }
-
-    *state.capture_name.lock().expect("write capture name") = name;
-
-    Ok(())
-}
-
-#[tauri::command]
-pub async fn start_capturing<R: Runtime>(
-    state: State<'_, CaptureState>,
-    handle: AppHandle<R>,
-) -> Result<(), String> {
-    let Some(name) = state.capture_name.lock().expect("get capture name").clone() else {
-        return Err("no device set".to_string());
-    };
-
+pub async fn start_capturing<R: Runtime>(handle: AppHandle<R>, name: String) -> Result<(), String> {
     tracing::info!("capturing on {name}");
 
     let mut cap: Capture<Active> = Capture::from_device(name.as_str())
@@ -89,30 +72,35 @@ pub async fn start_capturing<R: Runtime>(
         .open()
         .map_err(|err| format!("failed to get open capture on {name}: {err}"))?;
 
-    *state.should_stop.write().expect("read should_stop") = false;
+    let should_stop = Arc::new(AtomicBool::new(false));
+
+    let cancel_stop = should_stop.clone();
+    handle.listen_global(BASE64_ENGINE.encode(&name).replace("=", ""), move |_| {
+        cancel_stop.store(true, Ordering::SeqCst)
+    });
 
     let mut connections: HashSet<Ipv4Addr> = HashSet::new();
 
     loop {
-        if *state.should_stop.read().expect("read should_stop") {
-            tracing::info!("stopped listening on {name}");
-            *state.should_stop.write().expect("write should_stop") = false;
+        if should_stop.load(Ordering::SeqCst) {
+            tracing::info!("stopping {name}");
             break;
         }
 
-        if let Ok(packet) = cap.next_packet() {
-            let source: Ipv4Addr = match PacketHeaders::from_ethernet_slice(&packet).map(|h| h.net)
-            {
-                Ok(Some(NetHeaders::Ipv4(header, _))) => header.source.into(),
-                // Ok(Some(NetHeaders::Ipv6(header, _))) => IpAddr::from(header.source),
-                _ => continue,
-            };
+        let Ok(packet) = cap.next_packet() else {
+            continue;
+        };
 
-            if connections.insert(source) && ip_rfc::global_v4(&source) {
-                handle
-                    .emit_all("new_connection", source)
-                    .expect("emit new_connection");
-            }
+        let source: Ipv4Addr = match PacketHeaders::from_ethernet_slice(&packet).map(|h| h.net) {
+            Ok(Some(NetHeaders::Ipv4(header, _))) => header.source.into(),
+            // Ok(Some(NetHeaders::Ipv6(header, _))) => IpAddr::from(header.source),
+            _ => continue,
+        };
+
+        if connections.insert(source) && ip_rfc::global_v4(&source) {
+            handle
+                .emit_all("new_connection", source)
+                .expect("emit new_connection");
         }
     }
 
@@ -120,9 +108,10 @@ pub async fn start_capturing<R: Runtime>(
 }
 
 #[tauri::command]
-pub async fn stop_capturing(state: State<'_, CaptureState>) -> Result<(), String> {
-    tracing::info!("queueing capture stop");
-    *state.should_stop.write().expect("write should_stop") = true;
+pub async fn stop_capturing<R: Runtime>(handle: AppHandle<R>, name: String) -> Result<(), String> {
+    tracing::info!("queueing capture stop of {name}");
+
+    handle.trigger_global(&BASE64_ENGINE.encode(&name).replace("=", ""), None);
 
     Ok(())
 }

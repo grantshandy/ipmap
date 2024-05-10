@@ -34,11 +34,9 @@ export const invoke = async (cmd: string, args?: InvokeArgs | undefined): Promis
 };
 
 export const listDevices = async (): Promise<Device[]> => invoke("list_devices");
-export const setDatabase = async (path?: string): Promise<string | null> => invoke("set_database", { path });
-export const setDevice = async (name?: string): Promise<void> => invoke("set_device", { name });
 
-export const stopCapturing = async (): Promise<void> => invoke("stop_capturing");
-export const startCapturing = async (): Promise<void> => invoke("start_capturing");
+export const stopCapturing = async (name: string): Promise<void> => invoke("stop_capturing", { name });
+export const startCapturing = async (name: string): Promise<void> => invoke("start_capturing", { name });
 
 export const lookupIp = async (ip: string): Promise<Location | null> => invoke("lookup_ip", { ip });
 export const lookupDns = async (ip: string): Promise<string | null> => invoke("dns_lookup_addr", { ip });

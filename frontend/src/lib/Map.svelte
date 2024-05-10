@@ -84,7 +84,7 @@
         <div
             in:fly={{ x: -20, duration: 400 }}
             out:fly={{ x: 20, duration: 400 }}
-            class="flex flex-col rounded-sm pl-4 py-4 space-y-2 w-64"
+            class="flex flex-col rounded-sm pl-4 py-4 space-y-2 w-64 overflow-x-auto"
         >
             <div class="w-full flow-root">
                 <p class="float-left">Location Information</p>
@@ -128,9 +128,7 @@
                     <li>
                         {ip}
                         {#await lookupDns(ip) then dns}
-                            {#if dns}
-                                {" " + dns}
-                            {/if}
+                            <span class="text-sm">{dns}</span>
                         {/await}
                     </li>
                 {/each}
