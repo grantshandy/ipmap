@@ -10,25 +10,26 @@
 </script>
 
 <div class="space-x-2 flow-root">
-    <div class="float-left h-full flex space-x-2">
-        {#await listDevices() then devices}
-            <select
-                class="select select-bordered select-sm w-full max-w-xs"
-                bind:value={device}
-            >
-                {#each devices as device}
-                    <option value={device.name}>
-                        {#if device.desc != null}
-                            {device.desc}
-                        {:else}
-                            No Description ({device.name})
-                        {/if}
-                        {#if device.prefered}(Default){/if}
-                    </option>
-                {/each}
-            </select>
+    <select
+        class="float-left select select-bordered select-sm max-w-xs"
+        bind:value={device}
+    >
+        <option>Select Network Device</option>
+        {#await listDevices()}
+            <option>Loading...</option>
+        {:then devices}
+            {#each devices as device}
+                <option value={device.name}>
+                    {#if device.desc != null}
+                        {device.desc}
+                    {:else}
+                        No Description ({device.name})
+                    {/if}
+                    {#if device.prefered}(Default){/if}
+                </option>
+            {/each}
         {/await}
-    </div>
+    </select>
 
     <div class="flex float-right space-x-2">
         <button

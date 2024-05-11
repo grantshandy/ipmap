@@ -3,7 +3,6 @@
 mod analyze;
 mod capture;
 mod geoip;
-mod db_types;
 
 fn main() {
     tracing_subscriber::fmt::init();

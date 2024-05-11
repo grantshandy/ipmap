@@ -30,8 +30,8 @@ etherparse = "0.14.3"
 ip_rfc = "0.1.0"
 
 rangemap = { version = "1.5.1", features = ["serde1"] }
-bincode = "1.3.3"
 lazy_static = "1.4.0"
+postcard = "1.0.8"
 
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
@@ -43,8 +43,8 @@ base64 = "0.22.1"
 tauri-build = { version = "1.5.1", features = [] }
 csv = "1.3.0"
 rangemap = { version = "1.5.1", features = ["serde1"] }
-bincode = "1.3.3"
 serde = { version = "1.0", features = ["derive"] }
+postcard = { version = "1.0.8", features = ["use-std"] }
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]

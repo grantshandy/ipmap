@@ -1,19 +1,19 @@
-use std::{
-    fs::File,
-    io::Read,
-    net::Ipv4Addr,
-    ops::Deref,
-    path::PathBuf,
-    sync::{Arc, RwLock},
-};
+use std::net::Ipv4Addr;
 
-lazy_static::lazy_static! {
-    static ref IPGEO_DB: crate::db_types::GeoDb = bincode::deserialize(&include_bytes!(concat!(env!("OUT_DIR"), "/encoded_db"))[..]).expect("failed to deserialize");
+pub mod database {
+    include!(concat!(env!("OUT_DIR"), "/database.rs"));
 }
 
 #[tauri::command]
-pub async fn lookup_ip(ip: Ipv4Addr) -> Option<crate::db_types::Location> {
+pub async fn lookup_ip(ip: Ipv4Addr) -> Option<database::db_types::Location> {
     tracing::info!("looking up {ip}");
 
-    IPGEO_DB.get(&u32::from(ip)).cloned()
+    if database::DATABASE.is_none() {
+        tracing::info!("no built in database");
+    }
+
+    database::DATABASE
+        .as_ref()
+        .map(|db| db.get(&u32::from(ip)).cloned())
+        .flatten()
 }

@@ -3,7 +3,7 @@ use std::{
     net::Ipv4Addr,
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc, Mutex, RwLock,
+        Arc,
     },
 };
 
@@ -14,7 +14,7 @@ use base64::{
 };
 use etherparse::{NetHeaders, PacketHeaders};
 use pcap::{Active, Capture};
-use tauri::{AppHandle, Manager, Runtime, State};
+use tauri::{AppHandle, Manager, Runtime};
 
 const BASE64_ENGINE: GeneralPurpose =
     GeneralPurpose::new(&alphabet::URL_SAFE, GeneralPurposeConfig::new());

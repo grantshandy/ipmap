@@ -1,7 +1,7 @@
 #[derive(Clone, serde::Deserialize)]
-struct CityRecordIpv4Num {
-    ip_range_start: u32,
-    ip_range_end: u32,
+pub struct CityRecordIpv4Num {
+    pub ip_range_start: u32,
+    pub ip_range_end: u32,
     country_code: Option<String>,
     state1: Option<String>,
     _state2: Option<String>,
