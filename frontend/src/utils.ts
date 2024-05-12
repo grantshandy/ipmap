@@ -1,6 +1,7 @@
 import { invoke as rawInvoke } from "@tauri-apps/api";
 import { emit } from "@tauri-apps/api/event";
 import type { InvokeArgs } from "@tauri-apps/api/tauri";
+import type { Marker } from "leaflet";
 
 type Device = {
     name: string,
@@ -11,7 +12,7 @@ type Device = {
 export type LocationSelection = {
     loc: Location,
     ips: string[],
-    marker: any
+    marker: Marker,
 }
 
 export type Location = {
@@ -38,5 +39,6 @@ export const listDevices = async (): Promise<Device[]> => invoke("list_devices")
 export const stopCapturing = async (name: string): Promise<void> => invoke("stop_capturing", { name });
 export const startCapturing = async (name: string): Promise<void> => invoke("start_capturing", { name });
 
+export const loadInternalDatabase = async (): Promise<void> => invoke("load_internal_database");
 export const lookupIp = async (ip: string): Promise<Location | null> => invoke("lookup_ip", { ip });
 export const lookupDns = async (ip: string): Promise<string | null> => invoke("dns_lookup_addr", { ip });

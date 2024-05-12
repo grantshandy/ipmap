@@ -1,23 +1,26 @@
 <script lang="ts">
-    import { stopCapturing, startCapturing, listDevices } from "../utils";
+    import {
+        stopCapturing,
+        startCapturing,
+        listDevices,
+        loadInternalDatabase,
+    } from "../utils";
+
+    let dbLoading: boolean = true;
+    loadInternalDatabase().then(() => (dbLoading = false));
 
     let capturing: boolean = false;
     let device: string | null = null;
-
-    $: console.log(device);
-
-    // if the page was previously loaded with a device, revert that so it can quietly cancel in the background.
 </script>
 
 <div class="space-x-2 flow-root">
     <select
         class="float-left select select-bordered select-sm max-w-xs"
+        disabled={dbLoading}
         bind:value={device}
     >
-        <option>Select Network Device</option>
-        {#await listDevices()}
-            <option>Loading...</option>
-        {:then devices}
+        <option disabled selected value={null}>Select Network Device</option>
+        {#await listDevices() then devices}
             {#each devices as device}
                 <option value={device.name}>
                     {#if device.desc != null}
@@ -31,11 +34,22 @@
         {/await}
     </select>
 
+    {#if dbLoading}
+        <span class="loading loading-spinner loading-md"></span>
+    {/if}
+
     <div class="flex float-right space-x-2">
         <button
             class="btn btn-sm"
-            disabled={!device}
-            on:click={() => (device = null)}
+            disabled={!device || dbLoading}
+            on:click={() => {
+                if (device) {
+                    stopCapturing(device);
+                }
+
+                capturing = false;
+                device = null;
+            }}
         >
             Reset
         </button>
@@ -44,7 +58,7 @@
             class="btn btn-sm"
             class:btn-success={!capturing}
             class:btn-error={capturing}
-            disabled={!device}
+            disabled={!device || dbLoading}
             on:click={() => {
                 if (device) {
                     if (capturing) {

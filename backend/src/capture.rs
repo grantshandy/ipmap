@@ -1,6 +1,5 @@
 use std::{
-    collections::HashSet,
-    net::Ipv4Addr,
+    net::{IpAddr, Ipv4Addr},
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -12,8 +11,10 @@ use base64::{
     engine::{GeneralPurpose, GeneralPurposeConfig},
     Engine,
 };
+use dashmap::DashSet;
 use etherparse::{NetHeaders, PacketHeaders};
-use pcap::{Active, Capture};
+use pcap::{Active, Capture, PacketCodec};
+use rayon::iter::{ParallelBridge, ParallelIterator};
 use tauri::{AppHandle, Manager, Runtime};
 
 const BASE64_ENGINE: GeneralPurpose =
@@ -63,11 +64,25 @@ pub async fn list_devices() -> Result<Vec<Device>, String> {
     Ok(out)
 }
 
+struct PacketSourceCodec;
+
+impl PacketCodec for PacketSourceCodec {
+    type Item = Option<IpAddr>;
+
+    fn decode(&mut self, packet: pcap::Packet<'_>) -> Self::Item {
+        match PacketHeaders::from_ethernet_slice(&packet).map(|h| h.net) {
+            Ok(Some(NetHeaders::Ipv4(header, _))) => Some(IpAddr::from(header.source)),
+            Ok(Some(NetHeaders::Ipv6(header, _))) => Some(IpAddr::from(header.source)),
+            _ => None,
+        }
+    }
+}
+
 #[tauri::command]
 pub async fn start_capturing<R: Runtime>(handle: AppHandle<R>, name: String) -> Result<(), String> {
     tracing::info!("capturing on {name}");
 
-    let mut cap: Capture<Active> = Capture::from_device(name.as_str())
+    let cap: Capture<Active> = Capture::from_device(name.as_str())
         .map_err(|err| format!("device name \"{name}\" is invalid: {err}"))?
         .open()
         .map_err(|err| format!("failed to get open capture on {name}: {err}"))?;
@@ -79,30 +94,37 @@ pub async fn start_capturing<R: Runtime>(handle: AppHandle<R>, name: String) -> 
         cancel_stop.store(true, Ordering::SeqCst)
     });
 
-    let mut connections: HashSet<Ipv4Addr> = HashSet::new();
+    let connections: DashSet<Ipv4Addr> = DashSet::new();
 
-    loop {
-        if should_stop.load(Ordering::SeqCst) {
-            tracing::info!("stopping {name}");
-            break;
-        }
+    cap
+        .iter(PacketSourceCodec)
+        .par_bridge()
+        .try_for_each(|packet| {
+            if should_stop.load(Ordering::SeqCst) {
+                return Err(());
+            }
 
-        let Ok(packet) = cap.next_packet() else {
-            continue;
-        };
+            let source = match packet {
+                Ok(Some(IpAddr::V4(ip))) => ip,
+                Ok(Some(IpAddr::V6(_))) => {
+                    tracing::warn!("unhandled ipv6 connection");
+                    return Ok(());
+                },
+                Ok(_) => return Ok(()),
+                Err(_) => return Ok(()),
+            };
 
-        let source: Ipv4Addr = match PacketHeaders::from_ethernet_slice(&packet).map(|h| h.net) {
-            Ok(Some(NetHeaders::Ipv4(header, _))) => header.source.into(),
-            // Ok(Some(NetHeaders::Ipv6(header, _))) => IpAddr::from(header.source),
-            _ => continue,
-        };
+            if connections.insert(source) && ip_rfc::global_v4(&source) {
+                handle
+                    .emit_all("new_connection", source)
+                    .expect("emit new_connection");
+            }
 
-        if connections.insert(source) && ip_rfc::global_v4(&source) {
-            handle
-                .emit_all("new_connection", source)
-                .expect("emit new_connection");
-        }
-    }
+            Ok(())
+        })
+        .ok();
+
+    tracing::info!("stopping {name}");
 
     Ok(())
 }

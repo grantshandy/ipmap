@@ -12,6 +12,7 @@ fn main() {
             capture::list_devices,
             capture::start_capturing,
             capture::stop_capturing,
+            geoip::load_internal_database,
             geoip::lookup_ip,
             analyze::dns_lookup_addr,
         ])

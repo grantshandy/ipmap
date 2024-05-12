@@ -23,18 +23,17 @@ lto = "fat"
 
 [dependencies]
 tauri = { version = "1.6.2", features = [ "path-all", "dialog-open", "tracing"] }
-
 pcap = "2.0.0"
 dns-lookup = "2.0.4"
 etherparse = "0.14.3"
 ip_rfc = "0.1.0"
-
 rangemap = { version = "1.5.1", features = ["serde1"] }
 lazy_static = "1.4.0"
-postcard = "1.0.8"
-
-serde_json = "1.0"
+rayon = "1.10.0"
+dashmap = "5.5.3"
 serde = { version = "1.0", features = ["derive"] }
+bincode = "1.3.3"
+serde_json = "1.0"
 tracing = "0.1.40"
 tracing-subscriber = "0.3.18"
 base64 = "0.22.1"
@@ -44,7 +43,7 @@ tauri-build = { version = "1.5.1", features = [] }
 csv = "1.3.0"
 rangemap = { version = "1.5.1", features = ["serde1"] }
 serde = { version = "1.0", features = ["derive"] }
-postcard = { version = "1.0.8", features = ["use-std"] }
+bincode = "1.3.3"
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]

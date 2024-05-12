@@ -1,3 +1,15 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+.splitpanes__splitter {
+    @apply bg-neutral-content rounded-xl w-1 mx-1 relative;
+}
+
+/* .leaflet-container {
+    @apply bg-transparent !important;
+} */
+
+.marker-icon {
+    @apply w-full h-full font-bold flex items-center justify-center border rounded-full drop-shadow-lg;
+}

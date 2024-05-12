@@ -5,15 +5,18 @@ pub mod database {
 }
 
 #[tauri::command]
-pub async fn lookup_ip(ip: Ipv4Addr) -> Option<database::db_types::Location> {
-    tracing::info!("looking up {ip}");
-
-    if database::DATABASE.is_none() {
-        tracing::info!("no built in database");
-    }
-
+pub async fn lookup_ip(ip: Ipv4Addr) -> Option<database::Location> {
     database::DATABASE
         .as_ref()
         .map(|db| db.get(&u32::from(ip)).cloned())
         .flatten()
+}
+
+#[tauri::command]
+pub async fn load_internal_database() {
+    lazy_static::initialize(&database::DATABASE);
+
+    if database::DATABASE.is_none() {
+        tracing::warn!("no internal database set");
+    }
 }

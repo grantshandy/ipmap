@@ -1,63 +1,35 @@
 <script lang="ts">
-    import { fly } from "svelte/transition";
+    import { Pane, Splitpanes } from "svelte-splitpanes";
     import { listen } from "@tauri-apps/api/event";
     import { lookupDns, lookupIp } from "../utils";
-    import type { LocationSelection } from "../utils";
+    import type { Location, LocationSelection } from "../utils";
 
-    import { marker, map, tileLayer, Map, Icon } from "leaflet";
+    import {
+        marker,
+        map,
+        tileLayer,
+        Map,
+        DivIcon,
+        divIcon,
+        type LeafletMouseEvent,
+    } from "leaflet";
     import "leaflet-providers";
+    import "leaflet-active-area";
     import "leaflet/dist/leaflet.css";
 
-    import markerIconUrl from "../../node_modules/leaflet/dist/images/marker-icon.png";
-    import markerIconRetinaUrl from "../../node_modules/leaflet/dist/images/marker-icon-2x.png";
-    import markerShadowUrl from "../../node_modules/leaflet/dist/images/marker-shadow.png";
-
-    Icon.Default.prototype.options.iconUrl = markerIconUrl;
-    Icon.Default.prototype.options.iconRetinaUrl = markerIconRetinaUrl;
-    Icon.Default.prototype.options.shadowUrl = markerShadowUrl;
-    Icon.Default.imagePath = ""; // necessary to avoid Leaflet adds some prefix to image path.
-
     const countryNames = new Intl.DisplayNames("en", { type: "region" });
-
-    let selection: LocationSelection | null = null;
-
-    let locs: { [id: string]: LocationSelection } = {};
     let mapInstance: Map | null = null;
-
-    let conns: Set<string> = new Set();
-
-    listen("new_connection", (event) => {
-        const ip = event.payload as string;
-
-        if (!conns.has(ip)) {
-            conns.add(ip);
-
-            lookupIp(ip).then((loc) => {
-                if (mapInstance != null && loc != null) {
-                    const key = `${loc.latitude}${loc.longitude}`;
-
-                    if (locs[key] != null) {
-                        locs[key].ips.push(ip);
-                    } else {
-                        locs[key] = {
-                            loc,
-                            marker: marker([loc.latitude, loc.longitude])
-                                .on("click", () => (selection = locs[key]))
-                                .addTo(mapInstance),
-                            ips: [ip],
-                        };
-                    }
-                }
-            });
-        }
-    });
 
     const mapAction = (container: HTMLDivElement) => {
         mapInstance = map(container, { preferCanvas: true }).setView(
             [30, 0],
-            2,
+            3,
         );
         tileLayer.provider("OpenStreetMap.Mapnik").addTo(mapInstance);
+        // tileLayer.provider("CartoDB.DarkMatter").addTo(mapInstance);
+
+        // from 'leaflet-active-area'. Fixes a resize bug for map.panTo
+        mapInstance.setActiveArea(container);
 
         return {
             destroy: () => {
@@ -71,42 +43,123 @@
 
     const resizeMap = () => {
         if (mapInstance) {
+            console.log("resize");
             mapInstance.invalidateSize();
         }
     };
+
+    const mkKey = (loc: Location): string => `${loc.latitude}${loc.longitude}`;
+
+    const setSelection = (key: string | null) => {
+        if (mapInstance == null) {
+            return;
+        }
+
+        if (selection != null) {
+            selection.marker
+                .setIcon(mkIcon(selection.ips.length, false))
+                .setZIndexOffset(50);
+        }
+
+        if (key == null) {
+            selection = null;
+            return;
+        }
+
+        if (
+            selection != null &&
+            mkKey(selection.loc) == key
+        ) {
+            selection = null;
+        } else {
+            selection = locs[key];
+            selection.marker
+                .setIcon(mkIcon(selection.ips.length, true))
+                .setZIndexOffset(100);
+            setTimeout(() => {
+                if (mapInstance && selection) {
+                    mapInstance.panTo([
+                        selection.loc.latitude,
+                        selection.loc.longitude,
+                    ]);
+                }
+            }, 25);
+        }
+    };
+
+    const mkIcon = (num: number, active: boolean): DivIcon => {
+        const icon = divIcon({
+            html: `<div class="marker-icon ${active ? "bg-info" : "bg-secondary"}"><span>${num}</span></div>`,
+            className: "dummyclass",
+            iconSize: active ? [30, 30] : [20, 20],
+            iconAnchor: active ? [15, 15] : [10, 10],
+        });
+
+        return icon;
+    };
+
+    let selection: LocationSelection | null = null;
+    let locs: { [id: string]: LocationSelection } = {};
+    let conns: Set<string> = new Set();
+
+    listen("new_connection", (event) => {
+        const ip = event.payload as string;
+
+        if (!conns.has(ip)) {
+            conns.add(ip);
+
+            lookupIp(ip).then((loc) => {
+                if (mapInstance != null && loc != null) {
+                    const key = mkKey(loc);
+
+                    if (locs[key] != null) {
+                        const loc = locs[key];
+
+                        loc.ips.push(ip);
+                        loc.marker.setIcon(
+                            mkIcon(loc.ips.length, loc == selection),
+                        );
+                    } else {
+                        locs[key] = {
+                            loc,
+                            marker: marker([loc.latitude, loc.longitude], {
+                                icon: mkIcon(1, false),
+                            })
+                                .on("click", (e) => setSelection(key))
+                                .addTo(mapInstance),
+                            ips: [ip],
+                        };
+                    }
+                }
+            });
+        }
+    });
 </script>
 
 <svelte:window on:resize={resizeMap} />
 
-<div class="w-full h-full flex space-x-2">
-    <div class="grow select-none rounded-sm" use:mapAction></div>
+<Splitpanes
+    horizontal={false}
+    theme="dummy"
+    on:resize={resizeMap}
+    on:pane-remove={resizeMap}
+    on:splitter-click={() => {
+        setSelection(null);
+        resizeMap();
+    }}
+    class="w-full h-full"
+>
+    <Pane size={100}>
+        <div class="w-full h-full select-none rounded-sm" use:mapAction></div>
+    </Pane>
     {#if selection}
-        <div
-            in:fly={{ x: -20, duration: 400 }}
-            out:fly={{ x: 20, duration: 400 }}
-            class="flex flex-col rounded-sm pl-4 py-4 space-y-2 w-64 overflow-x-auto"
+        <Pane
+            class="flex flex-col rounded-sm pl-4 py-4 space-y-2 w-full h-full overflow-x-auto"
+            size={30}
+            snapSize={10}
+            maxSize={40}
         >
-            <div class="w-full flow-root">
-                <p class="float-left">Location Information</p>
-                <button
-                    on:click={() => (selection = null)}
-                    class="float-right btn btn-xs rounded-full p-2"
-                >
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        class="h-4 w-4"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        ><path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2"
-                            d="M6 18L18 6M6 6l12 12"
-                        /></svg
-                    ></button
-                >
-            </div>
+            <p>Location Information</p>
 
             <ul>
                 {#if selection.loc.city}
@@ -128,11 +181,11 @@
                     <li>
                         {ip}
                         {#await lookupDns(ip) then dns}
-                            <span class="text-sm">{dns}</span>
+                            {#if dns}<span class="text-sm">({dns})</span>{/if}
                         {/await}
                     </li>
                 {/each}
             </ul>
-        </div>
+        </Pane>
     {/if}
-</div>
+</Splitpanes>
