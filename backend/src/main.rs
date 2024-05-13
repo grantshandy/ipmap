@@ -12,9 +12,11 @@ fn main() {
             capture::list_devices,
             capture::start_capturing,
             capture::stop_capturing,
-            geoip::load_internal_database,
+            geoip::load_database,
+            geoip::builtin_db_info,
             geoip::lookup_ip,
-            analyze::dns_lookup_addr,
+            analyze::dns_lookup_addr
+            // analyze::traceroute
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -11,7 +11,8 @@
         Map,
         DivIcon,
         divIcon,
-        type LeafletMouseEvent,
+        polyline,
+        type LatLngExpression,
     } from "leaflet";
     import "leaflet-providers";
     import "leaflet-active-area";
@@ -23,7 +24,7 @@
     const mapAction = (container: HTMLDivElement) => {
         mapInstance = map(container, { preferCanvas: true }).setView(
             [30, 0],
-            3,
+            2,
         );
         tileLayer.provider("OpenStreetMap.Mapnik").addTo(mapInstance);
         // tileLayer.provider("CartoDB.DarkMatter").addTo(mapInstance);
@@ -43,7 +44,6 @@
 
     const resizeMap = () => {
         if (mapInstance) {
-            console.log("resize");
             mapInstance.invalidateSize();
         }
     };
@@ -63,13 +63,11 @@
 
         if (key == null) {
             selection = null;
+            setTimeout(resizeMap, 25);
             return;
         }
 
-        if (
-            selection != null &&
-            mkKey(selection.loc) == key
-        ) {
+        if (selection != null && mkKey(selection.loc) == key) {
             selection = null;
         } else {
             selection = locs[key];

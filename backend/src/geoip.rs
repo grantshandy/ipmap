@@ -13,7 +13,12 @@ pub async fn lookup_ip(ip: Ipv4Addr) -> Option<database::Location> {
 }
 
 #[tauri::command]
-pub async fn load_internal_database() {
+pub async fn builtin_db_info() -> Option<database::DatabaseInfo> {
+    return database::INFO.clone();
+}
+
+#[tauri::command]
+pub async fn load_database() {
     lazy_static::initialize(&database::DATABASE);
 
     if database::DATABASE.is_none() {

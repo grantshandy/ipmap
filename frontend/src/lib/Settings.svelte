@@ -3,19 +3,23 @@
         stopCapturing,
         startCapturing,
         listDevices,
-        loadInternalDatabase,
+        loadDatabase,
+        builtinDatabaseInfo,
     } from "../utils";
 
     let dbLoading: boolean = true;
-    loadInternalDatabase().then(() => (dbLoading = false));
+    loadDatabase().then(() => (dbLoading = false));
+
+    let settings_modal: any;
 
     let capturing: boolean = false;
     let device: string | null = null;
+    let database: string | null = null;
 </script>
 
 <div class="space-x-2 flow-root">
     <select
-        class="float-left select select-bordered select-sm max-w-xs"
+        class="select select-bordered select-sm max-w-xs"
         disabled={dbLoading}
         bind:value={device}
     >
@@ -33,6 +37,47 @@
             {/each}
         {/await}
     </select>
+
+    <select
+        class="select select-bordered select-sm max-w-xs"
+        disabled={!device || dbLoading}
+        bind:value={database}
+    >
+        <option disabled selected value={null}>Select Database</option>
+        {#await builtinDatabaseInfo() then info}
+            {#if info}
+                <option selected value="builtin">{info.filename}</option>
+            {/if}
+        {/await}
+    </select>
+
+    {#if !database}
+        <button class="btn btn-sm" on:click={settings_modal.showModal()}
+            >?</button
+        >
+    {/if}
+
+    <dialog bind:this={settings_modal} class="modal">
+        <div class="modal-box">
+            <h3 class="font-bold text-lg">Database Info</h3>
+            <p class="py-4">
+                {#await builtinDatabaseInfo() then info}
+                    {#if info}
+                        Filename: {info.filename}
+                        Built: {info.built}
+                        Attribution: {@html info.attribution}
+                    {/if}
+                {/await}
+            </p>
+        </div>
+        <form method="dialog" class="modal-backdrop">
+            <button>close</button>
+        </form>
+    </dialog>
+
+    <button class="btn btn-sm btn-secondary" disabled={!device || dbLoading}
+        >Load</button
+    >
 
     {#if dbLoading}
         <span class="loading loading-spinner loading-md"></span>

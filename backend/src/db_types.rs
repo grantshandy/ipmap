@@ -1,39 +1,72 @@
-#[derive(Clone, serde::Deserialize)]
-pub struct CityRecordIpv4Num {
-    pub ip_range_start: u32,
-    pub ip_range_end: u32,
-    country_code: Option<String>,
-    state1: Option<String>,
-    _state2: Option<String>,
-    city: Option<String>,
-    _postcode: Option<String>,
-    latitude: Option<f32>,
-    longitude: Option<f32>,
-    timezone: Option<String>,
+use std::io;
+
+use compact_str::CompactString;
+use csv::DeserializeError;
+
+#[derive(Clone, Copy, serde::Deserialize, serde::Serialize)]
+pub struct DatabaseInfo {
+    pub filename: &'static str,
+    pub built: &'static str,
+    pub attribution: &'static str
 }
 
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Location {
     pub latitude: Option<f32>,
     pub longitude: Option<f32>,
-    pub city: Option<String>,
-    pub country_code: Option<String>,
-    pub timezone: Option<String>,
-    pub state: Option<String>,
+    pub city: Option<CompactString>,
+    pub country_code: Option<CompactString>,
+    pub timezone: Option<CompactString>,
+    pub state: Option<CompactString>,
 }
 impl Eq for Location {}
 
-impl From<CityRecordIpv4Num> for Location {
-    fn from(other: CityRecordIpv4Num) -> Self {
-        Self {
-            latitude: other.latitude,
-            longitude: other.longitude,
-            city: other.city,
-            country_code: other.country_code,
-            timezone: other.timezone,
-            state: other.state1,
-        }
-    }
+pub type GeoDb = rangemap::RangeInclusiveMap<u32, Location>;
+
+pub fn read_csv<R: io::Read>(rdr: R) -> Result<GeoDb, DeserializeError> {
+    let mut db = GeoDb::new();
+
+    csv::ReaderBuilder::new()
+        .has_headers(false)
+        .from_reader(rdr)
+        .byte_records()
+        .for_each(|record| {
+            let record = record.expect("deserialize record");
+
+            let ip_range_start = str_from_byte_record(&record[0])
+                .unwrap()
+                .parse::<u32>()
+                .unwrap();
+            let ip_range_end = str_from_byte_record(&record[1])
+                .unwrap()
+                .parse::<u32>()
+                .unwrap();
+            let country_code = str_from_byte_record(&record[2]);
+            let state = str_from_byte_record(&record[3]);
+            let city = str_from_byte_record(&record[5]);
+            let latitude = str_from_byte_record(&record[7]).map(|s| s.parse::<f32>().unwrap());
+            let longitude = str_from_byte_record(&record[8]).map(|s| s.parse::<f32>().unwrap());
+            let timezone = str_from_byte_record(&record[9]);
+
+            db.insert(
+                ip_range_start..=ip_range_end,
+                Location {
+                    latitude,
+                    longitude,
+                    city,
+                    country_code,
+                    timezone,
+                    state,
+                },
+            );
+        });
+
+    Ok(db)
 }
 
-pub type GeoDb = rangemap::RangeInclusiveMap<u32, Location>;
+fn str_from_byte_record(record: &[u8]) -> Option<CompactString> {
+    match record.is_empty() {
+        true => None,
+        false => CompactString::from_utf8(record).ok(),
+    }
+}
