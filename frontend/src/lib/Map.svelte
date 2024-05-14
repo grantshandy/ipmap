@@ -1,8 +1,8 @@
 <script lang="ts">
     import { Pane, Splitpanes } from "svelte-splitpanes";
     import { listen } from "@tauri-apps/api/event";
-    import { lookupDns, lookupIp } from "../utils";
-    import type { Location, LocationSelection } from "../utils";
+    import { lookupDns, lookupIp, stopCapturing } from "../utils";
+    import type { DatabaseInfo, Location, LocationSelection } from "../utils";
 
     import {
         marker,
@@ -17,6 +17,8 @@
     import "leaflet-providers";
     import "leaflet-active-area";
     import "leaflet/dist/leaflet.css";
+    
+    export let database: DatabaseInfo | null;
 
     const countryNames = new Intl.DisplayNames("en", { type: "region" });
     let mapInstance: Map | null = null;
@@ -106,7 +108,7 @@
         if (!conns.has(ip)) {
             conns.add(ip);
 
-            lookupIp(ip).then((loc) => {
+            lookupIp(ip, database?.path ?? null).then((loc) => {
                 if (mapInstance != null && loc != null) {
                     const key = mkKey(loc);
 

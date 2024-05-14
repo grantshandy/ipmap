@@ -9,10 +9,12 @@ type Device = {
     prefered: boolean
 }
 
-type DatabaseInfo = {
-    filename: string,
-    built: string,
-    attribution: string
+export type DatabaseInfo = {
+    name: string,
+    path: string | null,
+    build_time: string,
+    attribution_text: string | null,
+    locations: number
 }
 
 export type LocationSelection = {
@@ -45,7 +47,7 @@ export const listDevices = async (): Promise<Device[]> => invoke("list_devices")
 export const stopCapturing = async (name: string): Promise<void> => invoke("stop_capturing", { name });
 export const startCapturing = async (name: string): Promise<void> => invoke("start_capturing", { name });
 
-export const loadDatabase = async (): Promise<void> => invoke("load_database");
-export const builtinDatabaseInfo = async (): Promise<DatabaseInfo | null> => invoke("builtin_db_info");
-export const lookupIp = async (ip: string): Promise<Location | null> => invoke("lookup_ip", { ip });
+export const loadDatabase = async (path: string | string[] | null): Promise<DatabaseInfo | null> => invoke("load_database", { path });
+export const listDatabases = async (): Promise<DatabaseInfo[]> => invoke("list_databases");
+export const lookupIp = async (ip: string, databasePath: string | null): Promise<Location | null> => invoke("lookup_ip", { ip, database: databasePath });
 export const lookupDns = async (ip: string): Promise<string | null> => invoke("dns_lookup_addr", { ip });
