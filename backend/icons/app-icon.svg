@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="1024"
+   height="1024"
+   viewBox="0 0 1024 1024"
+   version="1.1"
+   id="svg1"
+   inkscape:version="1.3.2 (091e20e, 2023-11-25, custom)"
+   sodipodi:docname="app-icon.svg"
+   inkscape:export-filename="app-icon.png"
+   inkscape:export-xdpi="96"
+   inkscape:export-ydpi="96"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="false"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="px"
+     showborder="false"
+     showguides="false"
+     inkscape:zoom="0.51717104"
+     inkscape:cx="274.57067"
+     inkscape:cy="497.90105"
+     inkscape:window-width="1920"
+     inkscape:window-height="1017"
+     inkscape:window-x="-8"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1"
+     inkscape:export-bgcolor="#ffffff00" />
+  <defs
+     id="defs1" />
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <circle
+       style="fill:#ffffff;stroke-width:18.8976378;stroke-dasharray:none;stroke:#000000;stroke-opacity:1;fill-opacity:1"
+       id="path1"
+       cx="512"
+       cy="512"
+       r="500" />
+    <path
+       style="fill:#1c71d8;fill-opacity:0;stroke:#000000;stroke-width:18.8976;stroke-dasharray:none;stroke-opacity:1"
+       d="m 266.61552,79.301025 c 0,0 801.17418,347.390145 488.18507,683.582375 C 441.81151,1099.0756 77.933766,272.08455 77.933766,272.08455"
+       id="path2"
+       sodipodi:nodetypes="czc" />
+    <circle
+       style="fill:#1c71d8;fill-opacity:1;stroke:#000000;stroke-width:19.936;stroke-dasharray:none;stroke-opacity:1"
+       id="path3"
+       cx="697.0022"
+       cy="697.0022"
+       r="287.03418" />
+    <path
+       style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:18.8976;stroke-dasharray:none;stroke-opacity:1"
+       d="m 183.69165,895.25509 c 0,0 -119.202346,-285.17884 174.02366,-553.00854 C 650.94132,74.416846 897.18864,193.35963 897.18864,193.35963"
+       id="path4"
+       sodipodi:nodetypes="czc" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:520.139px;font-family:Corbel;-inkscape-font-specification:'Corbel, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0;stroke-dasharray:none;stroke-opacity:1"
+       x="493.97128"
+       y="886.25427"
+       id="text4"
+       transform="scale(1.0070047,0.99304401)"><tspan
+         sodipodi:role="line"
+         id="tspan4"
+         x="493.97128"
+         y="886.25427"
+         style="stroke-width:0">IP</tspan></text>
+  </g>
+</svg>
