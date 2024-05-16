@@ -9,7 +9,7 @@
         listDatabases,
     } from "../utils";
     import { open } from "@tauri-apps/api/dialog";
-    import { onMount } from "svelte";
+    import { onDestroy, onMount } from "svelte";
 
     let dbLoading: string | null = "Built in DB";
     let loadingModal: HTMLDialogElement;
@@ -30,7 +30,12 @@
     });
 
     let device: string | null = null;
-    let capturing: boolean = false;
+    let capturing: string | null = null;
+    window.onbeforeunload = () => {
+        if (capturing) {
+            stopCapturing(capturing);
+        }
+    };
 
     let settingsModal: HTMLDialogElement;
 </script>
@@ -38,7 +43,7 @@
 <div class="space-x-2 flow-root">
     <select
         class="select select-bordered select-sm max-w-xs"
-        disabled={dbLoading != null || capturing}
+        disabled={dbLoading != null || capturing != null}
         bind:value={device}
     >
         <option disabled selected value={null}>Select Network Device</option>
@@ -60,7 +65,7 @@
         class="select select-bordered select-sm max-w-xs"
         disabled={!device ||
             dbLoading != null ||
-            capturing ||
+            capturing != null ||
             databases.length == 0}
         bind:value={database}
     >
@@ -105,7 +110,7 @@
 
     <button
         class="btn btn-sm btn-secondary"
-        disabled={!device || dbLoading != null || capturing}
+        disabled={!device || dbLoading != null || capturing != null}
         on:click={async () => {
             const path = await open({
                 directory: false,
@@ -140,13 +145,13 @@
     <div class="float-right flex space-x-2">
         <button
             class="btn btn-sm"
-            disabled={!device || dbLoading != null || capturing}
+            disabled={!device || dbLoading != null || capturing != null}
             on:click={() => {
-                if (device) {
-                    stopCapturing(device);
+                if (device && capturing) {
+                    stopCapturing(capturing);
                 }
 
-                capturing = false;
+                capturing = null;
                 database = null;
                 device = null;
             }}
@@ -159,16 +164,15 @@
             class:btn-success={!capturing}
             class:btn-error={capturing}
             disabled={!device || !database || dbLoading != null}
-            on:click={() => {
+            on:click={async () => {
                 if (device) {
                     if (capturing) {
-                        stopCapturing(device);
+                        stopCapturing(capturing);
+                        capturing = null;
                     } else {
-                        startCapturing(device).catch(() => (capturing = false));
+                        capturing = await startCapturing(device).catch(() => null);
                     }
                 }
-
-                capturing = !capturing;
             }}
         >
             {capturing ? "Stop" : "Start"} Capturing

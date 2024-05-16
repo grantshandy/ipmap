@@ -3,22 +3,15 @@ use std::{
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
-    },
+    }, thread,
 };
 
-use base64::{
-    alphabet,
-    engine::{GeneralPurpose, GeneralPurposeConfig},
-    Engine,
-};
 use dashmap::DashSet;
 use etherparse::{NetHeaders, PacketHeaders};
 use pcap::{Active, Capture, PacketCodec};
 use rayon::iter::{ParallelBridge, ParallelIterator};
 use tauri::{AppHandle, Manager, Runtime};
-
-const BASE64_ENGINE: GeneralPurpose =
-    GeneralPurpose::new(&alphabet::URL_SAFE, GeneralPurposeConfig::new());
+use uuid::Uuid;
 
 #[derive(serde::Serialize, Clone, PartialEq)]
 pub struct Device {
@@ -79,61 +72,66 @@ impl PacketCodec for PacketSourceCodec {
 }
 
 #[tauri::command]
-pub async fn start_capturing<R: Runtime>(handle: AppHandle<R>, name: String) -> Result<(), String> {
+pub async fn start_capturing<R: Runtime>(handle: AppHandle<R>, name: String) -> Result<String, String> {
     tracing::info!("capturing on {name}");
+
+    let stop_signal = Uuid::new_v4().to_string();
 
     let cap: Capture<Active> = Capture::from_device(name.as_str())
         .map_err(|err| format!("device name \"{name}\" is invalid: {err}"))?
         .open()
         .map_err(|err| format!("failed to get open capture on {name}: {err}"))?;
 
-    let should_stop = Arc::new(AtomicBool::new(false));
+    let stop_signal_copy = stop_signal.clone();
+    thread::spawn(move || {
+        let should_stop = Arc::new(AtomicBool::new(false));
+    
+        let cancel_stop = should_stop.clone();
+        handle.listen_global(&stop_signal_copy, move |_| {
+            cancel_stop.store(true, Ordering::SeqCst)
+        });
+    
+        let connections: DashSet<Ipv4Addr> = DashSet::new();
+    
+        cap
+            .iter(PacketSourceCodec)
+            .par_bridge()
+            .try_for_each(|packet| {   
+                let source = match packet {
+                    Ok(Some(IpAddr::V4(ip))) => ip,
+                    Ok(Some(IpAddr::V6(_))) => {
+                        tracing::warn!("unhandled ipv6 connection");
+                        return Ok(());
+                    },
+                    Ok(_) => return Ok(()),
+                    Err(_) => return Ok(()),
+                };
 
-    let cancel_stop = should_stop.clone();
-    handle.listen_global(BASE64_ENGINE.encode(&name).replace("=", ""), move |_| {
-        cancel_stop.store(true, Ordering::SeqCst)
+                if should_stop.load(Ordering::SeqCst) {
+                    return Err(());
+                }
+    
+                if connections.insert(source) && ip_rfc::global_v4(&source) {
+                    handle
+                        .emit_all("new_connection", source)
+                        .expect("emit new_connection");
+                }
+    
+                Ok(())
+            })
+            .ok();
+    
+        tracing::info!("stopped {stop_signal_copy}");
     });
 
-    let connections: DashSet<Ipv4Addr> = DashSet::new();
-
-    cap
-        .iter(PacketSourceCodec)
-        .par_bridge()
-        .try_for_each(|packet| {
-            if should_stop.load(Ordering::SeqCst) {
-                return Err(());
-            }
-
-            let source = match packet {
-                Ok(Some(IpAddr::V4(ip))) => ip,
-                Ok(Some(IpAddr::V6(_))) => {
-                    tracing::warn!("unhandled ipv6 connection");
-                    return Ok(());
-                },
-                Ok(_) => return Ok(()),
-                Err(_) => return Ok(()),
-            };
-
-            if connections.insert(source) && ip_rfc::global_v4(&source) {
-                handle
-                    .emit_all("new_connection", source)
-                    .expect("emit new_connection");
-            }
-
-            Ok(())
-        })
-        .ok();
-
-    tracing::info!("stopping {name}");
-
-    Ok(())
+    Ok(stop_signal)
 }
 
 #[tauri::command]
-pub async fn stop_capturing<R: Runtime>(handle: AppHandle<R>, name: String) -> Result<(), String> {
-    tracing::info!("queueing capture stop of {name}");
+pub async fn stop_capturing<R: Runtime>(handle: AppHandle<R>, stop_signal: String) -> Result<(), String> {
+    tracing::info!("queueing capture stop of {stop_signal}");
 
-    handle.trigger_global(&BASE64_ENGINE.encode(&name).replace("=", ""), None);
+    handle.trigger_global(&stop_signal, None);
 
     Ok(())
 }

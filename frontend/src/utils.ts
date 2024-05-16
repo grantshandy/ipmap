@@ -44,8 +44,8 @@ export const invoke = async (cmd: string, args?: InvokeArgs | undefined): Promis
 
 export const listDevices = async (): Promise<Device[]> => invoke("list_devices");
 
-export const stopCapturing = async (name: string): Promise<void> => invoke("stop_capturing", { name });
-export const startCapturing = async (name: string): Promise<void> => invoke("start_capturing", { name });
+export const stopCapturing = async (stopSignal: string): Promise<void> => invoke("stop_capturing", { stopSignal });
+export const startCapturing = async (name: string): Promise<string> => invoke("start_capturing", { name });
 
 export const loadDatabase = async (path: string | string[] | null): Promise<DatabaseInfo | null> => invoke("load_database", { path });
 export const listDatabases = async (): Promise<DatabaseInfo[]> => invoke("list_databases");
