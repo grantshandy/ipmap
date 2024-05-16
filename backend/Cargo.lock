@@ -1431,7 +1431,7 @@ checksum = "6b8a253fc120dd6c624b7beb0a82330fc0135e0a9cec685bf039a07ba032af1e"
 
 [[package]]
 name = "ipmap"
-version = "0.3.0"
+version = "3.0.0"
 dependencies = [
  "bincode",
  "compact_str",

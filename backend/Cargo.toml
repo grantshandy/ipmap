@@ -1,6 +1,6 @@
 [package]
 name = "ipmap"
-version = "0.3.0"
+version = "3.0.0"
 authors = [
     "Aditya Suresh <ethanaditya@gmail.com>",
     "Grant H. <grantshandy@gmail.com>",
