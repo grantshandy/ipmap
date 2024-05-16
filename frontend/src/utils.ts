@@ -32,6 +32,11 @@ export type Location = {
     state: string | null
 }
 
+export type Connection = {
+    capturing_uuid: string,
+    ip: string
+};
+
 // invoke a tauri command, showing the error on screen if error returned
 export const invoke = async (cmd: string, args?: InvokeArgs | undefined): Promise<any> => {
     try {

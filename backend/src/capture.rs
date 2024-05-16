@@ -3,7 +3,8 @@ use std::{
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
-    }, thread,
+    },
+    thread,
 };
 
 use dashmap::DashSet;
@@ -71,8 +72,17 @@ impl PacketCodec for PacketSourceCodec {
     }
 }
 
+#[derive(Clone, serde::Serialize)]
+pub struct Connection {
+    capturing_uuid: String,
+    ip: Ipv4Addr,
+}
+
 #[tauri::command]
-pub async fn start_capturing<R: Runtime>(handle: AppHandle<R>, name: String) -> Result<String, String> {
+pub async fn start_capturing<R: Runtime>(
+    handle: AppHandle<R>,
+    name: String,
+) -> Result<String, String> {
     tracing::info!("capturing on {name}");
 
     let stop_signal = Uuid::new_v4().to_string();
@@ -85,24 +95,23 @@ pub async fn start_capturing<R: Runtime>(handle: AppHandle<R>, name: String) -> 
     let stop_signal_copy = stop_signal.clone();
     thread::spawn(move || {
         let should_stop = Arc::new(AtomicBool::new(false));
-    
+
         let cancel_stop = should_stop.clone();
         handle.listen_global(&stop_signal_copy, move |_| {
             cancel_stop.store(true, Ordering::SeqCst)
         });
-    
+
         let connections: DashSet<Ipv4Addr> = DashSet::new();
-    
-        cap
-            .iter(PacketSourceCodec)
+
+        cap.iter(PacketSourceCodec)
             .par_bridge()
-            .try_for_each(|packet| {   
+            .try_for_each(|packet| {
                 let source = match packet {
                     Ok(Some(IpAddr::V4(ip))) => ip,
                     Ok(Some(IpAddr::V6(_))) => {
                         tracing::warn!("unhandled ipv6 connection");
                         return Ok(());
-                    },
+                    }
                     Ok(_) => return Ok(()),
                     Err(_) => return Ok(()),
                 };
@@ -110,17 +119,23 @@ pub async fn start_capturing<R: Runtime>(handle: AppHandle<R>, name: String) -> 
                 if should_stop.load(Ordering::SeqCst) {
                     return Err(());
                 }
-    
+
                 if connections.insert(source) && ip_rfc::global_v4(&source) {
                     handle
-                        .emit_all("new_connection", source)
+                        .emit_all(
+                            "new_connection",
+                            Connection {
+                                ip: source,
+                                capturing_uuid: stop_signal_copy.clone(),
+                            },
+                        )
                         .expect("emit new_connection");
                 }
-    
+
                 Ok(())
             })
             .ok();
-    
+
         tracing::info!("stopped {stop_signal_copy}");
     });
 
@@ -128,7 +143,10 @@ pub async fn start_capturing<R: Runtime>(handle: AppHandle<R>, name: String) -> 
 }
 
 #[tauri::command]
-pub async fn stop_capturing<R: Runtime>(handle: AppHandle<R>, stop_signal: String) -> Result<(), String> {
+pub async fn stop_capturing<R: Runtime>(
+    handle: AppHandle<R>,
+    stop_signal: String,
+) -> Result<(), String> {
     tracing::info!("queueing capture stop of {stop_signal}");
 
     handle.trigger_global(&stop_signal, None);

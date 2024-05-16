@@ -30,7 +30,7 @@
     });
 
     let device: string | null = null;
-    let capturing: string | null = null;
+    export let capturing: string | null = null;
     window.onbeforeunload = () => {
         if (capturing) {
             stopCapturing(capturing);
@@ -73,7 +73,7 @@
             >Select IP Geolocation Database</option
         >
         {#each databases as option}
-            <option value={option}>{option.name}</option>
+            <option value={option} selected={database && option.name == database.name}>{option.name}</option>
         {/each}
     </select>
 
@@ -127,7 +127,7 @@
             const newDatabase = await loadDatabase(path);
             if (newDatabase != null) {
                 await updateDatabases();
-                database = newDatabase;
+                database = databases.filter((d) => d.build_time == newDatabase.build_time)[0];
                 console.log(database, databases);
             }
 
