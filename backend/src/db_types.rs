@@ -33,13 +33,12 @@ impl Eq for Location {}
 
 pub fn read_csv<R: io::Read>(rdr: R) -> Result<(GeoDb, usize), DeserializeError> {
     let mut db = GeoDb::new();
-    let mut locations = 0;
 
-    csv::ReaderBuilder::new()
+    let locations = csv::ReaderBuilder::new()
         .has_headers(false)
         .from_reader(rdr)
         .byte_records()
-        .for_each(|record| {
+        .map(|record| {
             let record = record.expect("deserialize record");
 
             let ip_range_start = str_from_byte_record(&record[0])
@@ -62,8 +61,8 @@ pub fn read_csv<R: io::Read>(rdr: R) -> Result<(GeoDb, usize), DeserializeError>
                     state: str_from_byte_record(&record[3]),
                 },
             );
-            locations += 1;
-        });
+        })
+        .count();
 
     Ok((db, locations))
 }

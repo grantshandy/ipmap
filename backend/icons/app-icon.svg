@@ -30,7 +30,7 @@
      showguides="false"
      inkscape:zoom="0.51717104"
      inkscape:cx="274.57067"
-     inkscape:cy="497.90105"
+     inkscape:cy="497.90104"
      inkscape:window-width="1920"
      inkscape:window-height="1017"
      inkscape:window-x="-8"
@@ -45,38 +45,38 @@
      inkscape:groupmode="layer"
      id="layer1">
     <circle
-       style="fill:#ffffff;stroke-width:18.8976378;stroke-dasharray:none;stroke:#000000;stroke-opacity:1;fill-opacity:1"
+       style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:50;stroke-dasharray:none;stroke-opacity:1"
        id="path1"
        cx="512"
        cy="512"
-       r="500" />
+       r="460" />
     <path
-       style="fill:#1c71d8;fill-opacity:0;stroke:#000000;stroke-width:18.8976;stroke-dasharray:none;stroke-opacity:1"
-       d="m 266.61552,79.301025 c 0,0 801.17418,347.390145 488.18507,683.582375 C 441.81151,1099.0756 77.933766,272.08455 77.933766,272.08455"
+       style="fill:#1c71d8;fill-opacity:0;stroke:#000000;stroke-width:50;stroke-dasharray:none;stroke-opacity:1"
+       d="m 293.68587,112.17216 c 0,0 774.10383,314.51901 461.11472,650.71124 C 441.81151,1099.0756 114.6721,289.48692 114.6721,289.48692"
        id="path2"
        sodipodi:nodetypes="czc" />
     <circle
-       style="fill:#1c71d8;fill-opacity:1;stroke:#000000;stroke-width:19.936;stroke-dasharray:none;stroke-opacity:1"
+       style="fill:#1c71d8;fill-opacity:1;stroke:#000000;stroke-width:50;stroke-dasharray:none;stroke-opacity:1"
        id="path3"
-       cx="697.0022"
-       cy="697.0022"
+       cx="692.03418"
+       cy="692.03418"
        r="287.03418" />
     <path
-       style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:18.8976;stroke-dasharray:none;stroke-opacity:1"
-       d="m 183.69165,895.25509 c 0,0 -119.202346,-285.17884 174.02366,-553.00854 C 650.94132,74.416846 897.18864,193.35963 897.18864,193.35963"
+       style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:50;stroke-linecap:butt;stroke-dasharray:none;stroke-opacity:1"
+       d="m 185.62524,839.18079 c 0,0 -103.733569,-219.43656 189.49244,-487.26626 C 668.34369,84.084827 866.2511,216.56279 866.2511,216.56279"
        id="path4"
        sodipodi:nodetypes="czc" />
     <text
        xml:space="preserve"
-       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:520.139px;font-family:Corbel;-inkscape-font-specification:'Corbel, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0;stroke-dasharray:none;stroke-opacity:1"
-       x="493.97128"
-       y="886.25427"
+       style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:520.139px;font-family:Corbel;-inkscape-font-specification:'Corbel, Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0;stroke-dasharray:none;stroke-opacity:1"
+       x="479.43707"
+       y="879.30426"
        id="text4"
-       transform="scale(1.0070047,0.99304401)"><tspan
+       transform="scale(1.0070047,0.99304402)"><tspan
          sodipodi:role="line"
          id="tspan4"
-         x="493.97128"
-         y="886.25427"
-         style="stroke-width:0">IP</tspan></text>
+         x="479.43707"
+         y="879.30426"
+         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:520.139px;font-family:Corbel;-inkscape-font-specification:'Corbel, Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;stroke-width:0">IP</tspan></text>
   </g>
 </svg>

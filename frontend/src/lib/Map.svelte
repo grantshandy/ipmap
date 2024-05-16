@@ -1,23 +1,14 @@
 <script lang="ts">
-    import { Pane, Splitpanes } from "svelte-splitpanes";
     import { listen } from "@tauri-apps/api/event";
-    import { lookupDns, lookupIp, stopCapturing } from "../utils";
+    import { lookupDns, lookupIp } from "../utils";
     import type { DatabaseInfo, Location, LocationSelection } from "../utils";
 
-    import {
-        marker,
-        map,
-        tileLayer,
-        Map,
-        DivIcon,
-        divIcon,
-        polyline,
-        type LatLngExpression,
-    } from "leaflet";
+    import { marker, map, tileLayer, Map, DivIcon, divIcon } from "leaflet";
     import "leaflet-providers";
     import "leaflet-active-area";
     import "leaflet/dist/leaflet.css";
-    
+    import { fly } from "svelte/transition";
+
     export let database: DatabaseInfo | null;
 
     const countryNames = new Intl.DisplayNames("en", { type: "region" });
@@ -65,25 +56,26 @@
 
         if (key == null) {
             selection = null;
-            setTimeout(resizeMap, 25);
+            setTimeout(resizeMap, 10);
             return;
         }
 
         if (selection != null && mkKey(selection.loc) == key) {
             selection = null;
+            resizeMap();
         } else {
             selection = locs[key];
             selection.marker
                 .setIcon(mkIcon(selection.ips.length, true))
                 .setZIndexOffset(100);
-            setTimeout(() => {
-                if (mapInstance && selection) {
+            // setTimeout(() => {
+                // if (mapInstance && selection) {
                     mapInstance.panTo([
                         selection.loc.latitude,
                         selection.loc.longitude,
                     ]);
-                }
-            }, 25);
+                // }
+            // }, 25);
         }
     };
 
@@ -138,26 +130,13 @@
 
 <svelte:window on:resize={resizeMap} />
 
-<Splitpanes
-    horizontal={false}
-    theme="dummy"
-    on:resize={resizeMap}
-    on:pane-remove={resizeMap}
-    on:splitter-click={() => {
-        setSelection(null);
-        resizeMap();
-    }}
-    class="w-full h-full"
->
-    <Pane size={100}>
-        <div class="w-full h-full select-none rounded-sm" use:mapAction></div>
-    </Pane>
+<div class="relative w-full h-full rounded-md overflow-hidden">
+    <div class="w-full h-full z-20 select-none overflow-hidden" use:mapAction></div>
     {#if selection}
-        <Pane
-            class="flex flex-col rounded-sm pl-4 py-4 space-y-2 w-full h-full overflow-x-auto"
-            size={30}
-            snapSize={10}
-            maxSize={40}
+        <div
+            in:fly={{ duration: 300, x: 20 }}
+            out:fly={{ duration: 300, x: 20 }}
+            class="absolute right-0 top-0 bottom-0 z-40 flex flex-col w-64 pl-4 py-4 space-y-2 bg-base-100/[0.8] overflow-x-auto"
         >
             <p>Location Information</p>
 
@@ -186,6 +165,6 @@
                     </li>
                 {/each}
             </ul>
-        </Pane>
+        </div>
     {/if}
-</Splitpanes>
+</div>

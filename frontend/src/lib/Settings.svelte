@@ -68,9 +68,7 @@
             >Select IP Geolocation Database</option
         >
         {#each databases as option}
-            <option value={option}>
-                {option.name}
-            </option>
+            <option value={option}>{option.name}</option>
         {/each}
     </select>
 
@@ -85,7 +83,7 @@
                 <h3 class="font-bold text-lg">Database Info</h3>
                 {#if database}
                     <ul class="py-4 list-dic">
-                        <li>{database.name}</li>
+                        <li>Name: {database.name}</li>
                         <li>
                             Distinct Locations: {database.locations.toLocaleString()}
                         </li>
@@ -121,16 +119,12 @@
 
             dbLoading = await basename(path.toString());
 
-            const newDatabase = await loadDatabase(path).catch(() => {
-                dbLoading = null;
-            });
-
+            const newDatabase = await loadDatabase(path);
             if (newDatabase != null) {
-                databases = [...databases, newDatabase];
+                await updateDatabases();
                 database = newDatabase;
+                console.log(database, databases);
             }
-
-            updateDatabases();
 
             dbLoading = null;
         }}>+</button
