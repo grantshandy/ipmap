@@ -22,12 +22,10 @@ fn main() {
         let (db, locations) = db_types::read_csv(File::open(&ip_csv_path).expect("Read IPV4NUM_DB database"))
             .expect("read csv");
 
-        let mut db_path = format!("{out_dir}/encoded_db");
         #[cfg(windows)]
-        {
-            db_path = db_path.replace(r"/", r"\").replace(r"\", r"\\");
-        }
-        // println!("cargo:rerun-if-changed={db_path}");
+        let db_path = format!("{out_dir}/encoded_db").replace(r"/", r"\").replace(r"\", r"\\");
+        #[cfg(not(windows))]
+        let db_path = format!("{out_dir}/encoded_db");
 
         let mut db_file = File::create(&db_path).expect("open db");
         bincode::serialize_into(&mut db_file, &db).expect("serialize");
