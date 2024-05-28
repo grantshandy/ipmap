@@ -1,7 +1,6 @@
 import { invoke as rawInvoke } from "@tauri-apps/api";
 import { emit } from "@tauri-apps/api/event";
 import type { InvokeArgs } from "@tauri-apps/api/tauri";
-import type { Marker } from "leaflet";
 
 type Device = {
     name: string,
@@ -17,12 +16,6 @@ export type DatabaseInfo = {
     locations: number
 }
 
-export type LocationSelection = {
-    loc: Location,
-    ips: string[],
-    marker: Marker,
-}
-
 export type Location = {
     latitude: number,
     longitude: number,
@@ -35,6 +28,11 @@ export type Location = {
 export type Connection = {
     capturing_uuid: string,
     ip: string
+};
+
+export enum Mode {
+    CAPTURE,
+    SEARCH,
 };
 
 // invoke a tauri command, showing the error on screen if error returned
@@ -54,5 +52,6 @@ export const startCapturing = async (name: string): Promise<string> => invoke("s
 
 export const loadDatabase = async (path: string | string[] | null): Promise<DatabaseInfo | null> => invoke("load_database", { path });
 export const listDatabases = async (): Promise<DatabaseInfo[]> => invoke("list_databases");
-export const lookupIp = async (ip: string, databasePath: string | null): Promise<Location | null> => invoke("lookup_ip", { ip, database: databasePath });
+export const lookupIp = async (ip: string, database: DatabaseInfo | null): Promise<Location | null> => invoke("lookup_ip", { ip, database: database?.path });
 export const lookupDns = async (ip: string): Promise<string | null> => invoke("dns_lookup_addr", { ip });
+export const validateIp = async (ip: string): Promise<boolean> => invoke("validate_ip", { ip });

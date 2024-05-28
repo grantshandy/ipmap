@@ -16,6 +16,10 @@ pub async fn lookup_ip(
     database: Option<PathBuf>,
     ip: Ipv4Addr,
 ) -> Result<Option<database::Location>, String> {
+    if !ip_rfc::global_v4(&ip) {
+        return Err(format!("ip {ip} is not global"));
+    }
+
     let res = match database {
         Some(path) => databases
             .get(&path)

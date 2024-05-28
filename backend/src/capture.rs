@@ -27,7 +27,7 @@ pub async fn list_devices() -> Result<Vec<Device>, String> {
     let prefered = pcap::Device::lookup().map_err(|e| e.to_string())?;
 
     for d in pcap::Device::list().map_err(|e| e.to_string())? {
-        if d.flags.is_loopback() || !d.flags.is_running() {
+        if d.flags.is_loopback() || !d.flags.is_running() || !d.flags.is_up() || d.addresses.is_empty() {
             continue;
         }
 
@@ -103,9 +103,14 @@ pub async fn start_capturing<R: Runtime>(
 
         let connections: DashSet<Ipv4Addr> = DashSet::new();
 
+        // Err(()) is a de-facto the stop signal
         cap.iter(PacketSourceCodec)
             .par_bridge()
             .try_for_each(|packet| {
+                if should_stop.load(Ordering::SeqCst) {
+                    return Err(());
+                }
+
                 let source = match packet {
                     Ok(Some(IpAddr::V4(ip))) => ip,
                     Ok(Some(IpAddr::V6(_))) => {
@@ -116,14 +121,10 @@ pub async fn start_capturing<R: Runtime>(
                     Err(_) => return Ok(()),
                 };
 
-                if should_stop.load(Ordering::SeqCst) {
-                    return Err(());
-                }
-
                 if connections.insert(source) && ip_rfc::global_v4(&source) {
                     handle
                         .emit_all(
-                            "new_connection",
+                            "new_capture",
                             Connection {
                                 ip: source,
                                 capturing_uuid: stop_signal_copy.clone(),

@@ -38,7 +38,7 @@
     listen("info", (e) => toasts.newInfo(e.payload as string));
 </script>
 
-<div class="toast toast-end z-[9999]">
+<div class="toast toast-end z-[9999] pr-6 pb-6">
     {#each $toasts as toast}
         <div
             role="alert"
