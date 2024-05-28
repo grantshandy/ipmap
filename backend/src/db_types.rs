@@ -2,6 +2,7 @@ use std::io;
 
 use compact_str::CompactString;
 use csv::DeserializeError;
+use serde::de::Error;
 
 #[derive(Clone, PartialEq, Eq, serde::Serialize)]
 pub struct Database {
@@ -41,28 +42,29 @@ pub fn read_csv<R: io::Read>(rdr: R) -> Result<(GeoDb, usize), DeserializeError>
         .map(|record| {
             let record = record.expect("deserialize record");
 
-            let ip_range_start = str_from_byte_record(&record[0])
-                .unwrap()
-                .parse::<u32>()
-                .unwrap();
-            let ip_range_end = str_from_byte_record(&record[1])
-                .unwrap()
-                .parse::<u32>()
-                .unwrap();
+            let (Ok(ip_range_start), Ok(ip_range_end)) = (
+                str_from_byte_record(&record[0]).unwrap().parse::<u32>(),
+                str_from_byte_record(&record[1]).unwrap().parse::<u32>(),
+            ) else {
+                return Err(DeserializeError::custom("couldn't parse ip ranges"));
+            };
 
             db.insert(
                 ip_range_start..=ip_range_end,
                 Location {
-                    latitude: str_from_byte_record(&record[7]).map(|s| s.parse::<f32>().unwrap()),
-                    longitude: str_from_byte_record(&record[8]).map(|s| s.parse::<f32>().unwrap()),
+                    latitude: str_from_byte_record(&record[7]).and_then(|s| s.parse::<f32>().ok()),
+                    longitude: str_from_byte_record(&record[8]).and_then(|s| s.parse::<f32>().ok()),
                     city: str_from_byte_record(&record[5]),
                     country_code: str_from_byte_record(&record[2]),
                     timezone: str_from_byte_record(&record[9]),
                     state: str_from_byte_record(&record[3]),
                 },
             );
+
+            Ok(())
         })
-        .count();
+        .collect::<Result<Vec<()>, DeserializeError>>()?
+        .len();
 
     Ok((db, locations))
 }

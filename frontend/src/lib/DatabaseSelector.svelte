@@ -25,7 +25,9 @@
 
         loading = await basename(path.toString());
 
-        const newDatabase = await loadDatabase(path);
+        const newDatabase = await loadDatabase(path).catch(
+            (_) => (loading = null),
+        );
         if (newDatabase != null) {
             databases = await listDatabases();
             database =

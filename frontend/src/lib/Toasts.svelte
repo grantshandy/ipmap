@@ -47,7 +47,7 @@
             class:alert-info={!toast.error}
             out:fade={{ duration: 100 }}
         >
-            <span class="grow font-semibold">{!toast.error ? "Info:" : ""} {toast.msg}</span>
+            <span class="grow font-semibold">{!toast.error ? "Info:" : "Error:"} {toast.msg}</span>
             <button
                 class="btn btn-circle btn-xs btn-outline"
                 on:click={() => toasts.remove(toast)}
