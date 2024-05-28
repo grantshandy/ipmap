@@ -1,8 +1,6 @@
 <script lang="ts">
     import { validateIp, type DatabaseInfo } from "../utils";
-    import { invoke } from "@tauri-apps/api";
     import { map } from "../map";
-    import { Address4 } from "ip-address";
 
     export let loading: string | null;
     export let database: DatabaseInfo | null;
