@@ -26,14 +26,12 @@ pub async fn lookup_ip(
             .ok_or("database not found".to_string())?
             .value()
             .db
-            .get(&u32::from(ip))
-            .cloned(),
+            .get(ip),
         None => database::DATABASE
             .as_ref()
             .ok_or("no internal database set")?
             .db
-            .get(&u32::from(ip))
-            .cloned(),
+            .get(ip),
     };
 
     Ok(res)
@@ -57,6 +55,7 @@ pub async fn load_database(
     tracing::info!("reading db at {path:?}");
 
     let db_file = File::open(&path).map_err(|e| e.to_string())?;
+
     let (db, locations) = database::read_csv(&db_file).map_err(|e| e.to_string())?;
 
     let info = Info {
@@ -68,7 +67,7 @@ pub async fn load_database(
         path: Some(path.to_string_lossy().to_string()),
         build_time: database::build_time(),
         attribution_text: None,
-        locations
+        locations,
     };
 
     databases.insert(

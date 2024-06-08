@@ -27,7 +27,11 @@ pub async fn list_devices() -> Result<Vec<Device>, String> {
     let prefered = pcap::Device::lookup().map_err(|e| e.to_string())?;
 
     for d in pcap::Device::list().map_err(|e| e.to_string())? {
-        if d.flags.is_loopback() || !d.flags.is_running() || !d.flags.is_up() || d.addresses.is_empty() {
+        if d.flags.is_loopback()
+            || !d.flags.is_running()
+            || !d.flags.is_up()
+            || d.addresses.is_empty()
+        {
             continue;
         }
 

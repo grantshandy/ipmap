@@ -1,7 +1,6 @@
 use std::{
     env,
     fs::{self, File},
-    io::Write,
     path::Path,
 };
 
@@ -19,17 +18,25 @@ fn main() {
         let attribution =
             env::var("IPV4NUM_DB_ATTRIBUTION").expect("IPV4NUM_DB_ATTRIBUTION must be set.");
 
-        let (db, locations) = db_types::read_csv(File::open(&ip_csv_path).expect("Read IPV4NUM_DB database"))
-            .expect("read csv");
+        let (db, locations) =
+            db_types::read_csv(File::open(&ip_csv_path).expect("Read IPV4NUM_DB database"))
+                .expect("read csv");
 
         #[cfg(windows)]
-        let db_path = format!("{out_dir}/encoded_db").replace(r"/", r"\").replace(r"\", r"\\");
+        let db_path = format!("{out_dir}/encoded_db")
+            .replace(r"/", r"\")
+            .replace(r"\", r"\\");
         #[cfg(not(windows))]
         let db_path = format!("{out_dir}/encoded_db");
 
-        let mut db_file = File::create(&db_path).expect("open db");
-        bincode::serialize_into(&mut db_file, &db).expect("serialize");
-        db_file.flush().expect("flush db file");
+        fs::write(
+            &db_path,
+            miniz_oxide::deflate::compress_to_vec(
+                &bincode::serialize(&db).expect("serialize db"),
+                10,
+            ),
+        )
+        .expect("write db to file");
 
         let build_time = db_types::build_time();
         let db_name = Path::new(&ip_csv_path)
@@ -39,7 +46,7 @@ fn main() {
             .to_string();
 
         format!("Some(Database {{
-            db: bincode::deserialize(include_bytes!(\"{db_path}\").as_slice()).expect(\"deserialize database\"),
+            db: bincode::deserialize(&miniz_oxide::inflate::decompress_to_vec(include_bytes!(\"{db_path}\").as_slice()).expect(\"decompress database\")).expect(\"deserialize database\"),
             info: Info {{
                 name: \"{db_name} (built in)\".to_string(),
                 path: None,

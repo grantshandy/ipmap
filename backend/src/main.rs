@@ -35,9 +35,9 @@ mod validate {
     #[tauri::command]
     pub async fn validate_ip(ip: String) -> Result<bool, String> {
         if let Ok(ip) = ip.parse::<Ipv4Addr>() {
-            return Ok(ip_rfc::global_v4(&ip))
+            return Ok(ip_rfc::global_v4(&ip));
         } else {
-            return Ok(false)
+            return Ok(false);
         }
     }
 }
