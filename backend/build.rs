@@ -8,7 +8,7 @@ use db_types::Database;
 fn main() {
     tauri_build::build();
 
-    // println!("cargo:rerun-if-env-changed=IPV4NUM_DB");
+    println!("cargo:rerun-if-env-changed=IPV4NUM_DB");
 
     let out_dir = env::var("OUT_DIR").unwrap();
 
@@ -29,20 +29,25 @@ fn main() {
             fs::write(
                 &db_path,
                 miniz_oxide::deflate::compress_to_vec(
-                    &bincode::serialize(&db).expect("serialize db"),
-                    10,
-                ),
+                    &miniz_oxide::deflate::compress_to_vec(
+                        &bincode::serialize(&db).expect("serialize db"),
+                        10,
+                    ),
+                    10
+                )
             )
             .expect("write db to file");
 
             format!(
-                "Some(
-                bincode::deserialize(
-                    &miniz_oxide::inflate::decompress_to_vec(
-                        include_bytes!(\"{db_path}\").as_slice()
-                    ).expect(\"decompress database\")
-                ).expect(\"deserialize database\")
-            )"
+                r#"Some(
+                    bincode::deserialize(
+                        &miniz_oxide::inflate::decompress_to_vec(
+                            &miniz_oxide::inflate::decompress_to_vec(
+                                include_bytes!("{db_path}").as_slice()
+                            ).expect("decompress database 1")
+                        ).expect("decompress database 2")
+                    ).expect("deserialize database")
+                )"#
             )
         }
         Err(_) => "None".to_string(),

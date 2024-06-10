@@ -1,6 +1,6 @@
 [package]
 name = "ipmap"
-version = "3.0.0"
+version = "3.1.0"
 authors = [
     "Aditya Suresh <ethanaditya@gmail.com>",
     "Grant H. <grantshandy@gmail.com>",
@@ -17,13 +17,14 @@ edition = "2021"
 
 [profile.release]
 opt-level = "z"
-lto = "fat"
-strip = "symbols"
+codegen-units = 1
+lto = true
+strip = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tauri = { version = "1.6.2", features = [ "path-all", "dialog-open", "tracing"] }
+tauri = { version = "1.6.2", default-features = false, features = [ "path-all", "dialog-open", "tracing", "wry", "objc-exception" ] }
 pcap = "2.0.0"
 dns-lookup = "2.0.4"
 etherparse = "0.15.0"

@@ -7,6 +7,9 @@
     export let database: DatabaseInfo | null;
     export let loading: string | null;
 
+    loading = "Internal Database";
+    loadDatabase(null).then(() => (loading = null));
+
     let databases: DatabaseInfo[] = [];
     listDatabases().then((db) => (databases = db));
 
