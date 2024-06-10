@@ -2,12 +2,12 @@
     import CloseIcon from "./CloseIcon.svelte";
 
     import "leaflet/dist/leaflet.css";
-    import { map } from "../map";
-    import { Mode, lookupDns } from "../utils";
+    import { map, ApplicationMode } from "../map";
+    import { lookupDns } from "../bindings";
     import { fly } from "svelte/transition";
 
     export let query: string;
-    export let state: Mode;
+    export let state: ApplicationMode;
     const countryNames = new Intl.DisplayNames("en", { type: "region" });
 
     const mapAction = (container: HTMLDivElement) => {
@@ -25,7 +25,7 @@
 
     const search = (ip: string) => {
         query = ip;
-        state = Mode.SEARCH;
+        state = ApplicationMode.SEARCH;
     };
 </script>
 
@@ -68,7 +68,7 @@
                 {/if}
             </ul>
 
-            {#if state == Mode.CAPTURE}
+            {#if state == ApplicationMode.CAPTURE}
                 <p>Addresses</p>
                 <ul class="list-disc ml-4">
                     {#each $map.selection.ips as ip}

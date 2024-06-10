@@ -5,14 +5,14 @@
   import SearchMenu from "./lib/SearchMenu.svelte";
   import DatabaseSelector from "./lib/DatabaseSelector.svelte";
 
-  import { Mode, type DatabaseInfo } from "./utils";
-  import { map } from "./map";
+  import { map, ApplicationMode } from "./map";
+  import type { DatabaseInfo } from "./bindings";
 
   let loading: string | null = null;
   let database: DatabaseInfo | null = null;
 
   let query: string = "";
-  let state: Mode = Mode.CAPTURE;
+  let state: ApplicationMode = ApplicationMode.CAPTURE;
   $: map.setMode(state);
 
   let loadingModal: HTMLDialogElement;
@@ -32,11 +32,11 @@
       <div class="grow flex items-center space-x-2">
         <span>Mode:</span>
         <select class="select select-bordered select-sm" bind:value={state}>
-          <option value={Mode.CAPTURE}>Capture</option>
-          <option value={Mode.SEARCH}>Search</option>
+          <option value={ApplicationMode.CAPTURE}>Capture</option>
+          <option value={ApplicationMode.SEARCH}>Search</option>
         </select>
       </div>
-      {#if state == Mode.CAPTURE}
+      {#if state == ApplicationMode.CAPTURE}
         <CaptureMenu bind:database bind:loading />
       {:else}
         <SearchMenu bind:database bind:loading bind:query />

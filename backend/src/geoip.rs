@@ -1,14 +1,13 @@
-use std::{fs::File, net::Ipv4Addr, path::PathBuf};
+use std::{net::Ipv4Addr, path::PathBuf};
 
+use crate::DatabaseState;
 use tauri::State;
-
-use crate::{geoip::database::Database, DatabaseState};
-
-use self::database::Info;
 
 pub mod database {
     include!(concat!(env!("OUT_DIR"), "/database.rs"));
 }
+
+use database::{Database, DatabaseInfo};
 
 #[tauri::command]
 pub async fn lookup_ip(
@@ -25,69 +24,54 @@ pub async fn lookup_ip(
             .get(&path)
             .ok_or("database not found".to_string())?
             .value()
-            .db
             .get(ip),
         None => database::DATABASE
             .as_ref()
             .ok_or("no internal database set")?
-            .db
             .get(ip),
     };
 
     Ok(res)
 }
 
+/// Load a database by its identifier (a path).
+/// No path (None) is for the database optionally compiled into the executable.
 #[tauri::command]
 pub async fn load_database(
     databases: State<'_, DatabaseState>,
     path: Option<PathBuf>,
-) -> Result<Option<database::Info>, String> {
-    let Some(path) = path else {
-        lazy_static::initialize(&database::DATABASE);
+) -> Result<Option<DatabaseInfo>, String> {
+    match path {
+        Some(path) => {
+            tracing::info!("reading db at {path:?}");
 
-        if database::DATABASE.is_none() {
-            tracing::warn!("no internal database set");
+            let db = database::Database::from_csv(&path, None).map_err(|e| e.to_string())?;
+            let info = db.info();
+
+            databases.insert(path, db);
+
+            Ok(Some(info))
         }
+        None => {
+            if database::DATABASE.is_none() {
+                tracing::warn!("no internal database set");
+            }
 
-        return Ok(database::DATABASE.as_ref().map(|db| db.info.clone()));
-    };
-
-    tracing::info!("reading db at {path:?}");
-
-    let db_file = File::open(&path).map_err(|e| e.to_string())?;
-
-    let (db, locations) = database::read_csv(&db_file).map_err(|e| e.to_string())?;
-
-    let info = Info {
-        name: path
-            .file_stem()
-            .unwrap_or_default()
-            .to_string_lossy()
-            .to_string(),
-        path: Some(path.to_string_lossy().to_string()),
-        build_time: database::build_time(),
-        attribution_text: None,
-        locations,
-    };
-
-    databases.insert(
-        path,
-        Database {
-            db,
-            info: info.clone(),
-        },
-    );
-
-    Ok(Some(info))
+            Ok(database::DATABASE.as_ref().map(Database::info))
+        }
+    }
 }
 
+/// List all databases (by info)
 #[tauri::command]
-pub fn list_databases(databases: State<'_, DatabaseState>) -> Vec<Info> {
-    let mut databases: Vec<Info> = databases.iter().map(|v| v.info.clone()).collect();
+pub async fn list_databases(databases: State<'_, DatabaseState>) -> Result<Vec<DatabaseInfo>, ()> {
+    tracing::info!("listing databases");
+
+    let mut databases: Vec<DatabaseInfo> = databases.iter().map(|v| v.info()).collect();
 
     if let Some(internal) = database::DATABASE.as_ref() {
-        databases.push(internal.info.clone());
+        databases.push(internal.info());
     }
 
-    databases
+    Ok(databases)
 }

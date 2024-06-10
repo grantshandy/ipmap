@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { validateIp, type DatabaseInfo } from "../utils";
+    import { validateIp, type DatabaseInfo } from "../bindings";
     import { map } from "../map";
 
     export let loading: string | null;

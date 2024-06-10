@@ -1,14 +1,19 @@
-import { type Marker, type Map, divIcon, DivIcon, marker, map as mkMap, tileLayer, type LatLngExpression, Layer, LayerGroup, layerGroup } from "leaflet";
+import { type Marker, type Map, divIcon, DivIcon, marker, map as mkMap, tileLayer, type LatLngExpression, LayerGroup, layerGroup } from "leaflet";
 import "leaflet-providers";
 import "leaflet-active-area";
 
-import { Mode, lookupIp, type DatabaseInfo, type Location } from "./utils";
+import { lookupIp, type DatabaseInfo, type Location } from "./bindings";
 import { writable } from "svelte/store";
 
 export type LocationSelection = {
     loc: Location,
     ips: string[],
     marker: Marker,
+}
+
+export enum ApplicationMode {
+    CAPTURE,
+    SEARCH,
 }
 
 type MapStore = {
@@ -46,7 +51,7 @@ export const map = (() => {
         }
     );
 
-    const setContainer = (container: HTMLElement, mode: Mode) => update((prev) => {
+    const setContainer = (container: HTMLElement, mode: ApplicationMode) => update((prev) => {
         prev.container = container;
         prev.instance = mkMap(prev.container, { preferCanvas: true });
         prev.instance.setView([30, 0], 2);
@@ -73,12 +78,12 @@ export const map = (() => {
         return prev;
     });
 
-    const setMode = (mode: Mode) => update((prev) => {
+    const setMode = (mode: ApplicationMode) => update((prev) => {
         if (!prev.instance) return prev;
 
         resetView();
 
-        if (mode == Mode.CAPTURE) {
+        if (mode == ApplicationMode.CAPTURE) {
             prev.searchLayer.removeFrom(prev.instance);
             prev.captureLayer.addTo(prev.instance);
         } else {
@@ -186,7 +191,7 @@ export const map = (() => {
         (async () => {
             if (!prev.instance) return;
 
-            const loc = await lookupIp(ip, database);
+            const loc: Location | null = await lookupIp(ip, database);
             if (!loc) return;
 
             prev.locations[mkKey(loc)] = {

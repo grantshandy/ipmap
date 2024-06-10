@@ -12,9 +12,11 @@ use etherparse::{NetHeaders, PacketHeaders};
 use pcap::{Active, Capture, PacketCodec};
 use rayon::iter::{ParallelBridge, ParallelIterator};
 use tauri::{AppHandle, Manager, Runtime};
+use ts_rs::TS;
 use uuid::Uuid;
 
-#[derive(serde::Serialize, Clone, PartialEq)]
+#[derive(serde::Serialize, Clone, PartialEq, TS)]
+#[ts(export, export_to = "../../frontend/src/bindings/")]
 pub struct Device {
     name: String,
     desc: Option<String>,
@@ -76,7 +78,8 @@ impl PacketCodec for PacketSourceCodec {
     }
 }
 
-#[derive(Clone, serde::Serialize)]
+#[derive(Clone, serde::Serialize, TS)]
+#[ts(export, export_to = "../../frontend/src/bindings/")]
 pub struct Connection {
     capturing_uuid: String,
     ip: Ipv4Addr,

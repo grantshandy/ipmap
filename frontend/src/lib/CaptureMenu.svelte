@@ -4,11 +4,10 @@
         listDevices,
         startCapturing,
         stopCapturing,
-        type Connection,
-        type DatabaseInfo,
-    } from "../utils";
+    } from "../bindings";
     import { map } from "../map";
     import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+    import type { Connection, DatabaseInfo } from "../bindings";
 
     export let database: DatabaseInfo | null;
     export let loading: string | null;

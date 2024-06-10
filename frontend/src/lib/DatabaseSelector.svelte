@@ -2,7 +2,7 @@
     import { open } from "@tauri-apps/api/dialog";
     import { basename } from "@tauri-apps/api/path";
 
-    import { listDatabases, loadDatabase, type DatabaseInfo } from "../utils";
+    import { listDatabases, loadDatabase, type DatabaseInfo } from "../bindings";
 
     export let database: DatabaseInfo | null;
     export let loading: string | null;

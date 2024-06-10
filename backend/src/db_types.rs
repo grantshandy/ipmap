@@ -1,61 +1,92 @@
 use std::collections::HashMap;
+use std::fs::File;
 use std::hash::{DefaultHasher, Hasher};
-use std::io;
 use std::net::Ipv4Addr;
-use std::ops::RangeInclusive;
+use std::path::{Path, PathBuf};
 
 use compact_str::CompactString;
-use csv::DeserializeError;
 use half::f16;
-use serde::de::Error;
 use rangemap::RangeInclusiveMap;
+use time::OffsetDateTime;
+use ts_rs::TS;
 
-#[derive(Clone, PartialEq, Eq, serde::Serialize)]
+#[derive(Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Database {
-    pub db: GeoDb,
-    pub info: Info,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
-pub struct Info {
-    pub name: String,
-    pub attribution_text: Option<String>,
-    pub path: Option<String>,
-    pub build_time: String,
-    pub locations: usize,
-}
-
-#[derive(serde::Deserialize, serde::Serialize, Default, PartialEq, Eq, Clone)]
-pub struct GeoDb {
     map: RangeInclusiveMap<u32, LocationEncoded>,
-    strings: HashMap<u32, CompactString>,
+    string_dict: HashMap<u32, CompactString>,
+    name: CompactString,
+    attribution: Option<CompactString>,
+    path: Option<PathBuf>,
+    build_time: OffsetDateTime,
 }
 
-impl GeoDb {
-    pub fn add(&mut self, ip_range: RangeInclusive<u32>, item: Location) {
-        let (Some(latitude), Some(longitude)) = (item.latitude, item.longitude) else {
-            return;
+impl Database {
+    pub fn from_csv(path: impl AsRef<Path>, attribution: Option<String>) -> eyre::Result<Self> {
+        let path = path.as_ref();
+        let file = File::open(path)?;
+
+        let file_stem = path
+            .file_stem()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string();
+
+        let (name, path) = if attribution.is_some() {
+            (format!("{file_stem} (built in)"), None)
+        } else {
+            (file_stem, Some(path.to_path_buf()))
         };
 
-        let city = self.hash_and_insert(item.city);
-        let country_code = self.hash_and_insert(item.country_code);
-        let timezone = self.hash_and_insert(item.timezone);
-        let state = self.hash_and_insert(item.state);
+        let mut db = Self {
+            map: RangeInclusiveMap::default(),
+            string_dict: HashMap::new(),
+            name: CompactString::from(name),
+            attribution: attribution.map(CompactString::from),
+            path,
+            build_time: OffsetDateTime::now_utc(),
+        };
 
-        self.map.insert(
-            ip_range,
-            LocationEncoded {
-                latitude: f16::from_f32(latitude),
-                longitude: f16::from_f32(longitude),
-                city,
-                country_code,
-                timezone,
-                state,
-            },
-        );
+        for record in csv::ReaderBuilder::new()
+            .has_headers(false)
+            .from_reader(file)
+            .byte_records()
+        {
+            let record = record.expect("deserialize record");
+
+            let (Some(ip_range_start), Some(ip_range_end)) = (
+                str_from_byte_record(&record[0]).and_then(|r| r.parse::<u32>().ok()),
+                str_from_byte_record(&record[1]).and_then(|r| r.parse::<u32>().ok()),
+            ) else {
+                return Err(eyre::eyre!("couldn't parse ip ranges"));
+            };
+
+            let (Some(latitude), Some(longitude)) = (
+                str_from_byte_record(&record[7]).and_then(|s| s.parse::<f16>().ok()),
+                str_from_byte_record(&record[8]).and_then(|s| s.parse::<f16>().ok()),
+            ) else {
+                continue;
+            };
+
+            let city = db.hash_and_insert_str(str_from_byte_record(&record[5]));
+            let country_code = db.hash_and_insert_str(str_from_byte_record(&record[2]));
+            let state = db.hash_and_insert_str(str_from_byte_record(&record[3]));
+
+            db.map.insert(
+                ip_range_start..=ip_range_end,
+                LocationEncoded {
+                    latitude,
+                    longitude,
+                    city,
+                    country_code,
+                    state,
+                },
+            );
+        }
+
+        Ok(db)
     }
 
-    fn hash_and_insert(&mut self, item: Option<CompactString>) -> u32 {
+    fn hash_and_insert_str(&mut self, item: Option<CompactString>) -> u32 {
         match item {
             Some(item) => {
                 let mut hasher = DefaultHasher::new();
@@ -69,13 +100,13 @@ impl GeoDb {
                     key = 42; // magic random number.
                 }
 
-                if let Some(prev) = self.strings.get(&key) {
+                if let Some(prev) = self.string_dict.get(&key) {
                     if prev != &item {
-                        println!("strings \"{prev}\" and \"{item}\" collided");
+                        tracing::warn!("strings \"{prev}\" and \"{item}\" collided");
                     }
                 }
 
-                self.strings.insert(key, item);
+                self.string_dict.insert(key, item);
 
                 key
             }
@@ -85,31 +116,40 @@ impl GeoDb {
 }
 
 #[allow(dead_code)]
-impl GeoDb {
+impl Database {
     pub fn get(&self, ip: Ipv4Addr) -> Option<Location> {
         self.map.get(&u32::from(ip)).map(|k| Location {
-            latitude: Some(k.latitude.to_f32()),
-            longitude: Some(k.longitude.to_f32()),
+            latitude: k.latitude.to_f32(),
+            longitude: k.longitude.to_f32(),
             city: self.str_from_dict(k.city),
             country_code: self.str_from_dict(k.country_code),
-            timezone: self.str_from_dict(k.timezone),
             state: self.str_from_dict(k.state),
         })
     }
 
-    fn str_from_dict(&self, key: u32) -> Option<CompactString> {
-        self.strings.get(&key).cloned()
+    fn str_from_dict(&self, key: u32) -> Option<String> {
+        self.string_dict.get(&key).map(|c| c.to_string())
+    }
+
+    pub fn info(&self) -> DatabaseInfo {
+        DatabaseInfo {
+            name: self.name.to_string(),
+            attribution_text: self.attribution.clone().map(|c| c.to_string()),
+            path: self.path.clone(),
+            build_time: self.build_time.to_string(),
+            locations: self.map.len(),
+        }
     }
 }
 
-#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, Default)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, Default, TS)]
+#[ts(export, export_to = "../../frontend/src/bindings/")]
 pub struct Location {
-    pub latitude: Option<f32>,
-    pub longitude: Option<f32>,
-    pub city: Option<CompactString>,
-    pub country_code: Option<CompactString>,
-    pub timezone: Option<CompactString>,
-    pub state: Option<CompactString>,
+    pub latitude: f32,
+    pub longitude: f32,
+    pub city: Option<String>,
+    pub country_code: Option<String>,
+    pub state: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -118,46 +158,18 @@ struct LocationEncoded {
     pub longitude: f16,
     pub city: u32,
     pub country_code: u32,
-    pub timezone: u32,
     pub state: u32,
 }
 impl Eq for LocationEncoded {}
 
-pub fn read_csv<R: io::Read>(rdr: R) -> Result<(GeoDb, usize), DeserializeError> {
-    let mut db = GeoDb::default();
-
-    let locations = csv::ReaderBuilder::new()
-        .has_headers(false)
-        .from_reader(rdr)
-        .byte_records()
-        .map(|record| {
-            let record = record.expect("deserialize record");
-
-            let (Ok(ip_range_start), Ok(ip_range_end)) = (
-                str_from_byte_record(&record[0]).unwrap().parse::<u32>(),
-                str_from_byte_record(&record[1]).unwrap().parse::<u32>(),
-            ) else {
-                return Err(DeserializeError::custom("couldn't parse ip ranges"));
-            };
-
-            db.add(
-                ip_range_start..=ip_range_end,
-                Location {
-                    latitude: str_from_byte_record(&record[7]).and_then(|s| s.parse::<f32>().ok()),
-                    longitude: str_from_byte_record(&record[8]).and_then(|s| s.parse::<f32>().ok()),
-                    city: str_from_byte_record(&record[5]),
-                    country_code: str_from_byte_record(&record[2]),
-                    timezone: str_from_byte_record(&record[9]),
-                    state: str_from_byte_record(&record[3]),
-                },
-            );
-
-            Ok(())
-        })
-        .collect::<Result<Vec<()>, DeserializeError>>()?
-        .len();
-
-    return Ok((db, locations));
+#[derive(Clone, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize, TS)]
+#[ts(export, export_to = "../../frontend/src/bindings/")]
+pub struct DatabaseInfo {
+    pub name: String,
+    pub attribution_text: Option<String>,
+    pub path: Option<PathBuf>,
+    pub build_time: String,
+    pub locations: usize,
 }
 
 fn str_from_byte_record(record: &[u8]) -> Option<CompactString> {
@@ -165,8 +177,4 @@ fn str_from_byte_record(record: &[u8]) -> Option<CompactString> {
         true => None,
         false => CompactString::from_utf8(record).ok(),
     }
-}
-
-pub fn build_time() -> String {
-    time::OffsetDateTime::now_utc().to_string()
 }
