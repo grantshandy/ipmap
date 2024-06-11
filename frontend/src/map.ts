@@ -222,6 +222,6 @@ export const map = (() => {
         setContainer,
         addSearchIp,
         setMode,
-        resetView
+        resetView,
     };
 })();

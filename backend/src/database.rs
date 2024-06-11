@@ -1,28 +1,35 @@
-use std::collections::HashMap;
-use std::fs::File;
-use std::hash::{DefaultHasher, Hasher};
-use std::net::Ipv4Addr;
-use std::ops::RangeInclusive;
-use std::path::{Path, PathBuf};
+use std::{
+    fmt::{Display, Formatter},
+    fs::File,
+    hash::{DefaultHasher, Hasher},
+    net::Ipv4Addr,
+    ops::RangeInclusive,
+    path::{Path, PathBuf},
+};
 
 use compact_str::CompactString;
-use serde::{Deserialize, Serialize};
 use half::f16;
 use rangemap::RangeInclusiveMap;
+use rustc_hash::FxHashMap;
+use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use ts_rs::TS;
 
 type Ipv4Bytes = u32;
-type LocationKey = u32;
 type StringKey = u32;
 
-/// Acts like a HashMap for Ipv4 -> Location.
-/// highly optimized for space in memory.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// A highly memory-efficient map for Ipv4Addr -> Location.
+///
+/// <Ipv4Addr>
+/// --(map)--> <Coordinate>
+/// --(locations)--> <LocationDetails>
+/// --(strings)--> <Location>
+///
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Database {
-    map: RangeInclusiveMap<Ipv4Bytes, LocationKey>,
-    locations: HashMap<LocationKey, LocationEncoded>,
-    string_dict: HashMap<StringKey, CompactString>,
+    map: RangeInclusiveMap<Ipv4Bytes, Coordinate>,
+    locations: FxHashMap<Coordinate, LocationDetails>,
+    strings: FxHashMap<StringKey, CompactString>,
 
     name: CompactString,
     attribution: Option<CompactString>,
@@ -49,8 +56,8 @@ impl Database {
 
         let mut db = Self {
             map: RangeInclusiveMap::default(),
-            locations: HashMap::new(),
-            string_dict: HashMap::new(),
+            locations: FxHashMap::default(),
+            strings: FxHashMap::default(),
 
             name: CompactString::from(name),
             attribution: attribution.map(CompactString::from),
@@ -85,7 +92,7 @@ impl Database {
                     latitude,
                     longitude,
                     city: str_from_byte_record(&record[5]),
-                    country_code: str_from_byte_record(&record[2]),
+                    country_code: str_from_byte_record(&record[2]).unwrap_or_default(),
                     state: str_from_byte_record(&record[3]),
                 },
             );
@@ -98,20 +105,17 @@ impl Database {
         let latitude = f16::from_f32(location.latitude);
         let longitude = f16::from_f32(location.longitude);
 
-        let loc_key = location_to_key(latitude, longitude);
+        let loc_key = Coordinate::from_lat_lon(latitude, longitude);
 
         if !self.locations.contains_key(&loc_key) {
             let city = self.hash_and_insert_str(location.city);
-            let country_code = self.hash_and_insert_str(location.country_code);
             let state = self.hash_and_insert_str(location.state);
-    
+
             self.locations.insert(
                 loc_key,
-                LocationEncoded {
-                    latitude,
-                    longitude,
+                LocationDetails {
                     city,
-                    country_code,
+                    country_code: location.country_code.into(),
                     state,
                 },
             );
@@ -128,18 +132,18 @@ impl Database {
             let mut key: u32 = hasher.finish() as u32;
 
             // size_of::<Option<T>>() > size_of::<T>(), so we store zero for a None value instead.
-            // in the case that we come upon a key at zero (1 in 4 billion something idk) we catch that case.
+            // in the case that we come upon a key at zero (1 in 4 billion something IDK) we catch that case.
             if key == 0 {
                 key = 42; // magic random number.
             }
 
-            if let Some(prev) = self.string_dict.get(&key) {
+            if let Some(prev) = self.strings.get(&key) {
                 if prev != &item {
                     tracing::warn!("strings \"{prev}\" and \"{item}\" collided");
                 }
             }
 
-            self.string_dict.insert(key, CompactString::from(item));
+            self.strings.insert(key, CompactString::from(item));
 
             key
         })
@@ -152,18 +156,20 @@ impl Database {
     pub fn get(&self, ip: Ipv4Addr) -> Option<Location> {
         self.map
             .get(&u32::from(ip))
-            .and_then(|k| self.locations.get(k))
-            .map(|k| Location {
-                latitude: k.latitude.to_f32(),
-                longitude: k.longitude.to_f32(),
-                city: self.str_from_dict(k.city),
-                country_code: self.str_from_dict(k.country_code),
-                state: self.str_from_dict(k.state),
-            })
+            .and_then(|k| self.locations.get(k).map(|l| (k, l)))
+            .map(|(k, l)| self.decode_location(k, l))
     }
 
-    fn str_from_dict(&self, key: u32) -> Option<String> {
-        self.string_dict.get(&key).map(|c| c.to_string())
+    fn decode_location(&self, k: &Coordinate, l: &LocationDetails) -> Location {
+        let (latitude, longitude) = k.to_lat_lon();
+
+        Location {
+            latitude: latitude.to_f32(),
+            longitude: longitude.to_f32(),
+            city: self.strings.get(&l.city).map(|c| c.to_string()),
+            country_code: l.country_code.to_string(),
+            state: self.strings.get(&l.state).map(|c| c.to_string()),
+        }
     }
 
     pub fn info(&self) -> DatabaseInfo {
@@ -183,19 +189,64 @@ pub struct Location {
     pub latitude: f32,
     pub longitude: f32,
     pub city: Option<String>,
-    pub country_code: Option<String>,
+    pub country_code: String,
     pub state: Option<String>,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
-struct LocationEncoded {
-    pub latitude: f16,
-    pub longitude: f16,
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+struct LocationDetails {
     pub city: StringKey,
-    pub country_code: StringKey,
     pub state: StringKey,
+    pub country_code: CountryCode,
 }
-impl Eq for LocationEncoded {}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[repr(transparent)]
+struct Coordinate([u8; 4]);
+
+impl Coordinate {
+    fn from_lat_lon(lat: f16, lon: f16) -> Self {
+        let [a, b] = lat.to_le_bytes();
+        let [c, d] = lon.to_le_bytes();
+
+        Self([a, b, c, d])
+    }
+
+    fn to_lat_lon(&self) -> (f16, f16) {
+        let [a, b, c, d] = self.0;
+        (f16::from_le_bytes([a, b]), f16::from_le_bytes([c, d]))
+    }
+}
+
+/// An ISO 3166 2-digit Country Code
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[repr(transparent)]
+struct CountryCode([u8; 2]);
+
+impl<A: AsRef<[u8]>> From<A> for CountryCode {
+    fn from(value: A) -> Self {
+        match value.as_ref() {
+            [a, b, ..] => Self([*a, *b]),
+            _ => Self([0, 0]),
+        }
+    }
+}
+
+impl Display for CountryCode {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self.0 {
+            [0, 0] => write!(f, "??"),
+            _ => String::from_utf8_lossy(&self.0).fmt(f),
+        }
+    }
+}
+
+fn str_from_byte_record(record: &[u8]) -> Option<String> {
+    match record.is_empty() {
+        true => None,
+        false => Some(String::from_utf8_lossy(record).to_string()),
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, TS)]
 #[ts(export, export_to = "../../frontend/src/bindings/")]
@@ -207,19 +258,23 @@ pub struct DatabaseInfo {
     pub locations: usize,
 }
 
-fn str_from_byte_record(record: &[u8]) -> Option<String> {
-    match record.is_empty() {
-        true => None,
-        false => Some(String::from_utf8_lossy(record).to_string()),
+#[cfg(test)]
+mod test {
+    use super::{Coordinate, CountryCode};
+    use half::f16;
+
+    #[test]
+    fn coord_isomorphism() {
+        let lat = f16::from_f32(1.234);
+        let lon = f16::from_f32(5.678);
+
+        assert_eq!(std::mem::size_of::<Coordinate>(), 4);
+        assert_eq!(Coordinate::from_lat_lon(lat, lon).to_lat_lon(), (lat, lon));
     }
-}
 
-fn location_to_key(lat: f16, lon: f16) -> LocationKey {
-    let mut bytes: [u8; 4] = [0; 4];
-
-    let (left, right) = bytes.split_at_mut(2);
-    left.copy_from_slice(&lat.to_le_bytes());
-    right.copy_from_slice(&lon.to_le_bytes());
-
-    u32::from_le_bytes(bytes)
+    #[test]
+    fn countrycode() {
+        assert_eq!(std::mem::size_of::<CountryCode>(), 2);
+        assert_eq!(CountryCode::from("USa").to_string(), "US");
+    }
 }

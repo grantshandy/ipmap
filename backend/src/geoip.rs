@@ -4,7 +4,7 @@ use crate::DatabaseState;
 use tauri::State;
 
 pub mod database {
-    include!(concat!(env!("OUT_DIR"), "/database.rs"));
+    include!(concat!(env!("OUT_DIR"), "/internal_database.rs"));
 }
 
 use database::{Database, DatabaseInfo};

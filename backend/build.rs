@@ -1,9 +1,9 @@
 use std::{env, fs};
 
-#[path = "src/db_types.rs"]
-mod db_types;
+#[path = "src/database.rs"]
+mod database;
 
-use db_types::Database;
+use database::Database;
 
 fn main() {
     tauri_build::build();
@@ -12,8 +12,8 @@ fn main() {
 
     let out_dir = env::var("OUT_DIR").unwrap();
 
-    let database_str = match env::var("IPV4NUM_DB") {
-        Ok(ip_csv_path) => {
+    let database_str = env::var("IPV4NUM_DB")
+        .map(|ip_csv_path| {
             let attribution =
                 env::var("IPV4NUM_DB_ATTRIBUTION").expect("IPV4NUM_DB_ATTRIBUTION must be set.");
 
@@ -33,8 +33,8 @@ fn main() {
                         &bincode::serialize(&db).expect("serialize db"),
                         10,
                     ),
-                    10
-                )
+                    10,
+                ),
             )
             .expect("write db to file");
 
@@ -49,17 +49,16 @@ fn main() {
                     ).expect("deserialize database")
                 )"#
             )
-        }
-        Err(_) => "None".to_string(),
-    };
+        })
+        .unwrap_or("None".to_string());
 
     fs::write(
-        format!("{out_dir}/database.rs"),
+        format!("{out_dir}/internal_database.rs"),
         format!(
-            "
-            include!(concat!(env!(\"CARGO_MANIFEST_DIR\"), \"/src/db_types.rs\"));
-            lazy_static::lazy_static! {{ pub static ref DATABASE: Option<Database> = {database_str}; }}
-        "
+            r#"
+                include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/database.rs"));
+                lazy_static::lazy_static! {{ pub static ref DATABASE: Option<Database> = {database_str}; }}
+            "#
         ),
     )
     .expect("open database file");

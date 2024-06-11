@@ -45,5 +45,5 @@ export {
     lookupIp,
 
     lookupDns,
-    validateIp
+    validateIp,
 };
