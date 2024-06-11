@@ -4,8 +4,10 @@ use std::path::PathBuf;
 
 use dashmap::DashMap;
 
-mod analyze;
+#[cfg(feature = "capture")]
 mod capture;
+
+mod analyze;
 mod geoip;
 
 type DatabaseState = DashMap<PathBuf, geoip::database::Database>;
@@ -13,6 +15,7 @@ type DatabaseState = DashMap<PathBuf, geoip::database::Database>;
 fn main() {
     tracing_subscriber::fmt::init();
 
+    #[cfg(feature = "capture")]
     tauri::Builder::default()
         .manage(DatabaseState::new())
         .invoke_handler(tauri::generate_handler![
@@ -23,7 +26,22 @@ fn main() {
             geoip::list_databases,
             geoip::lookup_ip,
             analyze::dns_lookup_addr,
-            validate::validate_ip
+            validate::validate_ip,
+            capture_enabled
+        ])
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
+
+    #[cfg(not(feature = "capture"))]
+    tauri::Builder::default()
+        .manage(DatabaseState::new())
+        .invoke_handler(tauri::generate_handler![
+            geoip::load_database,
+            geoip::list_databases,
+            geoip::lookup_ip,
+            analyze::dns_lookup_addr,
+            validate::validate_ip,
+            capture_enabled
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -40,4 +58,9 @@ mod validate {
             return Ok(false);
         }
     }
+}
+
+#[tauri::command]
+fn capture_enabled() -> bool {
+    cfg!(feature = "capture")
 }
