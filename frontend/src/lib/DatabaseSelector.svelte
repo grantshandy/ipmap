@@ -74,7 +74,10 @@
             <ul class="py-4 list-dic">
                 <li>Name: {database.name}</li>
                 <li>
-                    Distinct Locations: {database.locations.toLocaleString()}
+                    Distinct Locations: {database.unique_locations.toLocaleString()}
+                </li>
+                <li>
+                    Unique Strings: {database.strings.toLocaleString()}
                 </li>
                 {#if database.path}
                     <li>Path: {database.path}</li>

@@ -1,7 +1,7 @@
 use std::{
     fmt::{Display, Formatter},
     fs::File,
-    hash::{DefaultHasher, Hasher},
+    hash::BuildHasherDefault,
     net::Ipv4Addr,
     ops::RangeInclusive,
     path::{Path, PathBuf},
@@ -9,14 +9,13 @@ use std::{
 
 use compact_str::CompactString;
 use half::f16;
+use heck::ToTitleCase;
+use indexmap::IndexSet;
 use rangemap::RangeInclusiveMap;
-use rustc_hash::FxHashMap;
+use rustc_hash::{FxHashMap, FxHasher};
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use ts_rs::TS;
-
-type Ipv4Bytes = u32;
-type StringKey = u32;
 
 /// A highly memory-efficient map for Ipv4Addr -> Location.
 ///
@@ -29,7 +28,7 @@ type StringKey = u32;
 pub struct Database {
     map: RangeInclusiveMap<Ipv4Bytes, Coordinate>,
     locations: FxHashMap<Coordinate, LocationDetails>,
-    strings: FxHashMap<StringKey, CompactString>,
+    strings: FxIndexSet<CompactString>,
 
     name: CompactString,
     attribution: Option<CompactString>,
@@ -57,13 +56,16 @@ impl Database {
         let mut db = Self {
             map: RangeInclusiveMap::default(),
             locations: FxHashMap::default(),
-            strings: FxHashMap::default(),
+            strings: FxIndexSet::default(),
 
             name: CompactString::from(name),
             attribution: attribution.map(CompactString::from),
             path,
             build_time: OffsetDateTime::now_utc(),
         };
+
+        let (zero, _) = db.strings.insert_full(CompactString::default());
+        assert_eq!(zero, 0);
 
         for record in csv::ReaderBuilder::new()
             .has_headers(false)
@@ -124,30 +126,9 @@ impl Database {
         self.map.insert(ip_range, loc_key);
     }
 
-    fn hash_and_insert_str(&mut self, item: Option<String>) -> StringKey {
-        item.map(|item| {
-            let mut hasher = DefaultHasher::new();
-            hasher.write(item.as_bytes());
-
-            let mut key: u32 = hasher.finish() as u32;
-
-            // size_of::<Option<T>>() > size_of::<T>(), so we store zero for a None value instead.
-            // in the case that we come upon a key at zero (1 in 4 billion something IDK) we catch that case.
-            if key == 0 {
-                key = 42; // magic random number.
-            }
-
-            if let Some(prev) = self.strings.get(&key) {
-                if prev != &item {
-                    tracing::warn!("strings \"{prev}\" and \"{item}\" collided");
-                }
-            }
-
-            self.strings.insert(key, CompactString::from(item));
-
-            key
-        })
-        .unwrap_or(0) // no value is a zero.
+    fn hash_and_insert_str(&mut self, item: Option<String>) -> u32 {
+        item.map(|item| self.strings.insert_full(item.to_lowercase().into()).0 as u32)
+            .unwrap_or(0) // no value is a zero.
     }
 }
 
@@ -158,17 +139,6 @@ impl Database {
             .get(&u32::from(ip))
             .and_then(|k| self.locations.get(k).map(|l| (k, l)))
             .map(|(k, l)| self.decode_location(k, l))
-            // .map(|k| {
-            //     let (lat, lon) = k.into();
-
-            //     Location {
-            //         latitude: lat.to_f32(),
-            //         longitude: lon.to_f32(),
-            //         city: None,
-            //         country_code: String::default(),
-            //         state: None,
-            //     }
-            // })
     }
 
     fn decode_location(&self, k: &Coordinate, l: &LocationDetails) -> Location {
@@ -177,9 +147,15 @@ impl Database {
         Location {
             latitude: latitude.to_f32(),
             longitude: longitude.to_f32(),
-            city: self.strings.get(&l.city).map(|c| c.to_string()),
+            city: self
+                .strings
+                .get_index(l.city as usize)
+                .map(|c| c.to_title_case()),
             country_code: l.country_code.to_string(),
-            state: self.strings.get(&l.state).map(|c| c.to_string()),
+            state: self
+                .strings
+                .get_index(l.state as usize)
+                .map(|c| c.to_title_case()),
         }
     }
 
@@ -189,8 +165,8 @@ impl Database {
             attribution_text: self.attribution.clone().map(|c| c.to_string()),
             path: self.path.clone(),
             build_time: self.build_time.to_string(),
-            // locations: self.locations.len(),
-            locations: 1000,
+            unique_locations: self.locations.len(),
+            strings: self.strings.len(),
         }
     }
 }
@@ -212,16 +188,17 @@ pub struct DatabaseInfo {
     pub attribution_text: Option<String>,
     pub path: Option<PathBuf>,
     pub build_time: String,
-    pub locations: usize,
+    pub unique_locations: usize,
+    pub strings: usize,
 }
 
 // vvv internal structs vvv
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 struct LocationDetails {
-    pub city: StringKey,            // 32
-    pub state: StringKey,           // 32
-    pub country_code: CountryCode,  // 32
+    pub city: u32,
+    pub state: u32,
+    pub country_code: CountryCode,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
@@ -268,6 +245,10 @@ impl Display for CountryCode {
         }
     }
 }
+
+type FxIndexSet<T> = IndexSet<T, BuildHasherDefault<FxHasher>>;
+
+type Ipv4Bytes = u32;
 
 fn str_from_byte_record(record: &[u8]) -> Option<String> {
     match record.is_empty() {

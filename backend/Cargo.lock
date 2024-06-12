@@ -1444,6 +1444,8 @@ dependencies = [
  "etherparse",
  "eyre",
  "half",
+ "heck 0.5.0",
+ "indexmap 2.2.6",
  "ip_rfc",
  "lazy_static",
  "miniz_oxide",
