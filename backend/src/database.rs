@@ -105,7 +105,7 @@ impl Database {
         let latitude = f16::from_f32(location.latitude);
         let longitude = f16::from_f32(location.longitude);
 
-        let loc_key = Coordinate::from_lat_lon(latitude, longitude);
+        let loc_key = Coordinate::from((latitude, longitude));
 
         if !self.locations.contains_key(&loc_key) {
             let city = self.hash_and_insert_str(location.city);
@@ -147,7 +147,7 @@ impl Database {
 
             key
         })
-        .unwrap_or(0)
+        .unwrap_or(0) // no value is a zero.
     }
 }
 
@@ -158,10 +158,21 @@ impl Database {
             .get(&u32::from(ip))
             .and_then(|k| self.locations.get(k).map(|l| (k, l)))
             .map(|(k, l)| self.decode_location(k, l))
+            // .map(|k| {
+            //     let (lat, lon) = k.into();
+
+            //     Location {
+            //         latitude: lat.to_f32(),
+            //         longitude: lon.to_f32(),
+            //         city: None,
+            //         country_code: String::default(),
+            //         state: None,
+            //     }
+            // })
     }
 
     fn decode_location(&self, k: &Coordinate, l: &LocationDetails) -> Location {
-        let (latitude, longitude) = k.to_lat_lon();
+        let (latitude, longitude) = k.into();
 
         Location {
             latitude: latitude.to_f32(),
@@ -178,7 +189,8 @@ impl Database {
             attribution_text: self.attribution.clone().map(|c| c.to_string()),
             path: self.path.clone(),
             build_time: self.build_time.to_string(),
-            locations: self.locations.len(),
+            // locations: self.locations.len(),
+            locations: 1000,
         }
     }
 }
@@ -193,32 +205,45 @@ pub struct Location {
     pub state: Option<String>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, TS)]
+#[ts(export, export_to = "../../frontend/src/bindings/")]
+pub struct DatabaseInfo {
+    pub name: String,
+    pub attribution_text: Option<String>,
+    pub path: Option<PathBuf>,
+    pub build_time: String,
+    pub locations: usize,
+}
+
+// vvv internal structs vvv
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 struct LocationDetails {
-    pub city: StringKey,
-    pub state: StringKey,
-    pub country_code: CountryCode,
+    pub city: StringKey,            // 32
+    pub state: StringKey,           // 32
+    pub country_code: CountryCode,  // 32
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 #[repr(transparent)]
 struct Coordinate([u8; 4]);
 
-impl Coordinate {
-    fn from_lat_lon(lat: f16, lon: f16) -> Self {
+impl From<(f16, f16)> for Coordinate {
+    fn from((lat, lon): (f16, f16)) -> Self {
         let [a, b] = lat.to_le_bytes();
         let [c, d] = lon.to_le_bytes();
-
         Self([a, b, c, d])
     }
+}
 
-    fn to_lat_lon(&self) -> (f16, f16) {
+impl Into<(f16, f16)> for &Coordinate {
+    fn into(self) -> (f16, f16) {
         let [a, b, c, d] = self.0;
         (f16::from_le_bytes([a, b]), f16::from_le_bytes([c, d]))
     }
 }
 
-/// An ISO 3166 2-digit Country Code
+/// An ISO 3166 2-digit ASCII Country Code
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 #[repr(transparent)]
 struct CountryCode([u8; 2]);
@@ -235,8 +260,11 @@ impl<A: AsRef<[u8]>> From<A> for CountryCode {
 impl Display for CountryCode {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self.0 {
-            [0, 0] => write!(f, "??"),
-            _ => String::from_utf8_lossy(&self.0).fmt(f),
+            [0, 0] => "??".fmt(f),
+            _ => unsafe {
+                char::from_u32_unchecked(self.0[0] as u32).fmt(f)?;
+                char::from_u32_unchecked(self.0[1] as u32).fmt(f)
+            },
         }
     }
 }
@@ -246,16 +274,6 @@ fn str_from_byte_record(record: &[u8]) -> Option<String> {
         true => None,
         false => Some(String::from_utf8_lossy(record).to_string()),
     }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, TS)]
-#[ts(export, export_to = "../../frontend/src/bindings/")]
-pub struct DatabaseInfo {
-    pub name: String,
-    pub attribution_text: Option<String>,
-    pub path: Option<PathBuf>,
-    pub build_time: String,
-    pub locations: usize,
 }
 
 #[cfg(test)]
@@ -268,8 +286,10 @@ mod test {
         let lat = f16::from_f32(1.234);
         let lon = f16::from_f32(5.678);
 
+        let coord = Coordinate::from((lat, lon));
+
         assert_eq!(std::mem::size_of::<Coordinate>(), 4);
-        assert_eq!(Coordinate::from_lat_lon(lat, lon).to_lat_lon(), (lat, lon));
+        assert_eq!((lat, lon), (&coord).into());
     }
 
     #[test]
