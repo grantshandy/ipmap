@@ -29,8 +29,6 @@ const lookupIp = async (ip: string, database: DatabaseInfo | null): Promise<Loca
 const lookupDns = async (ip: string): Promise<string | null> => invoke("dns_lookup_addr", { ip });
 const validateIp = async (ip: string): Promise<boolean> => invoke("validate_ip", { ip });
 
-const captureEnabled = async (): Promise<boolean> => invoke("capture_enabled");
-
 export {
     type Connection,
     type DatabaseInfo,
@@ -48,6 +46,4 @@ export {
 
     lookupDns,
     validateIp,
-
-    captureEnabled,
 };

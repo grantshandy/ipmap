@@ -4,7 +4,6 @@ use std::path::PathBuf;
 
 use dashmap::DashMap;
 
-#[cfg(feature = "capture")]
 mod capture;
 
 mod analyze;
@@ -15,7 +14,6 @@ type DatabaseState = DashMap<PathBuf, geoip::database::Database>;
 fn main() {
     tracing_subscriber::fmt::init();
 
-    #[cfg(feature = "capture")]
     tauri::Builder::default()
         .manage(DatabaseState::new())
         .invoke_handler(tauri::generate_handler![
@@ -27,21 +25,6 @@ fn main() {
             geoip::lookup_ip,
             analyze::dns_lookup_addr,
             validate::validate_ip,
-            capture_enabled
-        ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
-
-    #[cfg(not(feature = "capture"))]
-    tauri::Builder::default()
-        .manage(DatabaseState::new())
-        .invoke_handler(tauri::generate_handler![
-            geoip::load_database,
-            geoip::list_databases,
-            geoip::lookup_ip,
-            analyze::dns_lookup_addr,
-            validate::validate_ip,
-            capture_enabled
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -51,16 +34,8 @@ mod validate {
     use std::net::Ipv4Addr;
 
     #[tauri::command]
-    pub async fn validate_ip(ip: String) -> Result<bool, String> {
-        if let Ok(ip) = ip.parse::<Ipv4Addr>() {
-            return Ok(ip_rfc::global_v4(&ip));
-        } else {
-            return Ok(false);
-        }
+    pub async fn validate_ip(ip: String) -> bool {
+        ip.parse::<Ipv4Addr>()
+            .is_ok_and(|ip| ip_rfc::global_v4(&ip))
     }
-}
-
-#[tauri::command]
-fn capture_enabled() -> bool {
-    cfg!(feature = "capture")
 }

@@ -6,7 +6,7 @@
   import DatabaseSelector from "./lib/DatabaseSelector.svelte";
 
   import { map, ApplicationMode } from "./map";
-  import { captureEnabled, type DatabaseInfo } from "./bindings";
+  import { type DatabaseInfo } from "./bindings";
 
   let loading: string | null = null;
   let database: DatabaseInfo | null = null;
@@ -29,26 +29,19 @@
     </div>
     <hr class="border-dashed border-base-content/[0.5]" />
     <div class="flex space-x-3 items-center w-full">
-      {#await captureEnabled() then enabled}
-        {#if enabled}
-          <div class="grow flex items-center space-x-2">
-            <span>Mode:</span>
-            <select class="select select-bordered select-sm" bind:value={state}>
-              <option value={ApplicationMode.CAPTURE}>Capture</option>
-              <option value={ApplicationMode.SEARCH}>Search</option>
-            </select>
-          </div>
+      <div class="grow flex items-center space-x-2">
+        <span>Mode:</span>
+        <select class="select select-bordered select-sm" bind:value={state}>
+          <option value={ApplicationMode.CAPTURE}>Capture</option>
+          <option value={ApplicationMode.SEARCH}>Search</option>
+        </select>
+      </div>
 
-          {#if state == ApplicationMode.CAPTURE}
-            <CaptureMenu bind:database bind:loading />
-          {:else}
-            <SearchMenu bind:database bind:loading bind:query />
-          {/if}
-        {:else}
-          <div class="grow"></div>
-          <SearchMenu bind:database bind:loading bind:query />
-        {/if}
-      {/await}
+      {#if state == ApplicationMode.CAPTURE}
+        <CaptureMenu bind:database bind:loading />
+      {:else}
+        <SearchMenu bind:database bind:loading bind:query />
+      {/if}
     </div>
   </div>
   <Map bind:state bind:query />

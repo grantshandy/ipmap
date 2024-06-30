@@ -66,9 +66,11 @@
     },
     "windows": [
       {
+        "title": "Ipmap",
+        "url": "index.html",
+        "tabbingIdentifier": "Main",
         "fullscreen": false,
         "resizable": true,
-        "title": "Ipmap",
         "width": 900,
         "height": 600,
         "minWidth": 800,

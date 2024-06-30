@@ -56,9 +56,6 @@
                 {#if $map.selection.loc.city}
                     <li>City: {$map.selection.loc.city}</li>
                 {/if}
-                {#if $map.selection.loc.state}
-                    <li>State: {$map.selection.loc.state}</li>
-                {/if}
                 {#if $map.selection.loc.country_code}
                     <li>
                         Country: {countryNames.of(

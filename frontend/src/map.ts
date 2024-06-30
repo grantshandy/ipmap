@@ -68,10 +68,6 @@ export const map = (() => {
 
     const resetView = () => update((prev) => {
         if (prev.instance) {
-            // prev.instance.flyTo(
-            //     [30, 0],
-            //     2,
-            // );
             prev.instance.flyTo([30, 0], 2);
         }
 
