@@ -173,7 +173,7 @@ export const map = (() => {
         return prev;
     });
 
-    const addSearchIp = (ip: string | null, database: DatabaseInfo) => update((prev) => {
+    const setSearchIp = (ip: string | null, database: DatabaseInfo) => update((prev) => {
         if (!prev.instance) return prev;
 
         prev.searchLayer.eachLayer((l) => l.remove());
@@ -216,7 +216,7 @@ export const map = (() => {
         setSelection,
         resizeMap,
         setContainer,
-        addSearchIp,
+        setSearchIp: setSearchIp,
         setMode,
         resetView,
     };

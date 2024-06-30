@@ -6,17 +6,21 @@
     export let database: DatabaseInfo | null;
 
     export let query: string;
+
+
+    const clearWhitespace = (s: string): string => s.replace(/\s/g, "");
+
     let queryValid: boolean = false;
-    $: validateIp(query)
+    $: validateIp(clearWhitespace(query))
         .then((valid) => {
             queryValid = valid;
 
             if (!database) return;
 
             if (valid) {
-                map.addSearchIp(query, database);
+                map.setSearchIp(clearWhitespace(query), database);
             } else {
-                map.addSearchIp(null, database);
+                map.setSearchIp(null, database);
             }
         })
         .catch(() => (queryValid = false));
