@@ -9,6 +9,8 @@ mod capture;
 mod analyze;
 mod geoip;
 
+mod expiry_set;
+
 type DatabaseState = DashMap<PathBuf, geoip::database::Database>;
 
 fn main() {
