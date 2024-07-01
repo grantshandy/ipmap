@@ -2,7 +2,11 @@
     import { open } from "@tauri-apps/api/dialog";
     import { basename } from "@tauri-apps/api/path";
 
-    import { listDatabases, loadDatabase, type DatabaseInfo } from "../bindings";
+    import {
+        listDatabases,
+        loadDatabase,
+        type DatabaseInfo,
+    } from "../bindings";
 
     export let database: DatabaseInfo | null;
     export let loading: string | null;
@@ -11,7 +15,10 @@
     loadDatabase(null).then(() => (loading = null));
 
     let databases: DatabaseInfo[] = [];
-    listDatabases().then((db) => (databases = db));
+    listDatabases().then((db) => {
+        databases = db;
+        if (databases.length > 0) database = databases[0];
+    });
 
     let infoModal: HTMLDialogElement;
 
