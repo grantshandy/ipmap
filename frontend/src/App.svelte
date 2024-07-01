@@ -1,5 +1,4 @@
 <script lang="ts">
-  import Toasts from "./lib/Toasts.svelte";
   import Map from "./lib/Map.svelte";
   import CaptureMenu from "./lib/CaptureMenu.svelte";
   import SearchMenu from "./lib/SearchMenu.svelte";
@@ -20,7 +19,6 @@
   $: if (loadingModal && !loading) loadingModal.close();
 </script>
 
-<Toasts />
 <main class="p-4 space-y-4 w-screen h-screen flex flex-col">
   <div class="space-y-2">
     <div class="flex items-center space-x-3">

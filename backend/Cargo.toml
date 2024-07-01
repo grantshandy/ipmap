@@ -24,7 +24,7 @@ strip = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tauri = { version = "1.6.2", default-features = false, features = [ "path-all", "dialog-open", "tracing", "wry", "objc-exception" ] }
+tauri = { version = "1.6.2", default-features = false, features = [ "dialog-message", "path-all", "dialog-open", "tracing", "wry", "objc-exception", "dialog" ] }
 pcap = "2.0.0"
 dns-lookup = "2.0.4"
 etherparse = "0.15.0"

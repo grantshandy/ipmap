@@ -1,18 +1,27 @@
 import { invoke as rawInvoke } from "@tauri-apps/api";
-import { emit } from "@tauri-apps/api/event";
 import type { InvokeArgs } from "@tauri-apps/api/tauri";
 
 import { type Connection } from "./Connection";
 import { type DatabaseInfo } from "./DatabaseInfo";
 import { type Device } from "./Device";
 import { type Location } from "./Location";
+import { message } from "@tauri-apps/api/dialog";
+
+const errorDialog = (msg: string): Promise<void> => {
+    return message(`Error: ${msg}`, { title: "Error", type: "error" });
+};
+
+const infoDialog = (title: string, msg: string): Promise<void> => {
+    return message(msg, { title, type: "info" });
+}
 
 // invoke a tauri command, showing the error on screen if error returned
 const invoke = async (cmd: string, args?: InvokeArgs | undefined): Promise<any> => {
     try {
         return await rawInvoke(cmd, args);
     } catch (e) {
-        emit("error", e);
+        await errorDialog(e as string);
+
         throw e;
     }
 };
@@ -34,6 +43,9 @@ export {
     type DatabaseInfo,
     type Device,
     type Location,
+
+    errorDialog,
+    infoDialog,
 
     listDevices,
 

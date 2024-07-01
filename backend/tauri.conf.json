@@ -19,7 +19,8 @@
     "allowlist": {
       "all": false,
       "dialog": {
-        "open": true
+        "open": true,
+        "message": true
       },
       "path": {
         "all": true
@@ -30,7 +31,9 @@
       "category": "DeveloperTool",
       "copyright": "Grant Handy 2024",
       "deb": {
-        "depends": ["libpcap0.8"]
+        "depends": [
+          "libpcap0.8"
+        ]
       },
       "externalBin": [],
       "icon": [
