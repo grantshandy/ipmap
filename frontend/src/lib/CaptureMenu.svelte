@@ -30,7 +30,7 @@
     listen("new_capture", (event) => {
         const connection: Connection = event.payload as Connection;
 
-        if (database && connection.capturing_uuid == capturing) {
+        if (database && connection.thread_id == capturing) {
             map.addCaptureIp(connection.ip, database);
         }
     }).then((x) => (captureStop = x));

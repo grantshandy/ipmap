@@ -19,7 +19,7 @@ const invoke = async (cmd: string, args?: InvokeArgs | undefined): Promise<any> 
 
 const listDevices = async (): Promise<Device[]> => invoke("list_devices");
 
-const stopCapturing = async (stopSignal: string): Promise<void> => invoke("stop_capturing", { stopSignal });
+const stopCapturing = async (threadId: string): Promise<void> => invoke("stop_capturing", { threadId });
 const startCapturing = async (name: string): Promise<string> => invoke("start_capturing", { name });
 
 const loadDatabase = async (path: string | string[] | null): Promise<DatabaseInfo | null> => invoke("load_database", { path });

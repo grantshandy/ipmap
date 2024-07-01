@@ -7,7 +7,7 @@ import { writable } from "svelte/store";
 
 export type LocationSelection = {
     loc: Location,
-    ips: string[],
+    ips: Set<string>,
     marker: Marker,
 }
 
@@ -16,9 +16,11 @@ export enum ApplicationMode {
     SEARCH,
 }
 
+type LocationKey = string;
+
 type MapStore = {
     selection: LocationSelection | null,
-    locations: { [id: string]: LocationSelection },
+    locations: { [id: LocationKey]: LocationSelection },
     connections: Set<string>,
     searchLayer: LayerGroup,
     captureLayer: LayerGroup,
@@ -26,7 +28,7 @@ type MapStore = {
     instance: Map | null
 };
 
-export const mkKey = (loc: Location): string => `${loc.latitude}${loc.longitude}`;
+export const mkKey = (loc: Location): LocationKey => `${loc.latitude}${loc.longitude}`;
 const mkIcon = (num: number, active: boolean): DivIcon => {
     const icon = divIcon({
         html: `<div class="marker-icon ${active ? "bg-info" : "bg-secondary"}"><span>${num}</span></div>`,
@@ -106,7 +108,7 @@ export const map = (() => {
 
         if (prev.selection != null) {
             prev.selection.marker
-                .setIcon(mkIcon(prev.selection.ips.length, false))
+                .setIcon(mkIcon(prev.selection.ips.size, false))
                 .setZIndexOffset(50);
         }
 
@@ -124,7 +126,7 @@ export const map = (() => {
         } else {
             prev.selection = prev.locations[key];
             prev.selection.marker
-                .setIcon(mkIcon(prev.selection.ips.length, true))
+                .setIcon(mkIcon(prev.selection.ips.size, true))
                 .setZIndexOffset(100);
 
             const latlng: LatLngExpression = [
@@ -146,16 +148,18 @@ export const map = (() => {
         if (prev.connections.has(ip)) return prev;
         prev.connections.add(ip);
 
-        lookupIp(ip, database).then((location) => {
-            if (!location || !prev.instance) return prev;
+        (async () => {
+            const location = await lookupIp(ip, database);
+
+            if (!location) return;
 
             const key = mkKey(location);
 
             if (prev.locations[key]) {
                 const loc = prev.locations[key];
-                loc.ips.push(ip);
+                loc.ips.add(ip);
                 loc.marker.setIcon(
-                    mkIcon(loc.ips.length, loc == prev.selection),
+                    mkIcon(loc.ips.size, loc == prev.selection),
                 );
             } else {
                 prev.locations[key] = {
@@ -165,10 +169,10 @@ export const map = (() => {
                     })
                         .on("click", (e) => setSelection(location, 5))
                         .addTo(prev.captureLayer),
-                    ips: [ip],
+                    ips: new Set([ip]),
                 };
             }
-        });
+        })();
 
         return prev;
     });
@@ -197,7 +201,7 @@ export const map = (() => {
                 })
                     .on("click", (e) => setSelection(loc))
                     .addTo(prev.searchLayer),
-                ips: [ip],
+                ips: new Set([ip]),
             };
 
             prev.selection?.marker.remove();

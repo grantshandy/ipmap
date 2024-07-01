@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use std::{
     hash::{BuildHasherDefault, Hash},
     time::Duration,
@@ -5,7 +7,6 @@ use std::{
 
 use time::OffsetDateTime;
 
-/// A fast, concurrent [HashMap](std::collections::HashMap) alternative.
 type FxDashMap<K, V> = dashmap::DashMap<K, V, BuildHasherDefault<rustc_hash::FxHasher>>;
 
 /// A concurrent, auto-expiring set where elements only exist for a given amount of time before "expiring".
@@ -43,6 +44,27 @@ impl<V: Hash + Eq> ExpirySet<V> {
             .remove_if(elem, |_, prev| ((now - *prev) >= self.expire))
             .is_none()
     }
+
+    /// Cleans all expired elements from the set (optional, cleans up memory)
+    pub fn clean(&self) {
+        let now = OffsetDateTime::now_utc();
+
+        self.contents
+            .iter()
+            .filter(|kv| (now - *kv.value()) >= self.expire)
+            .for_each(|kv| {
+                self.contents.remove(kv.key());
+            });
+
+        todo!()
+    }
+
+    /// The number of elements in the set
+    pub fn size(&self) -> usize {
+        self.clean();
+
+        self.contents.len()
+    }
 }
 
 #[cfg(test)]
@@ -72,7 +94,7 @@ mod test {
     #[test]
     fn contains() {
         let set: ExpirySet<()> = ExpirySet::new(EXPIRE_DURATION);
-        
+
         assert!(set.insert(()));
 
         // set contains after insertion (true)

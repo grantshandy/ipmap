@@ -1,19 +1,15 @@
-use std::{
-    net::{IpAddr, Ipv4Addr},
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
-    thread,
-};
+use std::{net::IpAddr, time::Duration};
 
-use dashmap::DashSet;
 use etherparse::{NetHeaders, PacketHeaders};
 use pcap::{Active, Capture, PacketCodec};
 use rayon::iter::{ParallelBridge, ParallelIterator};
-use tauri::{AppHandle, Manager, Runtime};
+use tauri::{async_runtime, AppHandle, Manager, Runtime};
 use ts_rs::TS;
 use uuid::Uuid;
+
+use crate::expiry_set::ExpirySet;
+
+const CONNECTION_EXPIRY: Duration = Duration::from_millis(500);
 
 #[derive(serde::Serialize, Clone, PartialEq, TS)]
 #[ts(export, export_to = "../../frontend/src/bindings/")]
@@ -23,6 +19,7 @@ pub struct Device {
     prefered: bool,
 }
 
+/// List all [Device]s available to [`libpcap`](pcap).
 #[tauri::command]
 pub async fn list_devices() -> Result<Vec<Device>, String> {
     let mut out: Vec<Device> = Vec::new();
@@ -64,27 +61,17 @@ pub async fn list_devices() -> Result<Vec<Device>, String> {
     Ok(out)
 }
 
-struct PacketSourceCodec;
-
-impl PacketCodec for PacketSourceCodec {
-    type Item = Option<IpAddr>;
-
-    fn decode(&mut self, packet: pcap::Packet<'_>) -> Self::Item {
-        match PacketHeaders::from_ethernet_slice(&packet).map(|h| h.net) {
-            Ok(Some(NetHeaders::Ipv4(header, _))) => Some(IpAddr::from(header.source)),
-            Ok(Some(NetHeaders::Ipv6(header, _))) => Some(IpAddr::from(header.source)),
-            _ => None,
-        }
-    }
-}
-
-#[derive(Clone, serde::Serialize, TS)]
+/// A captured connection from the device/thread identified by `capturing_uuid`
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Debug, serde::Serialize, TS)]
 #[ts(export, export_to = "../../frontend/src/bindings/")]
 pub struct Connection {
-    capturing_uuid: String,
-    ip: Ipv4Addr,
+    thread_id: Uuid,
+    outgoing: bool,
+    ip: IpAddr,
 }
 
+/// Starts capturing packets on the network device.
+/// Returns a UUID to identify the capturing thread for later cancellation.
 #[tauri::command]
 pub async fn start_capturing<R: Runtime>(
     handle: AppHandle<R>,
@@ -92,72 +79,107 @@ pub async fn start_capturing<R: Runtime>(
 ) -> Result<String, String> {
     tracing::info!("capturing on {name}");
 
-    let stop_signal = Uuid::new_v4().to_string();
+    let thread_id = Uuid::new_v4();
 
     let cap: Capture<Active> = Capture::from_device(name.as_str())
         .map_err(|err| format!("device name \"{name}\" is invalid: {err}"))?
         .open()
         .map_err(|err| format!("failed to get open capture on {name}: {err}"))?;
 
-    let stop_signal_copy = stop_signal.clone();
-    thread::spawn(move || {
-        let should_stop = Arc::new(AtomicBool::new(false));
+    async_runtime::spawn_blocking(move || capture_thread(handle, thread_id, cap));
 
-        let cancel_stop = should_stop.clone();
-        handle.listen_global(&stop_signal_copy, move |_| {
-            cancel_stop.store(true, Ordering::SeqCst)
-        });
-
-        let connections: DashSet<Ipv4Addr> = DashSet::new();
-
-        // Err(()) is a de-facto the stop signal
-        cap.iter(PacketSourceCodec)
-            .par_bridge()
-            .try_for_each(|packet| {
-                if should_stop.load(Ordering::SeqCst) {
-                    return Err(());
-                }
-
-                let source = match packet {
-                    Ok(Some(IpAddr::V4(ip))) => ip,
-                    Ok(Some(IpAddr::V6(_))) => {
-                        tracing::warn!("unhandled ipv6 connection");
-                        return Ok(());
-                    }
-                    Ok(_) => return Ok(()),
-                    Err(_) => return Ok(()),
-                };
-
-                if connections.insert(source) && ip_rfc::global_v4(&source) {
-                    handle
-                        .emit_all(
-                            "new_capture",
-                            Connection {
-                                ip: source,
-                                capturing_uuid: stop_signal_copy.clone(),
-                            },
-                        )
-                        .expect("emit new_connection");
-                }
-
-                Ok(())
-            })
-            .ok();
-
-        tracing::info!("stopped {stop_signal_copy}");
-    });
-
-    Ok(stop_signal)
+    Ok(thread_id.to_string())
 }
 
+/// Cancels the capturing thread identified by the UUID given by the start_capturing function.
 #[tauri::command]
 pub async fn stop_capturing<R: Runtime>(
     handle: AppHandle<R>,
-    stop_signal: String,
+    thread_id: String,
 ) -> Result<(), String> {
-    tracing::info!("queueing capture stop of {stop_signal}");
+    tracing::info!("queueing capture stop of {thread_id} thread");
 
-    handle.trigger_global(&stop_signal, None);
+    handle.trigger_global(&thread_id, None);
 
     Ok(())
+}
+
+/// Handles all incoming and outgoing connections in parallel
+fn capture_thread<R: Runtime>(handle: AppHandle<R>, thread_id: Uuid, cap: Capture<Active>) {
+    let (stop_tx, stop_rx) = crossbeam_channel::unbounded();
+
+    handle.listen_global(&thread_id.to_string(), move |_| {
+        stop_tx.send(()).expect("stop transmission");
+    });
+
+    let connections: ExpirySet<Connection> = ExpirySet::new(CONNECTION_EXPIRY);
+
+    let codec = PacketSourceCodec(thread_id);
+
+    // Hack using Result<()> for concurrent control flow in a parallel stream >:)
+    cap.iter(codec)
+        .par_bridge()
+        .try_for_each(|packet| {
+            if stop_rx.try_recv().is_ok() {
+                return Err(()); // break
+            }
+
+            let Ok(Some(connection)) = packet else {
+                return Ok(());
+            };
+
+            if connection.ip.is_ipv6() {
+                tracing::warn!("unhandled ipv6 connection");
+                return Ok(());
+            }
+
+            if connections.insert(connection) {
+                tracing::info!("{connection:?}");
+                handle
+                    .emit_all("new_capture", connection)
+                    .expect("emit new_connection");
+            }
+
+            Ok(())
+        })
+        .ok();
+
+    tracing::info!("stopped {thread_id} capture thread");
+}
+
+/// A codec for decoding pcap packets into ingoing / outgoing Connections
+struct PacketSourceCodec(Uuid);
+
+impl PacketCodec for PacketSourceCodec {
+    type Item = Option<Connection>;
+
+    fn decode(&mut self, packet: pcap::Packet<'_>) -> Self::Item {
+        let (source, destination): (IpAddr, IpAddr) =
+            match PacketHeaders::from_ethernet_slice(&packet).map(|h| h.net) {
+                Ok(Some(NetHeaders::Ipv4(header, _))) => {
+                    (header.source.into(), header.destination.into())
+                }
+                Ok(Some(NetHeaders::Ipv6(header, _))) => {
+                    (header.source.into(), header.destination.into())
+                }
+                _ => return None,
+            };
+
+        // global source, non-global dest: incoming
+        // non-global source, global dest: outgoing
+
+        match (ip_rfc::global(&source), ip_rfc::global(&destination)) {
+            (true, true) | (false, false) => None,
+            (true, false) => Some(Connection {
+                thread_id: self.0,
+                outgoing: false,
+                ip: source,
+            }),
+            (false, true) => Some(Connection {
+                thread_id: self.0,
+                outgoing: true,
+                ip: destination,
+            }),
+        }
+    }
 }
