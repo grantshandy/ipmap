@@ -52,21 +52,18 @@
                 </button>
             </div>
 
-            <ul>
-                {#if $map.selection.loc.city}
-                    <li>City: {$map.selection.loc.city}</li>
-                {/if}
-                {#if $map.selection.loc.country_code}
-                    <li>
-                        Country: {countryNames.of(
-                            $map.selection.loc.country_code,
-                        )}
-                    </li>
-                {/if}
-            </ul>
+            <p>
+                {
+                ($map.selection.loc.city ?? "") +
+                
+                ($map.selection.loc.country_code
+                    ? `, ${countryNames.of($map.selection.loc.country_code)}`
+                    : "")
+                }
+            </p>
 
             {#if state == ApplicationMode.CAPTURE}
-                <p>Addresses</p>
+                <p>Addresses:</p>
                 <ul class="list-disc ml-4">
                     {#each $map.selection.ips as ip}
                         <li>

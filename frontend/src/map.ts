@@ -6,6 +6,8 @@ import { lookupIp, myLocation, type DatabaseInfo, type Location } from "./bindin
 import { writable } from "svelte/store";
 import { GeodesicLine } from "leaflet.geodesic";
 
+const SELECT_ZOOM = 7;
+
 export type LocationSelection = {
     loc: Location,
     ips: Set<string>,
@@ -64,8 +66,9 @@ export const map = (() => {
 
     const setContainer = (container: HTMLElement, mode: ApplicationMode) => update((prev) => {
         prev.container = container;
-        prev.instance = mkMap(prev.container, { preferCanvas: false, minZoom: 2 });
+        prev.instance = mkMap(prev.container, { preferCanvas: false, minZoom: 2, maxZoom: 12 });
         prev.instance.setView([30, 0], 2);
+        prev.instance.setMaxBounds(prev.instance.getBounds());
         resetView();
         tileLayer.provider("OpenStreetMap.Mapnik", { noWrap: true }).addTo(prev.instance);
         // tileLayer.provider("CartoDB.DarkMatter").addTo(mapInstance);
@@ -112,7 +115,7 @@ export const map = (() => {
         return prev;
     })
 
-    const setSelection = (location: Location | null, zoom?: number) => update((prev) => {
+    const setSelection = (location: Location | null) => update((prev) => {
         if (!prev.instance) return prev;
 
         if (prev.selection != null) {
@@ -143,8 +146,8 @@ export const map = (() => {
                 prev.selection.loc.longitude,
             ];
 
-            if (zoom) {
-                prev.instance.flyTo(latlng, zoom);
+            if (prev.instance.getZoom() < SELECT_ZOOM) {
+                prev.instance.flyTo(latlng, SELECT_ZOOM);
             } else {
                 prev.instance.panTo(latlng);
             }
@@ -176,7 +179,7 @@ export const map = (() => {
                     marker: marker([location.latitude, location.longitude], {
                         icon: mkIcon(1, false),
                     })
-                        .on("click", (e) => setSelection(location, 5))
+                        .on("click", (e) => setSelection(location))
                         .addTo(prev.captureLayer),
                     ips: new Set([ip]),
                 };

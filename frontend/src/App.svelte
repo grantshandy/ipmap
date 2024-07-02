@@ -20,26 +20,23 @@
 </script>
 
 <main class="p-4 space-y-4 w-screen h-screen flex flex-col">
-  <div class="space-y-2">
-    <div class="flex items-center space-x-3">
-      <h1 class="grow text-xl font-bold">Ipmap</h1>
+  <div class="flex">
+    <div class="grow inline-block">
       <DatabaseSelector bind:database bind:loading />
     </div>
-    <hr class="border-dashed border-base-content/[0.5]" />
-    <div class="flex space-x-3 items-center w-full">
-      <div class="grow flex items-center space-x-2">
-        <span>Mode:</span>
-        <select class="select select-bordered select-sm" bind:value={state}>
-          <option value={ApplicationMode.CAPTURE}>Capture</option>
-          <option value={ApplicationMode.SEARCH}>Search</option>
-        </select>
-      </div>
+    <div class="flex items-center space-x-2">
+      <select class="select select-bordered select-sm" bind:value={state}>
+        <option value={ApplicationMode.CAPTURE}>Capture</option>
+        <option value={ApplicationMode.SEARCH}>Search</option>
+      </select>
 
-      {#if state == ApplicationMode.CAPTURE}
-        <CaptureMenu bind:database bind:loading />
-      {:else}
-        <SearchMenu bind:database bind:loading bind:query />
-      {/if}
+      <div class="inline-block">
+        {#if state == ApplicationMode.CAPTURE}
+          <CaptureMenu bind:database bind:loading />
+        {:else}
+          <SearchMenu bind:database bind:loading bind:query />
+        {/if}
+      </div>
     </div>
   </div>
   <Map bind:state bind:query />
