@@ -1,7 +1,7 @@
 # ipmap
 A map that displays connected IP addresses
 
-![screenshot](./resources/screenshot.png)
+![demo](./resources/arc-demo.gif)
 
  - https://github.com/sapics/ip-location-db
  - https://npcap.com/
