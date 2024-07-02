@@ -31,7 +31,7 @@
         const connection: Connection = event.payload as Connection;
 
         if (database && connection.thread_id == capturing) {
-            map.addCaptureIp(connection.ip, database);
+            map.addCaptureIp(connection, database);
         }
     }).then((x) => (captureStop = x));
 

@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use std::{
     hash::{BuildHasherDefault, Hash},
     time::Duration,
@@ -30,40 +28,18 @@ impl<V: Hash + Eq> ExpirySet<V> {
     pub fn insert(&self, elem: V) -> bool {
         let now = OffsetDateTime::now_utc();
 
-        match self.contents.insert(elem, now) {
-            Some(prev) => (now - prev) >= self.expire,
-            None => true,
+        if let Some(mut prev) = self.contents.get_mut(&elem) {
+            let expired = (now - *prev.value()) >= self.expire;
+
+            if expired {
+                *prev.value_mut() = now;
+            }
+
+            expired // previously expired
+        } else {
+            self.contents.insert(elem, now);
+            true // element did not already exist
         }
-    }
-
-    /// Returns true if the value exists in the set and isn't expired.
-    pub fn contains(&self, elem: &V) -> bool {
-        let now = OffsetDateTime::now_utc();
-
-        self.contents
-            .remove_if(elem, |_, prev| ((now - *prev) >= self.expire))
-            .is_none()
-    }
-
-    /// Cleans all expired elements from the set (optional, cleans up memory)
-    pub fn clean(&self) {
-        let now = OffsetDateTime::now_utc();
-
-        self.contents
-            .iter()
-            .filter(|kv| (now - *kv.value()) >= self.expire)
-            .for_each(|kv| {
-                self.contents.remove(kv.key());
-            });
-
-        todo!()
-    }
-
-    /// The number of elements in the set
-    pub fn size(&self) -> usize {
-        self.clean();
-
-        self.contents.len()
     }
 }
 
@@ -89,19 +65,5 @@ mod test {
 
         // inserting after expire duration changes set (true)
         assert!(set.insert(()));
-    }
-
-    #[test]
-    fn contains() {
-        let set: ExpirySet<()> = ExpirySet::new(EXPIRE_DURATION);
-
-        assert!(set.insert(()));
-
-        // set contains after insertion (true)
-        assert!(set.contains(&()));
-        thread::sleep(EXPIRE_DURATION);
-
-        // set does not contain after expiry (false)
-        assert!(!set.contains(&()));
     }
 }

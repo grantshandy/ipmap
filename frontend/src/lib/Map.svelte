@@ -53,13 +53,10 @@
             </div>
 
             <p>
-                {
-                ($map.selection.loc.city ?? "") +
-                
-                ($map.selection.loc.country_code
-                    ? `, ${countryNames.of($map.selection.loc.country_code)}`
-                    : "")
-                }
+                {($map.selection.loc.city ?? "") +
+                    ($map.selection.loc.country_code
+                        ? `, ${countryNames.of($map.selection.loc.country_code)}`
+                        : "")}
             </p>
 
             {#if state == ApplicationMode.CAPTURE}

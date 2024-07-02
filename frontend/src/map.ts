@@ -2,11 +2,12 @@ import { type Marker, type Map, divIcon, DivIcon, marker, map as mkMap, tileLaye
 import "leaflet-providers";
 import "leaflet-active-area";
 
-import { lookupIp, myLocation, type DatabaseInfo, type Location } from "./bindings";
+import { lookupIp, myLocation, type Connection, type DatabaseInfo, type Location } from "./bindings";
 import { writable } from "svelte/store";
 import { GeodesicLine } from "leaflet.geodesic";
 
 const SELECT_ZOOM = 7;
+const ARC_ANIMATION_SECS = 5;
 
 export type LocationSelection = {
     loc: Location,
@@ -156,14 +157,17 @@ export const map = (() => {
         return prev;
     });
 
-    const addCaptureIp = (ip: string, database: DatabaseInfo) => update((prev) => {
-        if (prev.connections.has(ip)) return prev;
-        prev.connections.add(ip);
-
+    const addCaptureIp = (conn: Connection, database: DatabaseInfo) => update((prev) => {
         (async () => {
+            const ip = conn.ip;
             const location = await lookupIp(ip, database);
 
             if (!location) return;
+
+            await drawArc(prev, location, database, conn.outgoing);
+
+            if (prev.connections.has(ip)) return;
+            prev.connections.add(ip);
 
             const key = mkKey(location);
 
@@ -183,28 +187,6 @@ export const map = (() => {
                         .addTo(prev.captureLayer),
                     ips: new Set([ip]),
                 };
-
-                const currentLocation = await myLocation(database);
-
-                if (prev.locationMarker == null) {
-                    prev.locationMarker = marker([currentLocation.latitude, currentLocation.longitude], {
-                        icon: divIcon({
-                            html: `<div class="marker-icon bg-info z-[999] select-none"</div>`,
-                            className: "dummyclass",
-                            iconSize: [20, 20],
-                            iconAnchor: [10, 10],
-                        })
-                    });
-                    prev.locationMarker.addTo(prev.captureLayer);
-                }
-
-                new GeodesicLine(
-                    [
-                        [currentLocation.latitude, currentLocation.longitude],
-                        [location.latitude, location.longitude]
-                    ],
-                    { weight: 1 }
-                ).addTo(prev.captureLayer);
             }
         })();
 
@@ -240,7 +222,7 @@ export const map = (() => {
 
             prev.selection?.marker.remove();
             prev.selection = null;
-            setSelection(loc, 10);
+            setSelection(loc);
         })();
 
         return prev;
@@ -259,3 +241,35 @@ export const map = (() => {
         resetView,
     };
 })();
+
+const drawArc = async (map: MapStore, location: Location, database: DatabaseInfo | null, outgoing: boolean) => {
+    const currentLocation = await myLocation(database);
+
+    if (map.locationMarker == null) {
+        map.locationMarker = marker([currentLocation.latitude, currentLocation.longitude], {
+            icon: divIcon({
+                html: `<div class="marker-icon bg-info z-[999] select-none"</div>`,
+                className: "dummyclass",
+                iconSize: [20, 20],
+                iconAnchor: [10, 10],
+            })
+        });
+        map.locationMarker.addTo(map.captureLayer);
+    }
+
+    const line = new GeodesicLine(
+        [
+            [currentLocation.latitude, currentLocation.longitude],
+            [location.latitude, location.longitude]
+        ],
+        {
+            weight: 1,
+            steps: 3,
+            opacity: 0.5,
+            className: `${outgoing ? "outgoing" : "incoming"}-moving-arc`
+        }
+    ).addTo(map.captureLayer);
+    setTimeout(() => {
+        line.remove();
+    }, ARC_ANIMATION_SECS * 1000);
+};

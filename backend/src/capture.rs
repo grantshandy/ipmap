@@ -1,12 +1,15 @@
-use std::net::IpAddr;
+use std::{net::IpAddr, time::Duration};
 
-use dashmap::DashSet;
 use etherparse::{NetHeaders, PacketHeaders};
 use pcap::{Active, Capture, PacketCodec};
 use rayon::iter::{ParallelBridge, ParallelIterator};
 use tauri::{async_runtime, AppHandle, Manager, Runtime};
 use ts_rs::TS;
 use uuid::Uuid;
+
+use crate::expiry_set::ExpirySet;
+
+const CONNECTION_EXPIRY: Duration = Duration::from_secs(5);
 
 #[derive(serde::Serialize, Clone, PartialEq, TS)]
 #[ts(export, export_to = "../../frontend/src/bindings/")]
@@ -109,9 +112,7 @@ fn capture_thread<R: Runtime>(handle: AppHandle<R>, thread_id: Uuid, cap: Captur
         stop_tx.send(()).expect("stop transmission");
     });
 
-    // let connections: ExpirySet<Connection> = ExpirySet::new(CONNECTION_EXPIRY);
-    let connections: DashSet<Connection> = DashSet::new();
-
+    let connections: ExpirySet<Connection> = ExpirySet::new(CONNECTION_EXPIRY);
     let codec = PacketSourceCodec(thread_id);
 
     // Hack using Result<()> for concurrent control flow in a parallel stream >:)

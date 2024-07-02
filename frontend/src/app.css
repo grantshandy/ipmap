@@ -13,3 +13,29 @@
 .marker-icon {
     @apply w-full h-full font-bold flex items-center justify-center border rounded-full drop-shadow-lg;
 }
+
+path.outgoing-moving-arc {
+    /* filter: url(#blur); */
+    stroke-dasharray: 10 10;
+    /* should be equal or less than map.ts/ARC_ANIMATION_SECS */
+    animation: draw 5s reverse;
+}
+
+path.incoming-moving-arc {
+    /* filter: url(#blur); */
+    stroke-dasharray: 10 10;
+    /* should be equal or less than map.ts/ARC_ANIMATION_SECS */
+    animation: draw 5s forwards;
+}
+
+@keyframes draw {
+    0% {
+        stroke-dashoffset: 1000;
+    }
+    50% {
+        stroke-dashoffset: 0;
+    }
+    100% {
+        stroke-dashoffset: -1000;
+    }
+}

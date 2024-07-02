@@ -82,25 +82,10 @@ pub async fn list_databases(databases: State<'_, DatabaseState>) -> Result<Vec<D
 #[tauri::command]
 pub async fn my_location(
     databases: State<'_, DatabaseState>,
-    public_ip_cached: State<'_, PublicIpAddress>,
+    ip: State<'_, PublicIpAddress>,
     database: Option<PathBuf>,
 ) -> Result<Location, String> {
-    let mut public_ip_cached = public_ip_cached.lock().await;
-
-    if public_ip_cached.is_none() {
-        tracing::info!("requesting public ip address");
-        *public_ip_cached = Some(
-            public_ip::addr()
-                .await
-                .ok_or("unable to detect public ip address".to_string()),
-        );
-    }
-
-    let ip: IpAddr = public_ip_cached
-        .clone()
-        .ok_or("public ip is none, this shouldn't happen".to_string())??;
-
-    let IpAddr::V4(ip) = ip else {
+    let IpAddr::V4(ip) = *ip else {
         return Err("IPv6 addresses not yet supported".to_string());
     };
 
