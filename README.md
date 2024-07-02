@@ -15,3 +15,11 @@ Variables for building:
 $ IPV4NUM_DB="/path/to/dbip-city-ipv4-num.csv"
 $ IPV4NUM_DB_ATTRIBUTION="IP Geolocation by DB-IP"
 ```
+
+## TODO:
+ - [X] geodesic arc lines to connections
+ - [ ] animate geodesic lines
+ - [ ]differentiate outgoing and incoming lines
+ - [ ] maintain connections and discard for continuous animations
+ - [ ] ipv6 support
+ - [ ] unload database

@@ -1,9 +1,10 @@
-import { type Marker, type Map, divIcon, DivIcon, marker, map as mkMap, tileLayer, type LatLngExpression, LayerGroup, layerGroup } from "leaflet";
+import { type Marker, type Map, divIcon, DivIcon, marker, map as mkMap, tileLayer, type LatLngExpression, LayerGroup, layerGroup, LatLng } from "leaflet";
 import "leaflet-providers";
 import "leaflet-active-area";
 
-import { lookupIp, type DatabaseInfo, type Location } from "./bindings";
+import { lookupIp, myLocation, type DatabaseInfo, type Location } from "./bindings";
 import { writable } from "svelte/store";
+import { GeodesicLine } from "leaflet.geodesic";
 
 export type LocationSelection = {
     loc: Location,
@@ -22,10 +23,14 @@ type MapStore = {
     selection: LocationSelection | null,
     locations: { [id: LocationKey]: LocationSelection },
     connections: Set<string>,
+
     searchLayer: LayerGroup,
     captureLayer: LayerGroup,
+
     container: HTMLElement | null,
-    instance: Map | null
+    instance: Map | null,
+
+    locationMarker: Marker | null,
 };
 
 export const mkKey = (loc: Location): LocationKey => `${loc.latitude}${loc.longitude}`;
@@ -46,19 +51,23 @@ export const map = (() => {
             selection: null,
             locations: {},
             connections: new Set(),
+
             searchLayer: layerGroup(),
             captureLayer: layerGroup(),
+
             container: null,
-            instance: null
+            instance: null,
+
+            locationMarker: null,
         }
     );
 
     const setContainer = (container: HTMLElement, mode: ApplicationMode) => update((prev) => {
         prev.container = container;
-        prev.instance = mkMap(prev.container, { preferCanvas: true });
+        prev.instance = mkMap(prev.container, { preferCanvas: false, minZoom: 2 });
         prev.instance.setView([30, 0], 2);
         resetView();
-        tileLayer.provider("OpenStreetMap.Mapnik").addTo(prev.instance);
+        tileLayer.provider("OpenStreetMap.Mapnik", { noWrap: true }).addTo(prev.instance);
         // tileLayer.provider("CartoDB.DarkMatter").addTo(mapInstance);
         // from 'leaflet-active-area'. Fixes a resize bug for map.panTo
         prev.instance.setActiveArea(prev.container);
@@ -171,6 +180,28 @@ export const map = (() => {
                         .addTo(prev.captureLayer),
                     ips: new Set([ip]),
                 };
+
+                const currentLocation = await myLocation(database);
+
+                if (prev.locationMarker == null) {
+                    prev.locationMarker = marker([currentLocation.latitude, currentLocation.longitude], {
+                        icon: divIcon({
+                            html: `<div class="marker-icon bg-info z-[999] select-none"</div>`,
+                            className: "dummyclass",
+                            iconSize: [20, 20],
+                            iconAnchor: [10, 10],
+                        })
+                    });
+                    prev.locationMarker.addTo(prev.captureLayer);
+                }
+
+                new GeodesicLine(
+                    [
+                        [currentLocation.latitude, currentLocation.longitude],
+                        [location.latitude, location.longitude]
+                    ],
+                    { weight: 1 }
+                ).addTo(prev.captureLayer);
             }
         })();
 

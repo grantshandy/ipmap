@@ -36,7 +36,10 @@ const listDatabases = async (): Promise<DatabaseInfo[]> => invoke("list_database
 const lookupIp = async (ip: string, database: DatabaseInfo | null): Promise<Location | null> => invoke("lookup_ip", { ip, database: database?.path });
 
 const lookupDns = async (ip: string): Promise<string | null> => invoke("dns_lookup_addr", { ip });
+
 const validateIp = async (ip: string): Promise<boolean> => invoke("validate_ip", { ip });
+
+const myLocation = async (database: DatabaseInfo | null): Promise<Location> => invoke("my_location", { database: database?.path });
 
 export {
     type Connection,
@@ -58,4 +61,5 @@ export {
 
     lookupDns,
     validateIp,
+    myLocation,
 };

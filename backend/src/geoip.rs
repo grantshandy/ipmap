@@ -1,13 +1,16 @@
-use std::{net::Ipv4Addr, path::PathBuf};
+use std::{
+    net::{IpAddr, Ipv4Addr},
+    path::PathBuf,
+};
 
-use crate::DatabaseState;
+use crate::{DatabaseState, PublicIpAddress};
 use tauri::State;
 
 pub mod database {
     include!(concat!(env!("OUT_DIR"), "/internal_database.rs"));
 }
 
-use database::{Database, DatabaseInfo};
+use database::{Database, DatabaseInfo, Location};
 
 #[tauri::command]
 pub async fn lookup_ip(
@@ -74,4 +77,34 @@ pub async fn list_databases(databases: State<'_, DatabaseState>) -> Result<Vec<D
     }
 
     Ok(databases)
+}
+
+#[tauri::command]
+pub async fn my_location(
+    databases: State<'_, DatabaseState>,
+    public_ip_cached: State<'_, PublicIpAddress>,
+    database: Option<PathBuf>,
+) -> Result<Location, String> {
+    let mut public_ip_cached = public_ip_cached.lock().await;
+
+    if public_ip_cached.is_none() {
+        tracing::info!("requesting public ip address");
+        *public_ip_cached = Some(
+            public_ip::addr()
+                .await
+                .ok_or("unable to detect public ip address".to_string()),
+        );
+    }
+
+    let ip: IpAddr = public_ip_cached
+        .clone()
+        .ok_or("public ip is none, this shouldn't happen".to_string())??;
+
+    let IpAddr::V4(ip) = ip else {
+        return Err("IPv6 addresses not yet supported".to_string());
+    };
+
+    lookup_ip(databases, database, ip)
+        .await
+        .and_then(|loc| loc.ok_or(format!("no location found for your public ip address {ip}")))
 }

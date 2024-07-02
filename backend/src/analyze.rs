@@ -1,8 +1,14 @@
-use std::net::IpAddr;
+use std::net::{IpAddr, Ipv4Addr};
 
 #[tauri::command]
 pub async fn dns_lookup_addr(ip: IpAddr) -> Option<String> {
     dns_lookup::lookup_addr(&ip).ok()
+}
+
+#[tauri::command]
+pub async fn validate_ip(ip: String) -> bool {
+    ip.parse::<Ipv4Addr>()
+        .is_ok_and(|ip| ip_rfc::global_v4(&ip))
 }
 
 // #[cfg(windows)]

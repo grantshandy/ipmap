@@ -1,15 +1,12 @@
-use std::{net::IpAddr, time::Duration};
+use std::net::IpAddr;
 
+use dashmap::DashSet;
 use etherparse::{NetHeaders, PacketHeaders};
 use pcap::{Active, Capture, PacketCodec};
 use rayon::iter::{ParallelBridge, ParallelIterator};
 use tauri::{async_runtime, AppHandle, Manager, Runtime};
 use ts_rs::TS;
 use uuid::Uuid;
-
-use crate::expiry_set::ExpirySet;
-
-const CONNECTION_EXPIRY: Duration = Duration::from_millis(500);
 
 #[derive(serde::Serialize, Clone, PartialEq, TS)]
 #[ts(export, export_to = "../../frontend/src/bindings/")]
@@ -112,7 +109,8 @@ fn capture_thread<R: Runtime>(handle: AppHandle<R>, thread_id: Uuid, cap: Captur
         stop_tx.send(()).expect("stop transmission");
     });
 
-    let connections: ExpirySet<Connection> = ExpirySet::new(CONNECTION_EXPIRY);
+    // let connections: ExpirySet<Connection> = ExpirySet::new(CONNECTION_EXPIRY);
+    let connections: DashSet<Connection> = DashSet::new();
 
     let codec = PacketSourceCodec(thread_id);
 
@@ -125,16 +123,15 @@ fn capture_thread<R: Runtime>(handle: AppHandle<R>, thread_id: Uuid, cap: Captur
             }
 
             let Ok(Some(connection)) = packet else {
-                return Ok(());
+                return Ok(()); // continue
             };
 
             if connection.ip.is_ipv6() {
                 tracing::warn!("unhandled ipv6 connection");
-                return Ok(());
+                return Ok(()); // continue
             }
 
             if connections.insert(connection) {
-                tracing::info!("{connection:?}");
                 handle
                     .emit_all("new_capture", connection)
                     .expect("emit new_connection");
