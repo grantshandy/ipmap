@@ -1,7 +1,9 @@
 import { invoke as rawInvoke } from "@tauri-apps/api";
 import type { InvokeArgs } from "@tauri-apps/api/tauri";
 
-import { type Connection } from "./Connection";
+import { type ConnectionDirection } from "./ConnectionDirection";
+import { type ConnectionInfo } from "./ConnectionInfo";
+import type { CaptureStateInfo } from "./CaptureStateInfo";
 import { type DatabaseInfo } from "./DatabaseInfo";
 import { type Device } from "./Device";
 import { type Location } from "./Location";
@@ -36,13 +38,13 @@ const listDatabases = async (): Promise<DatabaseInfo[]> => invoke("list_database
 const lookupIp = async (ip: string, database: DatabaseInfo | null): Promise<Location | null> => invoke("lookup_ip", { ip, database: database?.path });
 
 const lookupDns = async (ip: string): Promise<string | null> => invoke("dns_lookup_addr", { ip });
-
 const validateIp = async (ip: string): Promise<boolean> => invoke("validate_ip", { ip });
-
 const myLocation = async (database: DatabaseInfo | null): Promise<Location> => invoke("my_location", { database: database?.path });
 
 export {
-    type Connection,
+    type CaptureStateInfo,
+    type ConnectionDirection,
+    type ConnectionInfo,
     type DatabaseInfo,
     type Device,
     type Location,

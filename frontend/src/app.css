@@ -14,28 +14,26 @@
     @apply w-full h-full font-bold flex items-center justify-center border rounded-full drop-shadow-lg;
 }
 
-path.outgoing-moving-arc {
-    /* filter: url(#blur); */
+path.line-Outgoing {
     stroke-dasharray: 10 10;
-    /* should be equal or less than map.ts/ARC_ANIMATION_SECS */
-    animation: draw 5s reverse;
+    animation: line 5s linear infinite;
 }
 
-path.incoming-moving-arc {
-    /* filter: url(#blur); */
+path.line-Incoming {
     stroke-dasharray: 10 10;
-    /* should be equal or less than map.ts/ARC_ANIMATION_SECS */
-    animation: draw 5s forwards;
+    animation: line 5s linear infinite reverse;
 }
 
-@keyframes draw {
+path.line-Mixed {
+    stroke-dasharray: 10 10;
+    animation: line 5s linear infinite alternate;
+}
+
+@keyframes line {
     0% {
-        stroke-dashoffset: 1000;
-    }
-    50% {
-        stroke-dashoffset: 0;
+        stroke-dashoffset: -250;
     }
     100% {
-        stroke-dashoffset: -1000;
+        stroke-dashoffset: 250;
     }
 }

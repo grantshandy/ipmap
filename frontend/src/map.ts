@@ -1,8 +1,8 @@
-import { type Marker, type Map, divIcon, DivIcon, marker, map as mkMap, tileLayer, type LatLngExpression, LayerGroup, layerGroup, LatLng } from "leaflet";
+import { type Marker, type Map, divIcon, DivIcon, marker, map as mkMap, tileLayer, type LatLngExpression, LayerGroup, layerGroup, LatLng, Geodesic } from "leaflet";
 import "leaflet-providers";
 import "leaflet-active-area";
 
-import { lookupIp, myLocation, type Connection, type DatabaseInfo, type Location } from "./bindings";
+import { lookupIp, myLocation, type ConnectionDirection, type ConnectionInfo, type DatabaseInfo, type Location } from "./bindings";
 import { writable } from "svelte/store";
 import { GeodesicLine } from "leaflet.geodesic";
 
@@ -25,10 +25,18 @@ type LocationKey = string;
 type MapStore = {
     selection: LocationSelection | null,
     locations: { [id: LocationKey]: LocationSelection },
-    connections: Set<string>,
 
     searchLayer: LayerGroup,
     captureLayer: LayerGroup,
+
+    arcs: {
+        [id: string]: {
+            direction: ConnectionDirection,
+            line: GeodesicLine | null,
+        }
+    },
+
+    current: ConnectionInfo[],
 
     container: HTMLElement | null,
     instance: Map | null,
@@ -53,10 +61,12 @@ export const map = (() => {
         {
             selection: null,
             locations: {},
-            connections: new Set(),
 
             searchLayer: layerGroup(),
             captureLayer: layerGroup(),
+
+            arcs: {},
+            current: [],
 
             container: null,
             instance: null,
@@ -157,37 +167,60 @@ export const map = (() => {
         return prev;
     });
 
-    const addCaptureIp = (conn: Connection, database: DatabaseInfo) => update((prev) => {
+    const setCaptureState = (state: ConnectionInfo[] | null, database: DatabaseInfo | null) => update((prev) => {
         (async () => {
-            const ip = conn.ip;
-            const location = await lookupIp(ip, database);
-
-            if (!location) return;
-
-            await drawArc(prev, location, database, conn.outgoing);
-
-            if (prev.connections.has(ip)) return;
-            prev.connections.add(ip);
-
-            const key = mkKey(location);
-
-            if (prev.locations[key]) {
-                const loc = prev.locations[key];
-                loc.ips.add(ip);
-                loc.marker.setIcon(
-                    mkIcon(loc.ips.size, loc == prev.selection),
-                );
-            } else {
-                prev.locations[key] = {
-                    loc: location,
-                    marker: marker([location.latitude, location.longitude], {
-                        icon: mkIcon(1, false),
-                    })
-                        .on("click", (e) => setSelection(location))
-                        .addTo(prev.captureLayer),
-                    ips: new Set([ip]),
-                };
+            if (state == null) {
+                console.log("removing all arcs");
+                removeAllArcs(prev);
+                return;
             }
+
+            prev.current = state?.filter((c) => c.current);
+
+
+            const currentLocation = await myLocation(database);
+
+            // add location marker if needed
+            if (prev.locationMarker == null) {
+                prev.locationMarker = marker([currentLocation.latitude, currentLocation.longitude], {
+                    icon: divIcon({
+                        html: `<div class="marker-icon bg-info z-[999] select-none"</div>`,
+                        className: "dummyclass",
+                        iconSize: [20, 20],
+                        iconAnchor: [10, 10],
+                    })
+                });
+                prev.locationMarker.addTo(prev.captureLayer);
+            }
+
+            state.forEach(async (connection) => {
+                const ip = connection.ip;
+                const location = await lookupIp(ip, database);
+
+                if (!location) return;
+
+                drawArc(connection, prev, database, currentLocation);
+
+                const key = mkKey(location);
+
+                if (prev.locations[key]) {
+                    const loc = prev.locations[key];
+                    loc.ips.add(ip);
+                    loc.marker.setIcon(
+                        mkIcon(loc.ips.size, loc == prev.selection),
+                    );
+                } else {
+                    prev.locations[key] = {
+                        loc: location,
+                        marker: marker([location.latitude, location.longitude], {
+                            icon: mkIcon(1, false),
+                        })
+                            .on("click", (e) => setSelection(location))
+                            .addTo(prev.captureLayer),
+                        ips: new Set([ip]),
+                    };
+                }
+            });
         })();
 
         return prev;
@@ -232,7 +265,7 @@ export const map = (() => {
         subscribe,
         update,
         set,
-        addCaptureIp,
+        setCaptureState,
         setSelection,
         resizeMap,
         setContainer,
@@ -242,34 +275,56 @@ export const map = (() => {
     };
 })();
 
-const drawArc = async (map: MapStore, location: Location, database: DatabaseInfo | null, outgoing: boolean) => {
-    const currentLocation = await myLocation(database);
+const drawArc = async (connection: ConnectionInfo, map: MapStore, database: DatabaseInfo | null, currentLocation: Location) => {
+    const location = await lookupIp(connection.ip, database);
+    if (location == null || map.instance == null) return;
 
-    if (map.locationMarker == null) {
-        map.locationMarker = marker([currentLocation.latitude, currentLocation.longitude], {
-            icon: divIcon({
-                html: `<div class="marker-icon bg-info z-[999] select-none"</div>`,
-                className: "dummyclass",
-                iconSize: [20, 20],
-                iconAnchor: [10, 10],
-            })
-        });
-        map.locationMarker.addTo(map.captureLayer);
+    if (map.arcs[connection.ip] == null) {
+        map.arcs[connection.ip] = {
+            direction: connection.direction,
+            line: mkLine(currentLocation, location, connection.direction).addTo(map.captureLayer),
+        };
     }
 
-    const line = new GeodesicLine(
+    const line = map.arcs[connection.ip].line;
+
+    // change animation direction if necessary
+    if (line && line.options.className !== classNameFromDirection(connection.direction)) {
+        line.options.className = classNameFromDirection(connection.direction);
+    };
+
+    if (connection.current && !line) {
+        map.arcs[connection.ip].line = mkLine(currentLocation, location, connection.direction).addTo(map.captureLayer);
+    }
+
+    if (!connection.current && line != null) {
+        line.remove();
+        map.arcs[connection.ip].line = null;
+    }
+};
+
+const removeAllArcs = (map: MapStore) => {
+    Object.values(map.arcs).forEach((arc) => {
+        if (arc.line) {
+            arc.line.remove();
+            arc.line = null;
+        }
+    });
+}
+
+const classNameFromDirection = (direction: ConnectionDirection): string => `line-${direction}`;
+
+const mkLine = (current: Location, to: Location, direction: ConnectionDirection): GeodesicLine => {
+    return new GeodesicLine(
         [
-            [currentLocation.latitude, currentLocation.longitude],
-            [location.latitude, location.longitude]
+            [current.latitude, current.longitude],
+            [to.latitude, to.longitude]
         ],
         {
             weight: 1,
             steps: 3,
             opacity: 0.5,
-            className: `${outgoing ? "outgoing" : "incoming"}-moving-arc`
+            className: classNameFromDirection(direction),
         }
-    ).addTo(map.captureLayer);
-    setTimeout(() => {
-        line.remove();
-    }, ARC_ANIMATION_SECS * 1000);
+    );
 };

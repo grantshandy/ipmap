@@ -7,7 +7,7 @@
     } from "../bindings";
     import { map } from "../map";
     import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-    import type { Connection, DatabaseInfo } from "../bindings";
+    import type { CaptureStateInfo, ConnectionInfo, DatabaseInfo } from "../bindings";
 
     export let database: DatabaseInfo | null;
     export let loading: string | null;
@@ -20,6 +20,7 @@
 
         if (capturing) {
             stopCapturing(capturing);
+            map.setCaptureState(null, null);
             capturing = null;
         } else {
             capturing = await startCapturing(device).catch(() => null);
@@ -27,12 +28,12 @@
     };
 
     let captureStop: UnlistenFn;
-    listen("new_capture", (event) => {
-        const connection: Connection = event.payload as Connection;
+    listen("update_state", (event) => {
+        const state: CaptureStateInfo = event.payload as CaptureStateInfo;
 
-        if (database && connection.thread_id == capturing) {
-            map.addCaptureIp(connection, database);
-        }
+        if (!database && state.thread_id != capturing) return;
+
+        map.setCaptureState(state.connections, database);
     }).then((x) => (captureStop = x));
 
     const cleanup = () => {

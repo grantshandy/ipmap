@@ -1,14 +1,13 @@
-use std::{
-    collections::{BinaryHeap, HashMap, LinkedList},
-    net::IpAddr,
-    time::Duration,
-};
+use std::{collections::LinkedList, net::IpAddr, time::Duration};
 
 use dashmap::DashMap;
+use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
+use ts_rs::TS;
 use uuid::Uuid;
 
-///! A massive state-machine representing the state of a network capture session on a particular thread, centered around [CaptureState]
+///! A kinda state-machine representing the state of a
+/// network capture session on a particular thread, centered around [CaptureState].
 
 const CONNECTION_LIFETIME: Duration = Duration::from_secs(3);
 const DIRECTION_PERCENTAGE_MIXED_THRESHOLD: f32 = 0.3;
@@ -16,13 +15,15 @@ const DIRECTION_PERCENTAGE_MIXED_THRESHOLD: f32 = 0.3;
 #[derive(Clone, Debug, Default)]
 pub struct CaptureState {
     thread_id: Uuid,
+    packet_lifetime: Duration,
     connections: DashMap<IpAddr, Connection>,
 }
 
 impl CaptureState {
-    pub fn new(id: Uuid) -> Self {
+    pub fn new(thread_id: Uuid, packet_lifetime: Duration) -> Self {
         Self {
-            thread_id: id,
+            thread_id,
+            packet_lifetime,
             connections: DashMap::new(),
         }
     }
@@ -30,9 +31,7 @@ impl CaptureState {
     // adds a packet to an ip Connection's list
     pub fn connection(&self, ip: IpAddr, packet: DirectedPacket) {
         match self.connections.get_mut(&ip) {
-            Some(mut connection) => {
-                connection.packets.push_front(packet);
-            }
+            Some(mut connection) => connection.add(packet),
             None => {
                 let mut connection = Connection::new(ip);
                 connection.add(packet);
@@ -43,11 +42,13 @@ impl CaptureState {
     }
 
     /// returns information about the state of the capture session so far.
-    pub fn info(&self) -> Vec<ConnectionInfo> {
-        self.connections.iter_mut().map(|mut c| c.info()).collect()
+    pub fn info(&self) -> CaptureStateInfo {
+        CaptureStateInfo {
+            connections: self.connections.iter_mut().map(|mut c| c.info()).collect(),
+            thread_id: self.thread_id,
+        }
     }
 }
-
 
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
 pub enum PacketDirection {
@@ -57,9 +58,9 @@ pub enum PacketDirection {
 
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
 pub struct DirectedPacket {
-    time: OffsetDateTime,       // time at time of capture
-    direction: PacketDirection, // incoming or outgoing
-    size: usize,                // # of bytes in payload
+    pub time: OffsetDateTime,       // time at time of capture
+    pub direction: PacketDirection, // incoming or outgoing
+    pub size: usize,                // # of bytes in payload
 }
 
 #[derive(Clone, Debug)]
@@ -87,7 +88,7 @@ impl Connection {
 
     /// Cleans old packets and calculates stats for ConnectionInfo
     pub fn info(&mut self) -> ConnectionInfo {
-        self.clean(OffsetDateTime::now_utc() - CONNECTION_LIFETIME);
+        self.remove_all_before(OffsetDateTime::now_utc() - CONNECTION_LIFETIME);
 
         let (incoming_sum, outgoing_sum) = self
             .packets
@@ -96,7 +97,7 @@ impl Connection {
                 PacketDirection::Incoming => (1, 0),
                 PacketDirection::Outgoing => (0, 1),
             })
-            .fold((0, 0), |(a1, b1), (a2, b2)| (a1 + a2, b1 + b2));
+            .fold((0, 0), |a, b| (a.0 + b.0, a.1 + b.1));
 
         let curr_size = incoming_sum + outgoing_sum;
 
@@ -119,7 +120,7 @@ impl Connection {
     }
 
     /// Removes all packets from the linked list before a certain point
-    fn clean(&mut self, expiry: OffsetDateTime) {
+    fn remove_all_before(&mut self, expiry: OffsetDateTime) {
         // remove all expired packets
         while let Some(packet) = self.packets.back() {
             if packet.time <= expiry {
@@ -132,12 +133,13 @@ impl Connection {
     }
 
     pub fn add(&mut self, packet: DirectedPacket) {
-        self.packets.push_front(packet);
         self.size += packet.size;
+        self.packets.push_front(packet);
     }
 }
 
-#[derive(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../frontend/src/bindings/")]
 pub struct ConnectionInfo {
     ip: IpAddr,
     size: usize, // # of bytes in all packets in our history
@@ -145,9 +147,17 @@ pub struct ConnectionInfo {
     current: bool, // IMPORTANT: this being true makes the arc work
 }
 
-#[derive(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../frontend/src/bindings/")]
 pub enum ConnectionDirection {
-    Incoming,
-    Mixed,
-    Outgoing,
+    Incoming = 0,
+    Mixed = 1,
+    Outgoing = 2,
+}
+
+#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../frontend/src/bindings/")]
+pub struct CaptureStateInfo {
+    connections: Vec<ConnectionInfo>,
+    thread_id: Uuid,
 }

@@ -1,7 +1,9 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::{net::IpAddr, path::PathBuf, process};
+use std::{net::IpAddr, path::PathBuf, process, sync::{Arc, RwLock}};
 
+use capture::Device;
+use capture_state::CaptureState;
 use dashmap::DashMap;
 use tauri::{
     api::dialog::{blocking::MessageDialogBuilder, MessageDialogKind},

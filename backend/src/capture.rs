@@ -1,15 +1,17 @@
-use std::{net::IpAddr, time::Duration};
+use std::{net::IpAddr, sync::Arc, thread, time::Duration};
 
 use etherparse::{NetHeaders, PacketHeaders};
 use pcap::{Active, Capture, PacketCodec};
 use rayon::iter::{ParallelBridge, ParallelIterator};
 use tauri::{async_runtime, AppHandle, Manager, Runtime};
+use time::OffsetDateTime;
 use ts_rs::TS;
 use uuid::Uuid;
 
-use crate::expiry_set::ExpirySet;
+use crate::capture_state::{CaptureState, DirectedPacket, PacketDirection};
 
-const CONNECTION_EXPIRY: Duration = Duration::from_secs(5);
+const PACKET_LIFETIME: Duration = Duration::from_secs(5);
+const RESEND_STATE_INTERVAL: Duration = Duration::from_secs(1);
 
 #[derive(serde::Serialize, Clone, PartialEq, TS)]
 #[ts(export, export_to = "../../frontend/src/bindings/")]
@@ -61,15 +63,6 @@ pub async fn list_devices() -> Result<Vec<Device>, String> {
     Ok(out)
 }
 
-/// A captured connection from the device/thread identified by `capturing_uuid`
-#[derive(Clone, Copy, Hash, PartialEq, Eq, Debug, serde::Serialize, TS)]
-#[ts(export, export_to = "../../frontend/src/bindings/")]
-pub struct Connection {
-    thread_id: Uuid,
-    outgoing: bool,
-    ip: IpAddr,
-}
-
 /// Starts capturing packets on the network device.
 /// Returns a UUID to identify the capturing thread for later cancellation.
 #[tauri::command]
@@ -106,37 +99,48 @@ pub async fn stop_capturing<R: Runtime>(
 
 /// Handles all incoming and outgoing connections in parallel
 fn capture_thread<R: Runtime>(handle: AppHandle<R>, thread_id: Uuid, cap: Capture<Active>) {
-    let (stop_tx, stop_rx) = crossbeam_channel::unbounded();
+    let (cap_stop_tx, cap_stop_rx) = crossbeam_channel::unbounded();
+    let (state_emit_stop_tx, state_emit_stop_rx) = crossbeam_channel::unbounded();
 
     handle.listen_global(&thread_id.to_string(), move |_| {
-        stop_tx.send(()).expect("stop transmission");
+        state_emit_stop_tx.send(()).expect("stop transmission");
+        cap_stop_tx.send(()).expect("stop transmission");
     });
 
-    let connections: ExpirySet<Connection> = ExpirySet::new(CONNECTION_EXPIRY);
-    let codec = PacketSourceCodec(thread_id);
+    let connections: Arc<CaptureState> = Arc::new(CaptureState::new(thread_id, PACKET_LIFETIME));
+
+    let connections_emit = connections.clone();
+    async_runtime::spawn_blocking(move || loop {
+        handle
+            .emit_all("update_state", connections_emit.info())
+            .expect("update state");
+        thread::sleep(RESEND_STATE_INTERVAL);
+
+        if cap_stop_rx.try_recv().is_ok() {
+            tracing::info!("stopped {thread_id} emit thread");
+            handle.emit_all("update_state", ()).expect("update state");
+            break;
+        }
+    });
 
     // Hack using Result<()> for concurrent control flow in a parallel stream >:)
-    cap.iter(codec)
+    cap.iter(PacketSourceCodec)
         .par_bridge()
-        .try_for_each(|packet| {
-            if stop_rx.try_recv().is_ok() {
+        .try_for_each(|res| {
+            if state_emit_stop_rx.try_recv().is_ok() {
                 return Err(()); // break
             }
 
-            let Ok(Some(connection)) = packet else {
+            let Ok(Some((ip, packet))) = res else {
                 return Ok(()); // continue
             };
 
-            if connection.ip.is_ipv6() {
-                tracing::warn!("unhandled ipv6 connection");
+            if ip.is_ipv6() {
+                tracing::warn!("unhandled ipv6 captured");
                 return Ok(()); // continue
             }
 
-            if connections.insert(connection) {
-                handle
-                    .emit_all("new_capture", connection)
-                    .expect("emit new_connection");
-            }
+            connections.connection(ip, packet);
 
             Ok(())
         })
@@ -146,13 +150,14 @@ fn capture_thread<R: Runtime>(handle: AppHandle<R>, thread_id: Uuid, cap: Captur
 }
 
 /// A codec for decoding pcap packets into ingoing / outgoing Connections
-struct PacketSourceCodec(Uuid);
+struct PacketSourceCodec;
 
 impl PacketCodec for PacketSourceCodec {
-    type Item = Option<Connection>;
+    type Item = Option<(IpAddr, DirectedPacket)>;
 
     fn decode(&mut self, packet: pcap::Packet<'_>) -> Self::Item {
-        let (source, destination): (IpAddr, IpAddr) =
+        // extract source and destination headers for packet
+        let (src, dest): (IpAddr, IpAddr) =
             match PacketHeaders::from_ethernet_slice(&packet).map(|h| h.net) {
                 Ok(Some(NetHeaders::Ipv4(header, _))) => {
                     (header.source.into(), header.destination.into())
@@ -163,21 +168,23 @@ impl PacketCodec for PacketSourceCodec {
                 _ => return None,
             };
 
-        // global source, non-global dest: incoming
-        // non-global source, global dest: outgoing
+        // determine incoming/outgoing packet direction
+        let (direction, foreign_ip) = match (ip_rfc::global(&src), ip_rfc::global(&dest)) {
+            // global source, non-global dest: incoming
+            (true, false) => (PacketDirection::Incoming, src),
+            // non-global source, global dest: outgoing
+            (false, true) => (PacketDirection::Outgoing, dest),
+            // non-global source and dest: local (irrelevant)
+            (true, true) | (false, false) => return None,
+        };
 
-        match (ip_rfc::global(&source), ip_rfc::global(&destination)) {
-            (true, true) | (false, false) => None,
-            (true, false) => Some(Connection {
-                thread_id: self.0,
-                outgoing: false,
-                ip: source,
-            }),
-            (false, true) => Some(Connection {
-                thread_id: self.0,
-                outgoing: true,
-                ip: destination,
-            }),
-        }
+        Some((
+            foreign_ip,
+            DirectedPacket {
+                time: OffsetDateTime::now_utc(),
+                direction,
+                size: packet.data.len(),
+            },
+        ))
     }
 }
