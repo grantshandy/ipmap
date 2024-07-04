@@ -13,6 +13,7 @@ mod capture;
 mod analyze;
 mod geoip;
 
+mod capture_state;
 mod expiry_set;
 
 /// The cached result of public_ip::addr()
