@@ -1,10 +1,6 @@
 <script lang="ts">
-    import CloseIcon from "./CloseIcon.svelte";
-
     import "leaflet/dist/leaflet.css";
     import { map, ApplicationMode } from "../map";
-    import { lookupDns } from "../bindings";
-    import { fly } from "svelte/transition";
 
     export let query: string;
     export let state: ApplicationMode;
@@ -36,46 +32,15 @@
         class="w-full h-full z-20 select-none overflow-hidden"
         use:mapAction
     ></div>
-    {#if $map.selection}
-        <div
-            in:fly={{ duration: 300, x: 20 }}
-            out:fly={{ duration: 300, x: 20 }}
-            class="absolute right-0 top-0 bottom-0 z-40 flex flex-col w-64 pl-4 pr-2 py-4 space-y-2 bg-base-100/[0.8] overflow-x-auto"
-        >
-            <div class="flow-root font-bold">
-                <h2 class="float-left">Location Information</h2>
-                <button
-                    class="float-right btn btn-xs btn-circle"
-                    on:click={() => map.setSelection(null)}
-                >
-                    <CloseIcon />
-                </button>
-            </div>
+    <div
+        class="absolute right-0 top-0 bottom-0 z-40 flex flex-col w-64 pl-4 pr-2 py-4 space-y-2 bg-base-100/[0.8] overflow-x-auto"
+    >
+        <h2>Current Connections</h2>
 
-            <p>
-                {($map.selection.loc.city ?? "") +
-                    ($map.selection.loc.country_code
-                        ? `, ${countryNames.of($map.selection.loc.country_code)}`
-                        : "")}
-            </p>
-
-            {#if state == ApplicationMode.CAPTURE}
-                <p>Addresses:</p>
-                <ul class="list-disc ml-4">
-                    {#each $map.selection.ips as ip}
-                        <li>
-                            {ip}
-                            <button class="text-xs" on:click={() => search(ip)}
-                                >view</button
-                            >
-                            {#await lookupDns(ip) then dns}
-                                {#if dns}<span class="text-sm">({dns})</span
-                                    >{/if}
-                            {/await}
-                        </li>
-                    {/each}
-                </ul>
-            {/if}
-        </div>
-    {/if}
+        <ul class="ml-2 list-disc">
+            {#each $map.current as current}
+                <li>{current.ip}</li>
+            {/each}
+        </ul>
+    </div>
 </div>
