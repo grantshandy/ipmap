@@ -11,4 +11,7 @@
     };
 </script>
 
-<div use:mapAction class="grow z-20 select-none overflow-hidden"></div>
+<div class="grow flex">
+    <div use:mapAction class="grow z-20 select-none overflow-hidden"></div>
+
+</div>

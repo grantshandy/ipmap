@@ -8,9 +8,7 @@
 
     $: validateIp(query).then((valid) => (queryValid = valid));
 
-    const search = async () => {
-        map.addIp(query);
-    };
+    const search = () => map.setSearchIp(query);
 </script>
 
 <div class="grow flex flex-col">
