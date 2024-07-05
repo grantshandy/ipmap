@@ -5,7 +5,7 @@
   import DatabaseSelector from "./components/DatabaseSelector.svelte";
   import Search from "./components/Search.svelte";
 
-  let state: "search" | "capture" = "search";
+  let state: "search" | "capture" = "capture";
 </script>
 
 <main class="w-screen min-h-screen p-2 space-y-3 flex flex-col">

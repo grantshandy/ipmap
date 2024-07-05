@@ -2,10 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-.splitpanes__splitter {
-    @apply bg-neutral-content rounded-xl w-1 mx-1 relative;
-}
-
 .leaflet-container {
     @apply bg-neutral-content !important;
 }
@@ -16,24 +12,33 @@
 
 path.line-Outgoing {
     stroke-dasharray: 10 10;
-    animation: line 5s linear infinite;
+    animation: line 0.5s linear infinite, fade 0.5s ease-in-out forwards;
 }
 
 path.line-Incoming {
     stroke-dasharray: 10 10;
-    animation: line 5s linear infinite reverse;
+    animation: line 0.5s linear infinite reverse, fade 0.5s ease-in-out forwards;
 }
 
 path.line-Mixed {
     stroke-dasharray: 10 10;
-    animation: line 5s linear infinite alternate;
+    animation: line 0.5s linear infinite alternate, fade 0.5s ease-in-out forwards;
 }
 
 @keyframes line {
     0% {
-        stroke-dashoffset: -250;
+        stroke-dashoffset: -50;
     }
     100% {
-        stroke-dashoffset: 250;
+        stroke-dashoffset: 50;
+    }
+}
+
+@keyframes fade {
+    0% {
+        opacity: 0;
+    }
+    100% {
+        opacity: 1;
     }
 }

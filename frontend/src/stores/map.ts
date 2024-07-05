@@ -1,10 +1,11 @@
-import { map as mkMap, type Map, tileLayer, LayerGroup, layerGroup, Marker, marker, DivIcon, divIcon, type LatLngExpression } from "leaflet";
+import { map as mkMap, type Map, tileLayer, LayerGroup, layerGroup, Marker, marker, DivIcon, divIcon, type LatLngExpression, DomUtil } from "leaflet";
 import "leaflet-providers";
 import "leaflet-active-area";
 
 import { writable } from "svelte/store";
 import { database as databaseStore } from "./database";
-import { lookupIp, type DatabaseInfo, type Location } from "../bindings";
+import { lookupIp, myLocation, type ConnectionDirection, type ConnectionInfo, type DatabaseInfo, type Location } from "../bindings";
+import { GeodesicLine } from "leaflet.geodesic";
 
 const SELECT_ZOOM = 7;
 
@@ -27,6 +28,9 @@ type MapStore = {
 
     locations: { [id: LocationKey]: IpLocation },
     selection: IpLocation | null,
+
+    // id: ip
+    currentConnections: { [id: string]: { info: ConnectionInfo, arc: GeodesicLine } },
 };
 
 // a global map store representing the state of the map
@@ -46,6 +50,11 @@ export const map = (() => {
         return store;
     });
 
+    const setArcState = (state: ConnectionInfo[]) => update((store) => {
+        if (store) setArcStateImpl(store, state);
+        return store;
+    });
+
     return {
         subscribe,
         update,
@@ -56,6 +65,7 @@ export const map = (() => {
 
         setSearchIp,
         setSelection,
+        setArcState,
     };
 })();
 
@@ -68,7 +78,7 @@ const initImpl = (container: HTMLDivElement): MapStore => {
     inst.setView([30, 0], 2);
 
     tileLayer
-        .provider("OpenStreetMap.Mapnik", { noWrap: false })
+        .provider("OpenStreetMap.Mapnik", { noWrap: true })
         .addTo(inst);
     inst.setActiveArea(container); // from "leaflet-active-area", typescript doesn't recognize it.
 
@@ -81,7 +91,9 @@ const initImpl = (container: HTMLDivElement): MapStore => {
 
         locations: {},
         selection: null,
-    }
+
+        currentConnections: {},
+    };
 };
 
 // cleans up the map by removing it from the div
@@ -134,6 +146,47 @@ const setSelectionImpl = (store: MapStore, selection: IpLocation) => {
     store.selection = selection;
 };
 
+const setArcStateImpl = async (store: MapStore, newState: ConnectionInfo[]) => {
+    const newStates: { [id: string]: ConnectionInfo } = {};
+    for (const i of newState) newStates[i.ip] = i;
+
+    console.log(newStates);
+
+    // remove or change previously added arcs
+    for (const prevState of Object.values(store.currentConnections)) {
+        const ip = prevState.info.ip;
+
+        if (newStates[ip]) {
+            // update direction if needed
+            if (prevState.info.direction != newStates[ip].direction) {
+                console.log("changing direction");
+                prevState.arc.options.className = directionClassNameFromDirection(newStates[ip].direction);
+            }
+        } else {
+            // outdated arcs that no longer exist should be removed
+            store.currentConnections[ip].arc.remove();
+            delete store.currentConnections[ip];
+        }
+    }
+
+    const from = await myLocation(database);
+
+    // add arcs that don't already exist
+    for (const newState of Object.values(newStates)) {
+        // discard already existing connections
+        if (store.currentConnections[newState.ip]) continue;
+
+        const to = await lookupIp(newState.ip, database);
+
+        if (!to) continue;
+
+        store.currentConnections[newState.ip] = {
+            arc: mkLine(from, to, newState.direction, store.arcLayer),
+            info: newState,
+        };
+    }
+};
+
 const mkIcon = (count: number | null, active?: boolean): DivIcon => divIcon({
     html: `<div class="marker-icon ${active ? "bg-info" : "bg-secondary"}"><span>${count ? count : ""}</span></div>`,
     className: "dummyclass",
@@ -145,3 +198,27 @@ type LocationKey = string;
 const mkLocationKey = (loc: Location) => `${loc.latitude}${loc.longitude}`;
 
 const searchIcon: DivIcon = mkIcon(null, true);
+
+const mkLine = (current: Location, to: Location, direction: ConnectionDirection, map: LayerGroup<any>) => {
+    const className = directionClassNameFromDirection(direction);
+
+    const line = new GeodesicLine(
+        [
+            [current.latitude, current.longitude],
+            [to.latitude, to.longitude]
+        ],
+        {
+            weight: 1,
+            steps: 3,
+            opacity: 0.5,
+            className,
+        }
+    ).addTo(map);
+
+    // please work :)
+    DomUtil.addClass(line.getElement() as HTMLElement, className);
+
+    return line;
+};
+
+const directionClassNameFromDirection = (direction: ConnectionDirection): string => `line-${direction}`;

@@ -29,8 +29,10 @@ const invoke = async (cmd: string, args?: InvokeArgs | undefined): Promise<any> 
 
 const listDevices = async (): Promise<Device[]> => invoke("list_devices");
 
-const stopCapturing = async (threadId: string): Promise<void> => invoke("stop_capturing", { threadId });
-const startCapturing = async (name: string): Promise<string> => invoke("start_capturing", { name });
+type ThreadID = string;
+
+const stopCapturing = async (threadId: ThreadID): Promise<void> => invoke("stop_capturing", { threadId });
+const startCapturing = async (name: string): Promise<ThreadID> => invoke("start_capturing", { name });
 const currentConnections = async (): Promise<ConnectionInfo[]> => invoke("current_connections");
 const allConnections = async (): Promise<ConnectionInfo[]> => invoke("all_connections");
 
@@ -48,6 +50,7 @@ export {
     type DatabaseInfo,
     type Device,
     type Location,
+    type ThreadID,
 
     errorDialog,
     infoDialog,
