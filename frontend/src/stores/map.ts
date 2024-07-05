@@ -41,6 +41,11 @@ export const map = (() => {
         return store;
     });
 
+    const setSelection = (selection: IpLocation) => update((store) => {
+        if (store) setSelectionImpl(store, selection);
+        return store;
+    });
+
     return {
         subscribe,
         update,
@@ -50,6 +55,7 @@ export const map = (() => {
         deinit,
 
         setSearchIp,
+        setSelection,
     };
 })();
 
@@ -60,10 +66,9 @@ const initImpl = (container: HTMLDivElement): MapStore => {
 
     const inst = mkMap(container, { preferCanvas: false, minZoom: 2, maxZoom: 12, layers: [arcLayer, markerLayer] });
     inst.setView([30, 0], 2);
-    inst.setMaxBounds(inst.getBounds());
 
     tileLayer
-        .provider("OpenStreetMap.Mapnik", { noWrap: true })
+        .provider("OpenStreetMap.Mapnik", { noWrap: false })
         .addTo(inst);
     inst.setActiveArea(container); // from "leaflet-active-area", typescript doesn't recognize it.
 
@@ -107,7 +112,7 @@ const setSearchIpImpl = async (store: MapStore, ip: string) => {
         info: location,
         ips: new Set([ip]),
     };
-    setSelectionImpl(store, store.locations[key]);
+    map.setSelection(store.locations[key]);
 };
 
 const resetMarkersImpl = (store: MapStore) => {
@@ -126,7 +131,6 @@ const setSelectionImpl = (store: MapStore, selection: IpLocation) => {
     } else {
         store.inst.panTo(latlng);
     }
-
     store.selection = selection;
 };
 

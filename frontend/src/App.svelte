@@ -9,13 +9,14 @@
 </script>
 
 <main class="w-screen min-h-screen p-2 space-y-3 flex flex-col">
-  <div class="flex items-center space-x-3">
+  <div class="flow-root space-x-3">
     <select bind:value={state} class="select select-sm select-bordered">
       <option value="search">Search</option>
       <option value="capture">Capture</option>
     </select>
-    <h1 class="grow">Ipmap</h1>
-    <DatabaseSelector />
+    <div class="float-right">
+      <DatabaseSelector />
+    </div>
   </div>
   <hr />
   {#if $database}
