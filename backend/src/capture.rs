@@ -1,17 +1,14 @@
-use std::{net::IpAddr, sync::Arc, thread, time::Duration};
+use std::net::IpAddr;
 
 use etherparse::{NetHeaders, PacketHeaders};
 use pcap::{Active, Capture, PacketCodec};
 use rayon::iter::{ParallelBridge, ParallelIterator};
-use tauri::{async_runtime, AppHandle, Manager, Runtime};
+use tauri::{async_runtime, AppHandle, Manager, Runtime, State};
 use time::OffsetDateTime;
 use ts_rs::TS;
 use uuid::Uuid;
 
-use crate::capture_state::{CaptureState, DirectedPacket, PacketDirection};
-
-const PACKET_LIFETIME: Duration = Duration::from_secs(5);
-const RESEND_STATE_INTERVAL: Duration = Duration::from_secs(1);
+use crate::capture_state::{CaptureState, ConnectionInfo, DirectedPacket, PacketDirection};
 
 #[derive(serde::Serialize, Clone, PartialEq, TS)]
 #[ts(export, export_to = "../../frontend/src/bindings/")]
@@ -99,35 +96,23 @@ pub async fn stop_capturing<R: Runtime>(
 
 /// Handles all incoming and outgoing connections in parallel
 fn capture_thread<R: Runtime>(handle: AppHandle<R>, thread_id: Uuid, cap: Capture<Active>) {
-    let (cap_stop_tx, cap_stop_rx) = crossbeam_channel::unbounded();
-    let (state_emit_stop_tx, state_emit_stop_rx) = crossbeam_channel::unbounded();
+    let (tx, rx) = crossbeam_channel::unbounded();
 
+    // other thread told us to stop :)
     handle.listen_global(&thread_id.to_string(), move |_| {
-        state_emit_stop_tx.send(()).expect("stop transmission");
-        cap_stop_tx.send(()).expect("stop transmission");
+        tx.send(()).expect("stop capture");
     });
 
-    let connections: Arc<CaptureState> = Arc::new(CaptureState::new(thread_id, PACKET_LIFETIME));
+    let state = handle.state::<CaptureState>();
 
-    let connections_emit = connections.clone();
-    async_runtime::spawn_blocking(move || loop {
-        handle
-            .emit_all("update_state", connections_emit.info())
-            .expect("update state");
-        thread::sleep(RESEND_STATE_INTERVAL);
-
-        if cap_stop_rx.try_recv().is_ok() {
-            tracing::info!("stopped {thread_id} emit thread");
-            handle.emit_all("update_state", ()).expect("update state");
-            break;
-        }
-    });
+    tracing::info!("resetting capture history");
+    state.reset_history();
 
     // Hack using Result<()> for concurrent control flow in a parallel stream >:)
     cap.iter(PacketSourceCodec)
         .par_bridge()
         .try_for_each(|res| {
-            if state_emit_stop_rx.try_recv().is_ok() {
+            if rx.try_recv().is_ok() {
                 return Err(()); // break
             }
 
@@ -140,11 +125,13 @@ fn capture_thread<R: Runtime>(handle: AppHandle<R>, thread_id: Uuid, cap: Captur
                 return Ok(()); // continue
             }
 
-            connections.connection(ip, packet);
+            state.connection(ip, packet);
 
             Ok(())
         })
         .ok();
+
+    state.reset_history();
 
     tracing::info!("stopped {thread_id} capture thread");
 }
@@ -187,4 +174,16 @@ impl PacketCodec for PacketSourceCodec {
             },
         ))
     }
+}
+
+#[tauri::command]
+pub async fn current_connections(
+    state: State<'_, CaptureState>,
+) -> Result<Vec<ConnectionInfo>, ()> {
+    Ok(state.current())
+}
+
+#[tauri::command]
+pub async fn all_connections(state: State<'_, CaptureState>) -> Result<Vec<ConnectionInfo>, ()> {
+    Ok(state.info())
 }

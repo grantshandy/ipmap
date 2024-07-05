@@ -3,7 +3,6 @@ import type { InvokeArgs } from "@tauri-apps/api/tauri";
 
 import { type ConnectionDirection } from "./ConnectionDirection";
 import { type ConnectionInfo } from "./ConnectionInfo";
-import type { CaptureStateInfo } from "./CaptureStateInfo";
 import { type DatabaseInfo } from "./DatabaseInfo";
 import { type Device } from "./Device";
 import { type Location } from "./Location";
@@ -15,7 +14,7 @@ const errorDialog = (msg: string): Promise<void> => {
 
 const infoDialog = (title: string, msg: string): Promise<void> => {
     return message(msg, { title, type: "info" });
-}
+};
 
 // invoke a tauri command, showing the error on screen if error returned
 const invoke = async (cmd: string, args?: InvokeArgs | undefined): Promise<any> => {
@@ -32,6 +31,8 @@ const listDevices = async (): Promise<Device[]> => invoke("list_devices");
 
 const stopCapturing = async (threadId: string): Promise<void> => invoke("stop_capturing", { threadId });
 const startCapturing = async (name: string): Promise<string> => invoke("start_capturing", { name });
+const currentConnections = async (): Promise<ConnectionInfo[]> => invoke("current_connections");
+const allConnections = async (): Promise<ConnectionInfo[]> => invoke("all_connections");
 
 const loadDatabase = async (path: string | string[] | null): Promise<DatabaseInfo | null> => invoke("load_database", { path });
 const listDatabases = async (): Promise<DatabaseInfo[]> => invoke("list_databases");
@@ -42,7 +43,6 @@ const validateIp = async (ip: string): Promise<boolean> => invoke("validate_ip",
 const myLocation = async (database: DatabaseInfo | null): Promise<Location> => invoke("my_location", { database: database?.path });
 
 export {
-    type CaptureStateInfo,
     type ConnectionDirection,
     type ConnectionInfo,
     type DatabaseInfo,
@@ -56,11 +56,13 @@ export {
 
     stopCapturing,
     startCapturing,
+    currentConnections,
+    allConnections,
 
     loadDatabase,
     listDatabases,
-    lookupIp,
 
+    lookupIp,
     lookupDns,
     validateIp,
     myLocation,

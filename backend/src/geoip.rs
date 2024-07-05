@@ -3,7 +3,7 @@ use std::{
     path::PathBuf,
 };
 
-use crate::{DatabaseState, PublicIpAddress};
+use crate::{Global, PublicIpAddress};
 use tauri::State;
 
 pub mod database {
@@ -14,7 +14,7 @@ use database::{Database, DatabaseInfo, Location};
 
 #[tauri::command]
 pub async fn lookup_ip(
-    databases: State<'_, DatabaseState>,
+    databases: State<'_, Global>,
     database: Option<PathBuf>,
     ip: Ipv4Addr,
 ) -> Result<Option<database::Location>, String> {
@@ -41,7 +41,7 @@ pub async fn lookup_ip(
 /// No path (None) is for the database optionally compiled into the executable.
 #[tauri::command]
 pub async fn load_database(
-    databases: State<'_, DatabaseState>,
+    databases: State<'_, Global>,
     path: Option<PathBuf>,
 ) -> Result<Option<DatabaseInfo>, String> {
     match path {
@@ -67,7 +67,7 @@ pub async fn load_database(
 
 /// List all databases (by info)
 #[tauri::command]
-pub async fn list_databases(databases: State<'_, DatabaseState>) -> Result<Vec<DatabaseInfo>, ()> {
+pub async fn list_databases(databases: State<'_, Global>) -> Result<Vec<DatabaseInfo>, ()> {
     tracing::info!("listing databases");
 
     let mut databases: Vec<DatabaseInfo> = databases.iter().map(|v| v.info()).collect();
@@ -81,7 +81,7 @@ pub async fn list_databases(databases: State<'_, DatabaseState>) -> Result<Vec<D
 
 #[tauri::command]
 pub async fn my_location(
-    databases: State<'_, DatabaseState>,
+    databases: State<'_, Global>,
     ip: State<'_, PublicIpAddress>,
     database: Option<PathBuf>,
 ) -> Result<Location, String> {

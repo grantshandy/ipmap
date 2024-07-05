@@ -1,8 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::{net::IpAddr, path::PathBuf, process, sync::{Arc, RwLock}};
+use std::{net::IpAddr, path::PathBuf, process};
 
-use capture::Device;
 use capture_state::CaptureState;
 use dashmap::DashMap;
 use tauri::{
@@ -16,18 +15,18 @@ mod analyze;
 mod geoip;
 
 mod capture_state;
-mod expiry_set;
 
 /// The cached result of public_ip::addr()
 type PublicIpAddress = IpAddr;
 
-type DatabaseState = DashMap<PathBuf, geoip::database::Database>;
+type Global = DashMap<PathBuf, geoip::database::Database>;
 
 fn main() {
     tracing_subscriber::fmt::init();
 
     tauri::Builder::default()
-        .manage(DatabaseState::default())
+        .manage(Global::default())
+        .manage(CaptureState::default())
         .setup(|app| {
             // TODO: make optional and asynchronous in the background instead of blocking the main thread.
             let Some(ip) = async_runtime::block_on(public_ip::addr()) else {
@@ -49,6 +48,8 @@ fn main() {
             capture::list_devices,
             capture::start_capturing,
             capture::stop_capturing,
+            capture::all_connections,
+            capture::current_connections,
             geoip::load_database,
             geoip::list_databases,
             geoip::lookup_ip,

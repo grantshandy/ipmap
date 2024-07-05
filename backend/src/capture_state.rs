@@ -4,7 +4,6 @@ use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use ts_rs::TS;
-use uuid::Uuid;
 
 ///! A kinda state-machine representing the state of a
 /// network capture session on a particular thread, centered around [CaptureState].
@@ -14,20 +13,10 @@ const DIRECTION_PERCENTAGE_MIXED_THRESHOLD: f32 = 0.3;
 
 #[derive(Clone, Debug, Default)]
 pub struct CaptureState {
-    thread_id: Uuid,
-    packet_lifetime: Duration,
     connections: DashMap<IpAddr, Connection>,
 }
 
 impl CaptureState {
-    pub fn new(thread_id: Uuid, packet_lifetime: Duration) -> Self {
-        Self {
-            thread_id,
-            packet_lifetime,
-            connections: DashMap::new(),
-        }
-    }
-
     // adds a packet to an ip Connection's list
     pub fn connection(&self, ip: IpAddr, packet: DirectedPacket) {
         match self.connections.get_mut(&ip) {
@@ -42,11 +31,21 @@ impl CaptureState {
     }
 
     /// returns information about the state of the capture session so far.
-    pub fn info(&self) -> CaptureStateInfo {
-        CaptureStateInfo {
-            connections: self.connections.iter_mut().map(|mut c| c.info()).collect(),
-            thread_id: self.thread_id,
-        }
+    pub fn info(&self) -> Vec<ConnectionInfo> {
+        self.connections.iter_mut().map(|mut c| c.info()).collect()
+    }
+
+    /// returns all the current connections (arcs shown on the map)
+    pub fn current(&self) -> Vec<ConnectionInfo> {
+        self.connections
+            .iter_mut()
+            .map(|mut i| i.info())
+            .filter(|i| i.current)
+            .collect()
+    }
+
+    pub fn reset_history(&self) {
+        self.connections.clear();
     }
 }
 
@@ -153,11 +152,4 @@ pub enum ConnectionDirection {
     Incoming = 0,
     Mixed = 1,
     Outgoing = 2,
-}
-
-#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "../../frontend/src/bindings/")]
-pub struct CaptureStateInfo {
-    connections: Vec<ConnectionInfo>,
-    thread_id: Uuid,
 }
