@@ -166,7 +166,7 @@ impl PacketCodec for PacketSourceCodec {
             // non-global source, global dest: outgoing
             (false, true) => (PacketDirection::Outgoing, dest),
             // non-global source and dest: local (irrelevant)
-            (true, true) | (false, false) => return None,
+            _ => return None,
         };
 
         Some((

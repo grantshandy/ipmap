@@ -31,6 +31,8 @@ type MapStore = {
 
     // id: ip
     currentConnections: { [id: string]: { info: ConnectionInfo, arc: GeodesicLine } },
+
+    locationMarker: Marker | null,
 };
 
 // a global map store representing the state of the map
@@ -99,6 +101,7 @@ const initImpl = (container: HTMLDivElement): MapStore => {
         selection: null,
 
         currentConnections: {},
+        locationMarker: null,
     };
 };
 
@@ -153,6 +156,8 @@ const setSelectionImpl = (store: MapStore, selection: IpLocation) => {
 };
 
 const setArcStateImpl = (store: MapStore, newState: ConnectionInfo[]) => {
+    addLocationMarkerIfNotExists(store);
+
     const newStates: { [id: string]: ConnectionInfo } = {};
     for (const i of newState) newStates[i.ip] = i;
 
@@ -247,5 +252,27 @@ const addIpImpl = async (store: MapStore, ip: string) => {
                 { icon: mkIcon(1, false) }
             ).addTo(store.markerLayer)
         };
+    }
+};
+
+const addLocationMarkerIfNotExists = (store: MapStore) => {
+    if (!store.locationMarker) {
+        store.locationMarker = marker([0, 0], {
+            icon: divIcon({
+                html: `<div class="marker-icon bg-info"></div>`,
+                className: "dummyclass",
+                iconSize: [20, 20],
+                iconAnchor: [10, 10],
+            })
+        });
+
+        myLocation(database).then((location) => {
+            if (!store.locationMarker) return;
+            
+            store
+                .locationMarker
+                .setLatLng([location.latitude, location.longitude])
+                .addTo(store.markerLayer);
+        });
     }
 };

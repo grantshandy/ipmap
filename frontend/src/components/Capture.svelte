@@ -12,7 +12,7 @@
     import { onDestroy } from "svelte";
     import type { UnlistenFn } from "@tauri-apps/api/event";
 
-    const POLL_MS = 500;
+    const POLL_MS = 250;
 
     let device: string | null = null;
     let capturing: { id: ThreadID; unlisten: UnlistenFn } | null = null;
@@ -40,16 +40,20 @@
         }
 
         currentConnections().then(map.setArcState);
-
         setTimeout(currentConnectionLoop, POLL_MS);
     };
 
-    onDestroy(() => {
+    const cleanup = () => {
         if (capturing) {
+            console.log("stopping capture of " + capturing.id);
             stopCapturing(capturing.id);
             capturing.unlisten();
+            capturing = null;
         }
-    });
+    };
+
+    onDestroy(cleanup);
+    window.onbeforeunload = cleanup;
 </script>
 
 <div class="grow flex flex-col space-y-3">

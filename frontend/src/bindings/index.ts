@@ -7,7 +7,7 @@ import { type DatabaseInfo } from "./DatabaseInfo";
 import { type Device } from "./Device";
 import { type Location } from "./Location";
 import { message } from "@tauri-apps/api/dialog";
-import { listen, type EventCallback, type UnlistenFn } from "@tauri-apps/api/event";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
 const errorDialog = (msg: string): Promise<void> => {
     return message(`Error: ${msg}`, { title: "Error", type: "error" });

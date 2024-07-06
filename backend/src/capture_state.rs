@@ -43,13 +43,11 @@ impl CaptureState {
 
     /// returns all the current connections (arcs shown on the map)
     pub fn current(&self) -> Vec<ConnectionInfo> {
-        let current = self.connections
+        self.connections
             .iter_mut()
             .map(|mut i| i.info())
             .filter(|i| i.current)
-            .collect();
-        tracing::info!("{current:?}");
-        current
+            .collect()
     }
 
     pub fn reset_history(&self) {
