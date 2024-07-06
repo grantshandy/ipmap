@@ -1,46 +1,55 @@
 <script lang="ts">
     import MapView from "./MapView.svelte";
     import {
-    currentConnections,
+        currentConnections,
         listDevices,
+        onNewConnection,
         startCapturing,
         stopCapturing,
         type ThreadID,
     } from "../bindings";
     import { map } from "../stores/map";
     import { onDestroy } from "svelte";
+    import type { UnlistenFn } from "@tauri-apps/api/event";
 
     const POLL_MS = 500;
 
     let device: string | null = null;
-    let capturing: ThreadID | null = null;
+    let capturing: { id: ThreadID; unlisten: UnlistenFn } | null = null;
 
     const toggleCapturing = async () => {
         if (!device) return;
 
         if (capturing) {
-            await stopCapturing(capturing);
+            await stopCapturing(capturing.id);
             capturing = null;
         } else {
-            capturing = await startCapturing(device);
-            connLoop();
+            capturing = {
+                id: await startCapturing(device),
+                unlisten: await onNewConnection(map.addIp),
+            };
+
+            currentConnectionLoop();
         }
     };
 
-    const connLoop = async () => {
+    const currentConnectionLoop = () => {
         if (!capturing) {
             map.setArcState([]);
             return;
         }
 
-        map.setArcState(await currentConnections());
+        currentConnections().then(map.setArcState);
 
-        setTimeout(connLoop, POLL_MS);
+        setTimeout(currentConnectionLoop, POLL_MS);
     };
 
     onDestroy(() => {
-        if (capturing) stopCapturing(capturing);
-    })
+        if (capturing) {
+            stopCapturing(capturing.id);
+            capturing.unlisten();
+        }
+    });
 </script>
 
 <div class="grow flex flex-col space-y-3">

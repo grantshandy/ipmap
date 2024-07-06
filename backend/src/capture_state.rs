@@ -6,7 +6,7 @@ use time::OffsetDateTime;
 use ts_rs::TS;
 
 ///! A kinda state-machine representing the state of a
-/// network capture session on a particular thread, centered around [CaptureState].
+///! network capture session on a particular thread, centered around [CaptureState].
 
 const CONNECTION_LIFETIME: Duration = Duration::from_secs(3);
 const DIRECTION_PERCENTAGE_MIXED_THRESHOLD: f32 = 0.3;
@@ -17,17 +17,23 @@ pub struct CaptureState {
 }
 
 impl CaptureState {
-    // adds a packet to an ip Connection's list
-    pub fn connection(&self, ip: IpAddr, packet: DirectedPacket) {
+    /// Adds a packet to an ip Connection's list
+    ///
+    /// Returns true if the ip has not been found before
+    pub fn connection(&self, ip: IpAddr, packet: DirectedPacket) -> bool {
         match self.connections.get_mut(&ip) {
-            Some(mut connection) => connection.add(packet),
+            Some(mut connection) => {
+                connection.add(packet);
+                false
+            }
             None => {
                 let mut connection = Connection::new(ip);
                 connection.add(packet);
 
                 self.connections.insert(ip, connection);
+                true
             }
-        };
+        }
     }
 
     /// returns information about the state of the capture session so far.
@@ -37,11 +43,13 @@ impl CaptureState {
 
     /// returns all the current connections (arcs shown on the map)
     pub fn current(&self) -> Vec<ConnectionInfo> {
-        self.connections
+        let current = self.connections
             .iter_mut()
             .map(|mut i| i.info())
             .filter(|i| i.current)
-            .collect()
+            .collect();
+        tracing::info!("{current:?}");
+        current
     }
 
     pub fn reset_history(&self) {
@@ -66,7 +74,7 @@ pub struct DirectedPacket {
 pub struct Connection {
     ip: IpAddr,
     size: usize,
-    // front: [ush new --> back: pull old
+    // front: push new --> back: pull old
     packets: LinkedList<DirectedPacket>,
 }
 

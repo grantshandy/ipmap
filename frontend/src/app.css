@@ -7,7 +7,7 @@
 }
 
 .marker-icon {
-    @apply w-full h-full font-bold flex items-center justify-center border rounded-full drop-shadow-lg;
+    @apply w-full h-full font-bold border rounded-full drop-shadow-lg text-center;
 }
 
 path.line-Outgoing {

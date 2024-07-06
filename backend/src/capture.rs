@@ -125,7 +125,11 @@ fn capture_thread<R: Runtime>(handle: AppHandle<R>, thread_id: Uuid, cap: Captur
                 return Ok(()); // continue
             }
 
-            state.connection(ip, packet);
+            if state.connection(ip, packet) {
+                handle
+                    .emit_all("new_connection", ip)
+                    .expect("emit new connection");
+            }
 
             Ok(())
         })

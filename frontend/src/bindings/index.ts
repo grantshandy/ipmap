@@ -7,6 +7,7 @@ import { type DatabaseInfo } from "./DatabaseInfo";
 import { type Device } from "./Device";
 import { type Location } from "./Location";
 import { message } from "@tauri-apps/api/dialog";
+import { listen, type EventCallback, type UnlistenFn } from "@tauri-apps/api/event";
 
 const errorDialog = (msg: string): Promise<void> => {
     return message(`Error: ${msg}`, { title: "Error", type: "error" });
@@ -44,6 +45,9 @@ const lookupDns = async (ip: string): Promise<string | null> => invoke("dns_look
 const validateIp = async (ip: string): Promise<boolean> => invoke("validate_ip", { ip });
 const myLocation = async (database: DatabaseInfo | null): Promise<Location> => invoke("my_location", { database: database?.path });
 
+const onNewConnection = (handler: (ip: string) => void): Promise<UnlistenFn> =>
+    listen("new_connection", (event) => handler(event.payload as string));
+
 export {
     type ConnectionDirection,
     type ConnectionInfo,
@@ -61,6 +65,7 @@ export {
     startCapturing,
     currentConnections,
     allConnections,
+    onNewConnection,
 
     loadDatabase,
     listDatabases,

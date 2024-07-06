@@ -55,6 +55,11 @@ export const map = (() => {
         return store;
     });
 
+    const addIp = (ip: string) => update((store) => {
+        if (store) addIpImpl(store, ip);
+        return store;
+    });
+
     return {
         subscribe,
         update,
@@ -66,6 +71,7 @@ export const map = (() => {
         setSearchIp,
         setSelection,
         setArcState,
+        addIp,
     };
 })();
 
@@ -146,11 +152,9 @@ const setSelectionImpl = (store: MapStore, selection: IpLocation) => {
     store.selection = selection;
 };
 
-const setArcStateImpl = async (store: MapStore, newState: ConnectionInfo[]) => {
+const setArcStateImpl = (store: MapStore, newState: ConnectionInfo[]) => {
     const newStates: { [id: string]: ConnectionInfo } = {};
     for (const i of newState) newStates[i.ip] = i;
-
-    console.log(newStates);
 
     // remove or change previously added arcs
     for (const prevState of Object.values(store.currentConnections)) {
@@ -159,7 +163,6 @@ const setArcStateImpl = async (store: MapStore, newState: ConnectionInfo[]) => {
         if (newStates[ip]) {
             // update direction if needed
             if (prevState.info.direction != newStates[ip].direction) {
-                console.log("changing direction");
                 prevState.arc.options.className = directionClassNameFromDirection(newStates[ip].direction);
             }
         } else {
@@ -169,26 +172,26 @@ const setArcStateImpl = async (store: MapStore, newState: ConnectionInfo[]) => {
         }
     }
 
-    const from = await myLocation(database);
+    myLocation(database).then((from) => {
+        // add arcs that don't already exist
+        for (const newState of Object.values(newStates)) {
+            // discard already existing connections
+            if (store.currentConnections[newState.ip]) continue;
 
-    // add arcs that don't already exist
-    for (const newState of Object.values(newStates)) {
-        // discard already existing connections
-        if (store.currentConnections[newState.ip]) continue;
+            lookupIp(newState.ip, database).then((to) => {
+                if (!to) return;
 
-        const to = await lookupIp(newState.ip, database);
-
-        if (!to) continue;
-
-        store.currentConnections[newState.ip] = {
-            arc: mkLine(from, to, newState.direction, store.arcLayer),
-            info: newState,
-        };
-    }
+                store.currentConnections[newState.ip] = {
+                    arc: mkLine(from, to, newState.direction, store.arcLayer),
+                    info: newState,
+                };
+            });
+        }
+    });
 };
 
 const mkIcon = (count: number | null, active?: boolean): DivIcon => divIcon({
-    html: `<div class="marker-icon ${active ? "bg-info" : "bg-secondary"}"><span>${count ? count : ""}</span></div>`,
+    html: `<div class="marker-icon ${active ? "bg-info" : "bg-secondary"}">${count ? count : ""}</div>`,
     className: "dummyclass",
     iconSize: active ? [25, 25] : [20, 20],
     iconAnchor: active ? [12.5, 12.5] : [10, 10],
@@ -215,10 +218,34 @@ const mkLine = (current: Location, to: Location, direction: ConnectionDirection,
         }
     ).addTo(map);
 
-    // please work :)
-    DomUtil.addClass(line.getElement() as HTMLElement, className);
-
     return line;
 };
 
 const directionClassNameFromDirection = (direction: ConnectionDirection): string => `line-${direction}`;
+
+const addIpImpl = async (store: MapStore, ip: string) => {
+    if (store.ips.has(ip)) return;
+    store.ips.add(ip);
+
+    const location = await lookupIp(ip, database);
+
+    if (!location) return;
+
+    const key = mkLocationKey(location);
+
+    const iploc = store.locations[key];
+
+    if (iploc) {
+        iploc.ips.add(ip);
+        iploc.marker.setIcon(mkIcon(iploc.ips.size, false));
+    } else {
+        store.locations[key] = {
+            info: location,
+            ips: new Set([ip]),
+            marker: marker(
+                [location.latitude, location.longitude],
+                { icon: mkIcon(1, false) }
+            ).addTo(store.markerLayer)
+        };
+    }
+};
