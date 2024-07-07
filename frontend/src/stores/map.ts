@@ -71,7 +71,7 @@ export const map = (() => {
     });
 
     const resetView = () => update((store) => {
-        if (store) resetViewImpl(store);
+        if (store) resetMapView(store.inst);
         return store;
     });
 
@@ -98,7 +98,7 @@ const initImpl = (container: HTMLDivElement): MapStore => {
     const markerLayer = layerGroup();
 
     const inst = mkMap(container, { preferCanvas: false, minZoom: 2, maxZoom: 12, layers: [arcLayer, markerLayer] });
-    inst.setView([25, 0], 2);
+    resetMapView(inst);
 
     tileLayer
         .provider("OpenStreetMap.Mapnik", { noWrap: true })
@@ -219,39 +219,6 @@ const setArcStateImpl = (store: MapStore, newState: ConnectionInfo[]) => {
     });
 };
 
-const mkIcon = (count: number | null, active?: boolean): DivIcon => divIcon({
-    html: `<div class="marker-icon ${active ? "bg-primary" : "bg-accent"}">${count ? count : ""}</div>`,
-    className: "dummyclass",
-    iconSize: [20, 20],
-    iconAnchor:[10, 10],
-});
-
-type LocationKey = string;
-const mkLocationKey = (loc: Location) => `${loc.latitude}${loc.longitude}`;
-
-const searchIcon: DivIcon = mkIcon(null, true);
-
-const mkLine = (current: Location, to: Location, direction: ConnectionDirection, map: LayerGroup<any>) => {
-    const className = directionClassNameFromDirection(direction);
-
-    const line = new GeodesicLine(
-        [
-            [current.latitude, current.longitude],
-            [to.latitude, to.longitude]
-        ],
-        {
-            weight: 1,
-            steps: 3,
-            opacity: 0.5,
-            className,
-        }
-    ).addTo(map);
-
-    return line;
-};
-
-const directionClassNameFromDirection = (direction: ConnectionDirection): string => `line-${direction}`;
-
 const addIpImpl = async (store: MapStore, ip: string) => {
     if (store.ips.has(ip)) return;
     store.ips.add(ip);
@@ -296,6 +263,39 @@ const addLocationMarkerIfNotExists = (store: MapStore) => {
     }
 };
 
-const resetViewImpl = (store: MapStore) => {
-    store.inst.setView([25, 0], 2);
+const resetMapView = (map: Map) => {
+    map.setView([25, 0], 2);
 };
+
+const mkIcon = (count: number | null, active?: boolean): DivIcon => divIcon({
+    html: `<div class="marker-icon ${active ? "bg-primary" : "bg-accent"}">${count ? count : ""}</div>`,
+    className: "dummyclass",
+    iconSize: [20, 20],
+    iconAnchor:[10, 10],
+});
+
+type LocationKey = string;
+const mkLocationKey = (loc: Location) => `${loc.latitude}${loc.longitude}`;
+
+const searchIcon: DivIcon = mkIcon(null, true);
+
+const mkLine = (current: Location, to: Location, direction: ConnectionDirection, map: LayerGroup<any>) => {
+    const className = directionClassNameFromDirection(direction);
+
+    const line = new GeodesicLine(
+        [
+            [current.latitude, current.longitude],
+            [to.latitude, to.longitude]
+        ],
+        {
+            weight: 1,
+            steps: 3,
+            opacity: 0.5,
+            className,
+        }
+    ).addTo(map);
+
+    return line;
+};
+
+const directionClassNameFromDirection = (direction: ConnectionDirection): string => `line-${direction}`;

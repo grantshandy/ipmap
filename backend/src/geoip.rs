@@ -78,12 +78,10 @@ pub async fn unload_database(databases: State<'_, Global>, path: PathBuf) -> Res
 /// List all databases (by info)
 #[tauri::command]
 pub async fn list_databases(databases: State<'_, Global>) -> Result<Vec<DatabaseInfo>, ()> {
-    tracing::info!("listing databases");
-
     let mut databases: Vec<DatabaseInfo> = databases.iter().map(|v| v.info()).collect();
 
     if let Some(internal) = database::DATABASE.as_ref() {
-        databases.push(internal.info());
+        databases.insert(0, internal.info());
     }
 
     Ok(databases)

@@ -66,7 +66,7 @@
         <select
             bind:value={device}
             disabled={capturing != null}
-            class="select select-sm select-bordered w-xs"
+            class="select select-sm select-bordered w-1/3"
         >
             <option disabled selected value={null}>Select Network Device</option
             >
