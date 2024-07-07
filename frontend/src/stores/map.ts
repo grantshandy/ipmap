@@ -13,7 +13,7 @@ const SELECT_ZOOM = 7;
 let database: DatabaseInfo | null = null;
 databaseStore.subscribe((v) => (database = v));
 
-type IpLocation = {
+export type IpLocation = {
     marker: Marker,
     info: Location,
     ips: Set<string>,
@@ -66,9 +66,14 @@ export const map = (() => {
         if (!store) return null;
 
         store.inst.invalidateSize();
-    
+
         return store;
-    })
+    });
+
+    const resetView = () => update((store) => {
+        if (store) resetViewImpl(store);
+        return store;
+    });
 
     return {
         subscribe,
@@ -83,6 +88,7 @@ export const map = (() => {
         setArcState,
         addIp,
         invalidateSize,
+        resetView
     };
 })();
 
@@ -92,7 +98,7 @@ const initImpl = (container: HTMLDivElement): MapStore => {
     const markerLayer = layerGroup();
 
     const inst = mkMap(container, { preferCanvas: false, minZoom: 3, maxZoom: 12, layers: [arcLayer, markerLayer] });
-    inst.setView([30, 0], 3);
+    inst.setView([30, 0], 2);
 
     tileLayer
         .provider("OpenStreetMap.Mapnik", { noWrap: true })
@@ -286,11 +292,15 @@ const addLocationMarkerIfNotExists = (store: MapStore) => {
 
         myLocation(database).then((location) => {
             if (!store.locationMarker) return;
-            
+
             store
                 .locationMarker
                 .setLatLng([location.latitude, location.longitude])
                 .addTo(store.markerLayer);
         });
     }
+};
+
+const resetViewImpl = (store: MapStore) => {
+    store.inst.flyTo([30, 0], 2);
 };

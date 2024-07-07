@@ -28,6 +28,8 @@ fn main() {
         .manage(Global::default())
         .manage(CaptureState::default())
         .setup(|app| {
+            tracing::info!("getting ip");
+
             // TODO: make optional and asynchronous in the background instead of blocking the main thread.
             let Some(ip) = async_runtime::block_on(public_ip::addr()) else {
                 MessageDialogBuilder::new(
@@ -39,6 +41,8 @@ fn main() {
 
                 process::exit(1);
             };
+
+            tracing::info!("got ip");
 
             app.manage(ip);
 
