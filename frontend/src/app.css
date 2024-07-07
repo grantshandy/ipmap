@@ -7,7 +7,7 @@
 }
 
 .marker-icon {
-    @apply w-full h-full font-bold border rounded-full drop-shadow-lg text-center;
+    @apply w-full h-full font-bold border rounded-full drop-shadow-lg text-center text-neutral-600;
 }
 
 path.line-Outgoing {
@@ -44,5 +44,5 @@ path.line-Mixed {
 }
 
 .code {
-    @apply px-1 py-0.5 rounded-md bg-base-300 text-neutral-content text-sm;
+    @apply px-1 py-0.5 rounded-md bg-base-300 text-sm;
 }

@@ -1,11 +1,13 @@
 <script lang="ts">
   import { database } from "./stores/database";
+  import { theme } from "./stores/theme";
   import { fade } from "svelte/transition";
 
   import Capture from "./components/Capture.svelte";
   import DatabaseSelector from "./components/DatabaseSelector.svelte";
   import Search from "./components/Search.svelte";
   import { open } from "@tauri-apps/api/shell";
+  import ThemeSwitcher from "./components/ThemeSwitcher.svelte";
 
   let state: "search" | "capture" = "capture";
   let loading: string | null = "Internal Database";
@@ -15,20 +17,16 @@
   <main
     transition:fade={{ duration: 200 }}
     class="page flex items-center justify-center"
+    data-theme={$theme}
   >
     <div class="text-center space-y-9 select-none">
       {#if !loading}
-        <h1 class="font-bold text-2xl">
-          Load an IP-Geolocation Database
-        </h1>
+        <h1 class="font-bold text-2xl">Load an IP-Geolocation Database</h1>
       {/if}
       <DatabaseSelector bind:loading />
       {#if !loading}
         <p class="max-w-sm mx-auto leading-loose">
-          Databases must be in the <span
-            class="code"
-            >*-city-ipv4-num.csv</span
-          >
+          Databases must be in the <span class="code">*-city-ipv4-num.csv</span>
           format, and can be found at the
           <button
             on:click={() => open("https://github.com/sapics/ip-location-db")}
@@ -36,17 +34,22 @@
           > repository.
         </p>
       {/if}
-      <p></p>
     </div>
+    {#if !loading}
+      <div class="absolute top-5 left-5">
+        <ThemeSwitcher size={"1.25rem"} />
+      </div>
+    {/if}
   </main>
 {:else}
-  <main class="page flex flex-col p-2 space-y-3">
-    <div class="flow-root space-x-3">
+  <main class="page flex flex-col p-2 space-y-3" data-theme={$theme}>
+    <div class="flex space-x-3 items-center">
       <select bind:value={state} class="select select-sm select-bordered">
         <option value="search">Search</option>
         <option value="capture">Capture</option>
       </select>
-      <div class="float-right flex items-center space-x-3">
+      <ThemeSwitcher size={"1.5rem"} />
+      <div class="grow flex justify-end items-center space-x-3">
         <DatabaseSelector bind:loading />
       </div>
     </div>

@@ -109,19 +109,17 @@ impl Database {
 
         let loc_key = Coordinate::from((latitude, longitude));
 
-        if !self.locations.contains_key(&loc_key) {
-            let city = self.hash_and_insert_str(location.city);
-            let state = self.hash_and_insert_str(location.state);
+        let city = self.hash_and_insert_str(location.city);
+        let state = self.hash_and_insert_str(location.state);
 
-            self.locations.insert(
-                loc_key,
-                LocationDetails {
-                    city,
-                    country_code: location.country_code.into(),
-                    state,
-                },
-            );
-        }
+        self.locations.insert(
+            loc_key,
+            LocationDetails {
+                city,
+                country_code: location.country_code.into(),
+                state,
+            },
+        );
 
         self.map.insert(ip_range, loc_key);
     }
@@ -138,7 +136,7 @@ impl Database {
         self.map
             .get(&u32::from(ip))
             .and_then(|k| self.locations.get(k).map(|l| (k, l)))
-            .map(|(k, l)| self.decode_location(k, l))
+            .map(|(k, l)| self.decode_location(*k, l))
     }
 
     pub fn get_range(&self, ip: Ipv4Addr) -> Option<RangeInclusive<Ipv4Addr>> {
@@ -147,7 +145,7 @@ impl Database {
         })
     }
 
-    fn decode_location(&self, k: &Coordinate, l: &LocationDetails) -> Location {
+    fn decode_location(&self, k: Coordinate, l: &LocationDetails) -> Location {
         let (latitude, longitude) = k.into();
 
         Location {
@@ -219,7 +217,7 @@ impl From<(f16, f16)> for Coordinate {
     }
 }
 
-impl Into<(f16, f16)> for &Coordinate {
+impl Into<(f16, f16)> for Coordinate {
     fn into(self) -> (f16, f16) {
         let [a, b, c, d] = self.0;
         (f16::from_le_bytes([a, b]), f16::from_le_bytes([c, d]))
@@ -276,7 +274,7 @@ mod test {
         let coord = Coordinate::from((lat, lon));
 
         assert_eq!(std::mem::size_of::<Coordinate>(), 4);
-        assert_eq!((lat, lon), (&coord).into());
+        assert_eq!((lat, lon), coord.into());
     }
 
     #[test]

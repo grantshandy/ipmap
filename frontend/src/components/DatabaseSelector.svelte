@@ -41,7 +41,7 @@
             databases.find((l) => l.build_time == db?.build_time) ?? null;
     };
 
-    const dbInfo = async () => {
+    const dbInfo = () => {
         if (!$database) return;
 
         const msg =
@@ -55,25 +55,29 @@
             `Unique Strings: ${$database.strings.toLocaleString()}`;
 
         if ($database.path) {
-            const r = await confirm(msg, {
+            // imported database that can be unloaded
+            confirm(msg, {
                 type: "info",
                 title: "Database Info",
                 okLabel: "Close",
                 cancelLabel: "Unload Database",
-            });
+            }).then(async (r) => {
+                if (!$database?.path) return;
 
-            if (!r) {
-                await unloadDatabase($database.path);
-                databases = await listDatabases();
+                if (!r) {
+                    await unloadDatabase($database.path);
+                    databases = await listDatabases();
 
-                if (databases.length != 0) {
-                    $database = databases[0];
-                } else {
-                    $database = null;
+                    if (databases.length != 0) {
+                        $database = databases[0];
+                    } else {
+                        $database = null;
+                    }
                 }
-            }
+            });
         } else {
-            await message(msg, {
+            // internal database with no path
+            message(msg, {
                 type: "info",
                 title: "Database Info",
             });
@@ -82,7 +86,11 @@
 </script>
 
 {#if loading}
-    <div class="flex items-center space-x-3">
+    <div
+        class="flex items-center"
+        class:space-x-3={$database}
+        class:space-x-6={!$database}
+    >
         <span
             class="italic"
             class:text-sm={$database}
@@ -102,7 +110,7 @@
 {/if}
 
 {#if databases.length != 0}
-    <select class="select select-sm select-bordered" bind:value={$database}>
+    <select class="select select-sm select-bordered w-xs" bind:value={$database}>
         <option selected disabled value={null}>No Database</option>
         {#each databases as database}
             <option value={database}>{database.name}</option>

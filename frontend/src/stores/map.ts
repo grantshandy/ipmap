@@ -97,8 +97,8 @@ const initImpl = (container: HTMLDivElement): MapStore => {
     const arcLayer = layerGroup();
     const markerLayer = layerGroup();
 
-    const inst = mkMap(container, { preferCanvas: false, minZoom: 3, maxZoom: 12, layers: [arcLayer, markerLayer] });
-    inst.setView([30, 0], 2);
+    const inst = mkMap(container, { preferCanvas: false, minZoom: 2, maxZoom: 12, layers: [arcLayer, markerLayer] });
+    inst.setView([25, 0], 2);
 
     tileLayer
         .provider("OpenStreetMap.Mapnik", { noWrap: true })
@@ -220,10 +220,10 @@ const setArcStateImpl = (store: MapStore, newState: ConnectionInfo[]) => {
 };
 
 const mkIcon = (count: number | null, active?: boolean): DivIcon => divIcon({
-    html: `<div class="marker-icon ${active ? "bg-info" : "bg-secondary"}">${count ? count : ""}</div>`,
+    html: `<div class="marker-icon ${active ? "bg-primary" : "bg-accent"}">${count ? count : ""}</div>`,
     className: "dummyclass",
-    iconSize: active ? [25, 25] : [20, 20],
-    iconAnchor: active ? [12.5, 12.5] : [10, 10],
+    iconSize: [20, 20],
+    iconAnchor:[10, 10],
 });
 
 type LocationKey = string;
@@ -282,12 +282,7 @@ const addIpImpl = async (store: MapStore, ip: string) => {
 const addLocationMarkerIfNotExists = (store: MapStore) => {
     if (!store.locationMarker) {
         store.locationMarker = marker([0, 0], {
-            icon: divIcon({
-                html: `<div class="marker-icon bg-info"></div>`,
-                className: "dummyclass",
-                iconSize: [20, 20],
-                iconAnchor: [10, 10],
-            })
+            icon: mkIcon(null, true)
         });
 
         myLocation(database).then((location) => {
@@ -302,5 +297,5 @@ const addLocationMarkerIfNotExists = (store: MapStore) => {
 };
 
 const resetViewImpl = (store: MapStore) => {
-    store.inst.flyTo([30, 0], 2);
+    store.inst.setView([25, 0], 2);
 };

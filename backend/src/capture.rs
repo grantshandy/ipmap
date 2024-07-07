@@ -99,7 +99,7 @@ fn capture_thread<R: Runtime>(handle: AppHandle<R>, thread_id: Uuid, cap: Captur
     let (tx, rx) = crossbeam_channel::unbounded();
 
     // other thread told us to stop :)
-    handle.listen_global(&thread_id.to_string(), move |_| {
+    handle.listen_global(thread_id.to_string(), move |_| {
         tx.send(()).expect("stop capture");
     });
 

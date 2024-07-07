@@ -24,9 +24,14 @@
             await stopCapturing(capturing.id);
             capturing = null;
         } else {
+            const unlisten = await onNewConnection((ip) => {
+                if (!capturing) unlisten();
+                map.addIp(ip);
+            });
+
             capturing = {
                 id: await startCapturing(device),
-                unlisten: await onNewConnection(map.addIp),
+                unlisten,
             };
 
             currentConnectionLoop();
@@ -82,13 +87,7 @@
             class:btn-primary={!capturing}
             class:btn-error={capturing}
         >
-            {#if capturing}
-                Stop
-            {:else}
-                Start
-            {/if}
-
-            Capturing
+            {capturing ? "Stop" : "Start"} Capturing
         </button>
     </div>
 
