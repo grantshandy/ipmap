@@ -1,16 +1,21 @@
 <script lang="ts">
-    import { open } from "@tauri-apps/api/dialog";
+    import { confirm, message, open } from "@tauri-apps/api/dialog";
+    import { basename } from "@tauri-apps/api/path";
     import {
         listDatabases,
         loadDatabase,
+        unloadDatabase,
         type DatabaseInfo,
     } from "../bindings";
     import { database } from "../stores/database";
+
+    export let loading: string | null;
 
     let databases: DatabaseInfo[] = [];
     listDatabases().then((db) => {
         databases = db;
         if (databases.length > 0) $database = databases[0];
+        loading = null;
     });
 
     const importDatabase = async () => {
@@ -25,26 +30,88 @@
         });
         if (!dir) return;
 
-        const db = await loadDatabase(dir);
+        loading = await basename(dir as string);
+        const db = await loadDatabase(dir).catch(() => null);
+        loading = null;
+
         if (!db) return;
 
         databases = await listDatabases();
         $database =
             databases.find((l) => l.build_time == db?.build_time) ?? null;
     };
+
+    const dbInfo = async () => {
+        if (!$database) return;
+
+        const msg =
+            `Name: ${$database.name}\n` +
+            ($database.attribution_text
+                ? `Attribution: ${$database.attribution_text}\n`
+                : "") +
+            ($database.path ? `Path: ${$database.path}\n` : "") +
+            `Build Time: ${$database.build_time}\n` +
+            `Locations: ${$database.unique_locations.toLocaleString()}\n` +
+            `Unique Strings: ${$database.strings.toLocaleString()}`;
+
+        if ($database.path) {
+            const r = await confirm(msg, {
+                type: "info",
+                title: "Database Info",
+                okLabel: "Close",
+                cancelLabel: "Unload Database",
+            });
+
+            if (!r) {
+                await unloadDatabase($database.path);
+                databases = await listDatabases();
+
+                if (databases.length != 0) {
+                    $database = databases[0];
+                } else {
+                    $database = null;
+                }
+            }
+        } else {
+            await message(msg, {
+                type: "info",
+                title: "Database Info",
+            });
+        }
+    };
 </script>
 
-<select
-    class="select select-sm select-bordered"
-    bind:value={$database}
-    disabled={databases.length == 0}
->
-    <option selected disabled value={null}>No Database</option>
-    {#each databases as database}
-        <option value={database}>{database.name}</option>
-    {/each}
-</select>
+{#if loading}
+    <div class="flex items-center space-x-3">
+        <span
+            class="italic"
+            class:text-sm={$database}
+            class:text-lg={!$database}
+            class:mx-auto={!$database}>Loading {loading}...</span
+        >
+        <span
+            class="loading loading-spinner"
+            class:loading-lg={!$database}
+            class:loading-sm={$database}
+        ></span>
+    </div>
+{/if}
 
-<button class="btn btn-sm btn-primary" on:click={importDatabase}
-    >Load Database</button
->
+{#if $database}
+    <button class="btn btn-sm" on:click={dbInfo}>Info</button>
+{/if}
+
+{#if databases.length != 0}
+    <select class="select select-sm select-bordered" bind:value={$database}>
+        <option selected disabled value={null}>No Database</option>
+        {#each databases as database}
+            <option value={database}>{database.name}</option>
+        {/each}
+    </select>
+{/if}
+
+{#if !loading}
+    <button class="btn btn-sm btn-primary" on:click={importDatabase}
+        >Load Database</button
+    >
+{/if}

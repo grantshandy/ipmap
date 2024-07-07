@@ -141,6 +141,12 @@ impl Database {
             .map(|(k, l)| self.decode_location(k, l))
     }
 
+    pub fn get_range(&self, ip: Ipv4Addr) -> Option<RangeInclusive<Ipv4Addr>> {
+        self.map.get_key_value(&u32::from(ip)).map(|(range, _)| {
+            RangeInclusive::new(Ipv4Addr::from(*range.start()), Ipv4Addr::from(*range.end()))
+        })
+    }
+
     fn decode_location(&self, k: &Coordinate, l: &LocationDetails) -> Location {
         let (latitude, longitude) = k.into();
 

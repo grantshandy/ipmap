@@ -20,10 +20,11 @@ $ IPV4NUM_DB_ATTRIBUTION="IP Geolocation by DB-IP"
  - [X] geodesic arc lines to connections
  - [X] animate geodesic lines
  - [X] differentiate outgoing and incoming lines
- - [ ] fix arc animation memory leak bug
+ - [x] fix arc animation memory leak bug
  - [ ] ipv6 support
- - [ ] unload database
+ - [x] unload database
  - [ ] visual traceroute
- - [ ] novel data structure for maintaining a live-updated list of
+ - [x] novel data structure for maintaining a live-updated list of
   current connections based on the stream of packets. Also determines incoming/outgoing/mixed status.
- - [ ] ^ maintain arc animations from this state
+ - [x] ^ maintain arc animations from this state
+ - [ ] dark/light mode

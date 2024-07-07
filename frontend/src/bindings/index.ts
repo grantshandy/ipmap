@@ -1,20 +1,17 @@
 import { invoke as rawInvoke } from "@tauri-apps/api";
 import type { InvokeArgs } from "@tauri-apps/api/tauri";
+import { message } from "@tauri-apps/api/dialog";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
 import { type ConnectionDirection } from "./ConnectionDirection";
 import { type ConnectionInfo } from "./ConnectionInfo";
 import { type DatabaseInfo } from "./DatabaseInfo";
 import { type Device } from "./Device";
 import { type Location } from "./Location";
-import { message } from "@tauri-apps/api/dialog";
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { type IpRange } from "./IpRange";
 
 const errorDialog = (msg: string): Promise<void> => {
     return message(`Error: ${msg}`, { title: "Error", type: "error" });
-};
-
-const infoDialog = (title: string, msg: string): Promise<void> => {
-    return message(msg, { title, type: "info" });
 };
 
 // invoke a tauri command, showing the error on screen if error returned
@@ -38,8 +35,10 @@ const currentConnections = async (): Promise<ConnectionInfo[]> => invoke("curren
 const allConnections = async (): Promise<ConnectionInfo[]> => invoke("all_connections");
 
 const loadDatabase = async (path: string | string[] | null): Promise<DatabaseInfo | null> => invoke("load_database", { path });
+const unloadDatabase = async (path: string) => invoke("unload_database", { path });
 const listDatabases = async (): Promise<DatabaseInfo[]> => invoke("list_databases");
 const lookupIp = async (ip: string, database: DatabaseInfo | null): Promise<Location | null> => invoke("lookup_ip", { ip, database: database?.path });
+const lookupIpRange = async (ip: string, database: DatabaseInfo | null): Promise<IpRange | null> => invoke("lookup_ip_range", { database: database?.path, ip });
 
 const lookupDns = async (ip: string): Promise<string | null> => invoke("dns_lookup_addr", { ip });
 const validateIp = async (ip: string): Promise<boolean> => invoke("validate_ip", { ip });
@@ -55,9 +54,9 @@ export {
     type Device,
     type Location,
     type ThreadID,
+    type IpRange,
 
     errorDialog,
-    infoDialog,
 
     listDevices,
 
@@ -68,7 +67,9 @@ export {
     onNewConnection,
 
     loadDatabase,
+    unloadDatabase,
     listDatabases,
+    lookupIpRange,
 
     lookupIp,
     lookupDns,

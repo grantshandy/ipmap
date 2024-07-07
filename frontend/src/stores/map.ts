@@ -42,7 +42,7 @@ export const map = (() => {
     const init = (container: HTMLDivElement) => update(() => initImpl(container));
     const deinit = () => update(deinitImpl);
 
-    const setSearchIp = (ip: string) => update((store) => {
+    const setSearchIp = (ip: string | null) => update((store) => {
         if (store) setSearchIpImpl(store, ip);
         return store;
     });
@@ -62,6 +62,14 @@ export const map = (() => {
         return store;
     });
 
+    const invalidateSize = () => update((store) => {
+        if (!store) return null;
+
+        store.inst.invalidateSize();
+    
+        return store;
+    })
+
     return {
         subscribe,
         update,
@@ -74,6 +82,7 @@ export const map = (() => {
         setSelection,
         setArcState,
         addIp,
+        invalidateSize,
     };
 })();
 
@@ -82,8 +91,8 @@ const initImpl = (container: HTMLDivElement): MapStore => {
     const arcLayer = layerGroup();
     const markerLayer = layerGroup();
 
-    const inst = mkMap(container, { preferCanvas: false, minZoom: 2, maxZoom: 12, layers: [arcLayer, markerLayer] });
-    inst.setView([30, 0], 2);
+    const inst = mkMap(container, { preferCanvas: false, minZoom: 3, maxZoom: 12, layers: [arcLayer, markerLayer] });
+    inst.setView([30, 0], 3);
 
     tileLayer
         .provider("OpenStreetMap.Mapnik", { noWrap: true })
@@ -114,7 +123,16 @@ const deinitImpl = (store: MapStore | null): null => {
     return null;
 };
 
-const setSearchIpImpl = async (store: MapStore, ip: string) => {
+const setSearchIpImpl = async (store: MapStore, ip: string | null) => {
+    if (!ip) {
+        if (!store.selection) return;
+
+        store.selection?.marker.remove();
+        store.selection = null;
+
+        return;
+    }
+
     const location = await lookupIp(ip, database);
 
     if (!location) {

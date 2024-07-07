@@ -1,50 +1,106 @@
 <script lang="ts">
-    import { validateIp } from "../bindings";
+    import {
+        lookupDns,
+        lookupIp,
+        lookupIpRange,
+        validateIp,
+    } from "../bindings";
+    import { database } from "../stores/database";
     import { map } from "../stores/map";
     import MapView from "./MapView.svelte";
+    import { fly } from "svelte/transition";
 
     const countryNames = new Intl.DisplayNames("en", { type: "region" });
 
     let query = "";
-    let queryValid: boolean = true;
+    let error: string | null = "asdf";
 
-    $: validateIp(query).then((valid) => (queryValid = valid));
+    $: validateIp(query).then(async (valid) => {
+        if (query.length == 0) {
+            error = null;
+            map.setSearchIp(null);
+            return;
+        }
 
-    const search = () => map.setSearchIp(query);
+        if (!valid) {
+            error = "Invalid Address";
+            map.setSearchIp(null);
+            return;
+        }
 
-    $: console.log($map?.selection);
+        const loc = await lookupIp(query, $database);
+
+        if (!loc) {
+            error = "IP Not Found in Database";
+            map.setSearchIp(null);
+            return;
+        }
+
+        error = null;
+        map.setSearchIp(query);
+    });
+
+    $: if (!error || error) setTimeout(() => map.invalidateSize(), 350);
 </script>
 
 <div class="grow flex flex-col space-y-3">
-    <div>
+    <div class="flex space-x-3 items-center">
         <input
             class="input input-sm input-bordered"
-            class:border-error={!queryValid}
+            class:border-error={error}
             placeholder="IPv4 Address"
             bind:value={query}
         />
-        <button
-            class="btn btn-sm btn-primary"
-            disabled={!queryValid}
-            on:click={search}
-        >
-            Search
-        </button>
+
+        {#if error}
+            <p class="grow text-right text-error text-sm italic">
+                Error: {error}
+            </p>
+        {/if}
     </div>
 
-    <div class="grow flex relative">
+    <div class="grow flex space-x-2">
         <MapView />
         {#if $map?.selection}
             <div
-                class="absolute right-0 top-0 bottom-0 z-40 w-64 pl-4 pr-2 py-4 space-y-2 bg-base-100/[0.8] overflow-x-auto"
+                transition:fly={{ x: 20, duration: 200 }}
+                class="w-1/4 py-2 px-4 space-y-2 select-none"
             >
-                <h2>Info</h2>
+                <h2 class="text-lg font-bold">IP Location Info</h2>
                 <p>
-                    {($map.selection.info.city
-                        ? $map.selection.info.city + ", "
-                        : "") +
-                        countryNames.of($map.selection.info.country_code)}
+                    Location:
+
+                    {#if $map.selection.info.city}
+                        {$map.selection.info.city},
+                    {/if}
+                    {#if $map.selection.info.state}
+                        {$map.selection.info.state},
+                    {/if}
+                    {countryNames.of($map.selection.info.country_code)}
                 </p>
+                <hr />
+                {#each $map.selection.ips as ip}
+                    <h3 class="font-semibold">{ip}:</h3>
+                    {#await lookupDns(ip) then dns}
+                        {#if dns}
+                            <p>Domain: <span class="code">{dns}</span></p>
+                        {/if}
+                    {/await}
+                    {#await lookupIpRange(ip, $database) then range}
+                        {#if range}
+                            <p>
+                                Range:
+                                <span class="code break-words">
+                                    {range.lower}
+                                </span>
+                                to
+                                <span class="code">
+                                    {range.upper}
+                                </span>
+                            </p>
+                        {/if}
+                    {/await}
+                {/each}
             </div>
         {/if}
     </div>

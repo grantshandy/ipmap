@@ -11,4 +11,4 @@
     };
 </script>
 
-<div use:mapAction class="grow z-20 select-none overflow-hidden"></div>
+<div use:mapAction class="grow rounded-box z-20 select-none overflow-hidden"></div>

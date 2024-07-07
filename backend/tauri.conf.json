@@ -20,10 +20,14 @@
       "all": false,
       "dialog": {
         "open": true,
-        "message": true
+        "message": true,
+        "confirm": true
       },
       "path": {
         "all": true
+      },
+      "shell": {
+        "open": true
       }
     },
     "bundle": {

@@ -51,9 +51,11 @@ fn main() {
             capture::all_connections,
             capture::current_connections,
             geoip::load_database,
+            geoip::unload_database,
             geoip::list_databases,
             geoip::lookup_ip,
             geoip::my_location,
+            geoip::lookup_ip_range,
             analyze::dns_lookup_addr,
             analyze::validate_ip,
         ])

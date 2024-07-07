@@ -1,6 +1,5 @@
 use std::{
-    net::{IpAddr, Ipv4Addr},
-    path::PathBuf,
+    net::{IpAddr, Ipv4Addr}, ops::RangeInclusive, path::PathBuf
 };
 
 use crate::{Global, PublicIpAddress};
@@ -11,6 +10,7 @@ pub mod database {
 }
 
 use database::{Database, DatabaseInfo, Location};
+use ts_rs::TS;
 
 #[tauri::command]
 pub async fn lookup_ip(
@@ -65,6 +65,16 @@ pub async fn load_database(
     }
 }
 
+/// Delete a database
+#[tauri::command]
+pub async fn unload_database(databases: State<'_, Global>, path: PathBuf) -> Result<(), String> {
+    tracing::info!("unloading {path:?} database");
+
+    databases.remove(&path);
+
+    Ok(())
+}
+
 /// List all databases (by info)
 #[tauri::command]
 pub async fn list_databases(databases: State<'_, Global>) -> Result<Vec<DatabaseInfo>, ()> {
@@ -80,6 +90,35 @@ pub async fn list_databases(databases: State<'_, Global>) -> Result<Vec<Database
 }
 
 #[tauri::command]
+pub async fn lookup_ip_range(
+    databases: State<'_, Global>,
+    database: Option<PathBuf>,
+    ip: Ipv4Addr,
+) -> Result<IpRange, String> {
+    if !ip_rfc::global_v4(&ip) {
+        return Err(format!("ip {ip} is not global"));
+    }
+    
+    let range = match database {
+        Some(path) => databases
+            .get(&path)
+            .ok_or("database not found".to_string())?
+            .value()
+            .get_range(ip),
+        None => database::DATABASE
+            .as_ref()
+            .ok_or("no internal database set")?
+            .get_range(ip),
+    };
+
+    let Some(range) = range else {
+        return Err(format!("ip {ip} not found in database"));
+    };
+
+    Ok(range.into())
+}
+
+#[tauri::command]
 pub async fn my_location(
     databases: State<'_, Global>,
     ip: State<'_, PublicIpAddress>,
@@ -92,4 +131,20 @@ pub async fn my_location(
     lookup_ip(databases, database, ip)
         .await
         .and_then(|loc| loc.ok_or(format!("no location found for your public ip address {ip}")))
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, serde::Serialize, TS)]
+#[ts(export, export_to = "../../frontend/src/bindings/")]
+pub struct IpRange {
+    lower: Ipv4Addr,
+    upper: Ipv4Addr,
+}
+
+impl From<RangeInclusive<Ipv4Addr>> for IpRange {
+    fn from(value: RangeInclusive<Ipv4Addr>) -> Self {
+        Self {
+            lower: *value.start(),
+            upper: *value.end(),
+        }
+    }
 }
