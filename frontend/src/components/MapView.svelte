@@ -1,6 +1,7 @@
 <script lang="ts">
     import "leaflet/dist/leaflet.css";
     import { map } from "../stores/map";
+    import { darkTheme, theme } from "../stores";
 
     const mapAction = (cont: HTMLDivElement) => {
         map.init(cont);
@@ -11,4 +12,8 @@
     };
 </script>
 
-<div use:mapAction class="grow rounded-box z-20 select-none overflow-hidden"></div>
+<div
+    use:mapAction
+    class="grow rounded-box z-20 select-none overflow-hidden"
+    class:map-dark={$theme == darkTheme}
+></div>

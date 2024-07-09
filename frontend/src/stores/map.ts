@@ -1,5 +1,5 @@
-import { map as mkMap, type Map, tileLayer, LayerGroup, layerGroup, Marker, marker, DivIcon, divIcon, type LatLngExpression, DomUtil } from "leaflet";
-import "leaflet-providers";
+import { map as mkMap, type Map, tileLayer, LayerGroup, layerGroup, Marker, marker, DivIcon, divIcon, type LatLngExpression, type TileLayerOptions } from "leaflet";
+import "leaflet-edgebuffer";
 import "leaflet-active-area";
 
 import { writable } from "svelte/store";
@@ -100,10 +100,11 @@ const initImpl = (container: HTMLDivElement): MapStore => {
     const inst = mkMap(container, { preferCanvas: false, minZoom: 2, maxZoom: 12, layers: [arcLayer, markerLayer] });
     resetMapView(inst);
 
-    tileLayer
-        .provider("OpenStreetMap.Mapnik", { noWrap: true })
-        .addTo(inst);
-    inst.setActiveArea(container); // from "leaflet-active-area", typescript doesn't recognize it.
+    tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OSM Contributors',
+        noWrap: true,
+        edgeBufferTiles: 5,
+    } as any).addTo(inst);
 
     return {
         inst,
@@ -192,7 +193,7 @@ const setArcStateImpl = (store: MapStore, newState: ConnectionInfo[]) => {
         if (newStates[ip]) {
             // update direction if needed
             if (prevState.info.direction != newStates[ip].direction) {
-                prevState.arc.options.className = directionClassNameFromDirection(newStates[ip].direction);
+                prevState.arc.options.className = newStates[ip].direction as string;
             }
         } else {
             // outdated arcs that no longer exist should be removed
@@ -268,10 +269,10 @@ const resetMapView = (map: Map) => {
 };
 
 export const mkIcon = (count: number | null, active?: boolean): DivIcon => divIcon({
-    html: `<div class="marker-icon ${active ? "bg-primary" : "bg-accent"}">${count ? count : ""}</div>`,
+    html: `<div class="marker-icon ${active ? "bg-primary" : "bg-secondary"}">${count ? count : ""}</div>`,
     className: "dummyclass",
     iconSize: [20, 20],
-    iconAnchor:[10, 10],
+    iconAnchor: [10, 10],
 });
 
 type LocationKey = string;
@@ -280,8 +281,6 @@ const mkLocationKey = (loc: Location) => `${loc.latitude}${loc.longitude}`;
 const searchIcon: DivIcon = mkIcon(null, true);
 
 const mkLine = (current: Location, to: Location, direction: ConnectionDirection, map: LayerGroup<any>) => {
-    const className = directionClassNameFromDirection(direction);
-
     const line = new GeodesicLine(
         [
             [current.latitude, current.longitude],
@@ -291,11 +290,9 @@ const mkLine = (current: Location, to: Location, direction: ConnectionDirection,
             weight: 1,
             steps: 3,
             opacity: 0.5,
-            className,
+            className: direction,
         }
     ).addTo(map);
 
     return line;
 };
-
-const directionClassNameFromDirection = (direction: ConnectionDirection): string => `line-${direction}`;

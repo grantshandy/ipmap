@@ -1,27 +1,27 @@
 <script lang="ts">
     import MapView from "./MapView.svelte";
-    import LocationInfo from "./LocationInfo.svelte";
 
-    import { map, mkIcon } from "../stores/map";
-    import { onMount } from "svelte";
+    import { map, mkIcon, database } from "../stores";
     import {
         marker,
         type LeafletEvent,
         type LeafletMouseEvent,
         type Marker,
     } from "leaflet";
-    import { nearestLocation, type Location } from "../bindings";
-    import { database } from "../stores/database";
+    import { myLocation, nearestLocation, type Location } from "../bindings";
     import { GeodesicLine } from "leaflet.geodesic";
 
     const countryNames = new Intl.DisplayNames("en", { type: "region" });
 
+    let result: Location | null = null;
+
+    // updates the result from the location of the query marker.
     let searchTimeout: number;
     const onMarkerMove = (ev: LeafletEvent) => {
-        const event = ev as LeafletMouseEvent;
-
         clearTimeout(searchTimeout);
         setTimeout(async () => {
+            const event = ev as LeafletMouseEvent;
+
             result = await nearestLocation(
                 event.latlng.lat,
                 event.latlng.lng,
@@ -36,20 +36,27 @@
         icon: mkIcon(null),
     }).on("move", onMarkerMove);
 
-    let result: Location | null = null;
-    const line = new GeodesicLine([queryMarker.getLatLng(), [10, 10]]);
+    // a geodesic line, reactively linked to the closest block
+    const line = new GeodesicLine([queryMarker.getLatLng(), [10, 10]], {
+        className: "map-line",
+    });
     $: if (result)
         line.setLatLngs([
             queryMarker.getLatLng(),
             [result.latitude, result.longitude],
         ]);
 
-    onMount(() => {
-        if (!$map) return;
+    // add marker and line to map when created
+    $: if ($map)
+        (async () => {
+            $map.inst.invalidateSize();
 
-        line.addTo($map.arcLayer);
-        queryMarker.addTo($map.markerLayer);
-    });
+            const loc = await myLocation($database);
+            queryMarker
+                .setLatLng([loc.latitude, loc.longitude])
+                .addTo($map.markerLayer);
+            line.addTo($map.arcLayer);
+        })();
 </script>
 
 <div class="grow flex space-x-2">
@@ -59,7 +66,6 @@
             <h1>Nearest IP Location Block</h1>
             <p>
                 Location:
-
                 {#if result.city}
                     {result.city},
                 {/if}

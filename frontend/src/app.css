@@ -10,18 +10,27 @@
     @apply w-full h-full font-bold border rounded-full drop-shadow-lg text-center text-neutral-600;
 }
 
-path.line-Outgoing {
+.code {
+    @apply px-1 py-0.5 rounded-md bg-base-300 text-sm;
+}
+
+.map-line {
+    stroke: oklch(var(--p));
     stroke-dasharray: 10 10;
+}
+
+path.Outgoing {
+    @apply map-line;
     animation: line 0.5s linear infinite, fade 0.5s ease-in-out forwards;
 }
 
-path.line-Incoming {
-    stroke-dasharray: 10 10;
+path.Incoming {
+    @apply map-line;
     animation: line 0.5s linear infinite reverse, fade 0.5s ease-in-out forwards;
 }
 
-path.line-Mixed {
-    stroke-dasharray: 10 10;
+path.Mixed {
+    @apply map-line;
     animation: line 0.5s linear infinite alternate, fade 0.5s ease-in-out forwards;
 }
 
@@ -29,6 +38,7 @@ path.line-Mixed {
     0% {
         stroke-dashoffset: -50;
     }
+
     100% {
         stroke-dashoffset: 50;
     }
@@ -38,11 +48,19 @@ path.line-Mixed {
     0% {
         opacity: 0;
     }
+
     100% {
         opacity: 1;
     }
 }
 
-.code {
-    @apply px-1 py-0.5 rounded-md bg-base-300 text-sm;
+/**
+    https://blog.jamie.holdings/2022/05/15/dark-mode-for/
+*/
+:root {
+    --leaflet-tile-filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7);
+}
+
+.map-dark .leaflet-tile {
+    filter: var(--leaflet-tile-filter, none);
 }

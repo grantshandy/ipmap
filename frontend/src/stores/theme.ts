@@ -44,4 +44,6 @@ export const theme = (() => {
         toggle,
         isLight,
     };
-})()
+})();
+
+export { lightTheme, darkTheme };
