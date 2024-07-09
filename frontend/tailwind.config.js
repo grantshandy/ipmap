@@ -1,5 +1,5 @@
 import daisyui from "daisyui";
-import { lightTheme, darkTheme } from "./src/themes";
+import { lightTheme, darkTheme } from "./src/themes.json";
 
 /** @type {import('tailwindcss').Config} */
 export default {

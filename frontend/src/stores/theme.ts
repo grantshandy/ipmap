@@ -1,5 +1,5 @@
 import { writable } from "svelte/store";
-import { lightTheme, darkTheme } from "../themes";
+import { lightTheme, darkTheme } from "../themes.json";
 
 const LS_KEY = "theme";
 

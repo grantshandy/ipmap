@@ -12,8 +12,24 @@
     };
 </script>
 
-<div
-    use:mapAction
-    class="grow rounded-box z-20 select-none overflow-hidden"
-    class:map-dark={$theme == darkTheme}
-></div>
+<div class="grow relative rounded-box select-none overflow-hidden">
+    {#if $map}
+        <div
+            class="absolute top-2 left-2 z-30 join join-vertical"
+        >
+            <button
+                on:click={() => $map.inst.zoomIn()}
+                class="btn btn-sm font-bold text-xl join-item">+</button
+            >
+            <button
+                on:click={() => $map.inst.zoomOut()}
+                class="btn btn-sm font-bold text-xl join-item">&#x2212;</button
+            >
+        </div>
+    {/if}
+    <div
+        use:mapAction
+        class="w-full h-full z-20"
+        class:map-dark={$theme == darkTheme}
+    ></div>
+</div>

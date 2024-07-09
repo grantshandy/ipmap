@@ -2,10 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-.leaflet-container {
-    @apply bg-base-200 !important;
-}
-
 .marker-icon {
     @apply w-full h-full font-bold border rounded-full drop-shadow-lg text-center text-neutral-600;
 }
@@ -66,4 +62,12 @@ path.Mixed {
 
 .map-dark .leaflet-tile {
     filter: var(--leaflet-tile-filter, none);
+}
+
+.leaflet-control-attribution {
+    @apply bg-base-200 rounded-tl-md text-neutral-content !important;
+}
+
+.leaflet-container {
+    @apply bg-base-200 !important;
 }
