@@ -60,6 +60,7 @@ fn main() {
             geoip::lookup_ip,
             geoip::my_location,
             geoip::lookup_ip_range,
+            geoip::nearest_location,
             analyze::dns_lookup_addr,
             analyze::validate_ip,
         ])

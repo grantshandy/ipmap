@@ -1,5 +1,7 @@
 use std::{
-    net::{IpAddr, Ipv4Addr}, ops::RangeInclusive, path::PathBuf
+    net::{IpAddr, Ipv4Addr},
+    ops::RangeInclusive,
+    path::PathBuf,
 };
 
 use crate::{Global, PublicIpAddress};
@@ -96,7 +98,7 @@ pub async fn lookup_ip_range(
     if !ip_rfc::global_v4(&ip) {
         return Err(format!("ip {ip} is not global"));
     }
-    
+
     let range = match database {
         Some(path) => databases
             .get(&path)
@@ -145,4 +147,26 @@ impl From<RangeInclusive<Ipv4Addr>> for IpRange {
             upper: *value.end(),
         }
     }
+}
+
+#[tauri::command]
+pub async fn nearest_location(
+    databases: State<'_, Global>,
+    database: Option<PathBuf>,
+    latitude: f32,
+    longitude: f32,
+) -> Result<Option<Location>, String> {
+    let res = match database {
+        Some(path) => databases
+            .get(&path)
+            .ok_or("database not found".to_string())?
+            .value()
+            .nearest_location(latitude, longitude),
+        None => database::DATABASE
+            .as_ref()
+            .ok_or("no internal database set")?
+            .nearest_location(latitude, longitude),
+    };
+
+    Ok(res)
 }

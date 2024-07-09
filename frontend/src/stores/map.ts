@@ -267,7 +267,7 @@ const resetMapView = (map: Map) => {
     map.setView([25, 0], 2);
 };
 
-const mkIcon = (count: number | null, active?: boolean): DivIcon => divIcon({
+export const mkIcon = (count: number | null, active?: boolean): DivIcon => divIcon({
     html: `<div class="marker-icon ${active ? "bg-primary" : "bg-accent"}">${count ? count : ""}</div>`,
     className: "dummyclass",
     iconSize: [20, 20],

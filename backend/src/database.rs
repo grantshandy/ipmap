@@ -1,17 +1,17 @@
 use std::{
     fmt::{Display, Formatter},
     fs::File,
-    hash::BuildHasherDefault,
+    hash::{BuildHasherDefault, Hash},
     net::Ipv4Addr,
     ops::RangeInclusive,
     path::{Path, PathBuf},
 };
 
 use compact_str::CompactString;
-use half::f16;
 use heck::ToTitleCase;
 use indexmap::IndexSet;
 use rangemap::RangeInclusiveMap;
+use rstar::RTree;
 use rustc_hash::{FxHashMap, FxHasher};
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
@@ -29,6 +29,7 @@ pub struct Database {
     map: RangeInclusiveMap<Ipv4Bytes, Coordinate>,
     locations: FxHashMap<Coordinate, LocationDetails>,
     strings: FxIndexSet<CompactString>,
+    coord_tree: RTree<Coordinate>,
 
     name: CompactString,
     attribution: Option<CompactString>,
@@ -57,6 +58,7 @@ impl Database {
             map: RangeInclusiveMap::default(),
             locations: FxHashMap::default(),
             strings: FxIndexSet::default(),
+            coord_tree: RTree::new(),
 
             name: CompactString::from(name),
             attribution: attribution.map(CompactString::from),
@@ -104,10 +106,7 @@ impl Database {
     }
 
     fn insert(&mut self, ip_range: RangeInclusive<Ipv4Bytes>, location: Location) {
-        let latitude = f16::from_f32(location.latitude);
-        let longitude = f16::from_f32(location.longitude);
-
-        let loc_key = Coordinate::from((latitude, longitude));
+        let loc_key = Coordinate(location.latitude, location.longitude);
 
         let city = self.hash_and_insert_str(location.city);
         let state = self.hash_and_insert_str(location.state);
@@ -121,6 +120,7 @@ impl Database {
             },
         );
 
+        self.coord_tree.insert(loc_key);
         self.map.insert(ip_range, loc_key);
     }
 
@@ -146,11 +146,9 @@ impl Database {
     }
 
     fn decode_location(&self, k: Coordinate, l: &LocationDetails) -> Location {
-        let (latitude, longitude) = k.into();
-
         Location {
-            latitude: latitude.to_f32(),
-            longitude: longitude.to_f32(),
+            latitude: k.0,
+            longitude: k.1,
             city: self
                 .strings
                 .get_index(l.city as usize)
@@ -172,6 +170,18 @@ impl Database {
             unique_locations: self.locations.len(),
             strings: self.strings.len(),
         }
+    }
+
+    pub fn nearest_location(&self, lat: f32, lon: f32) -> Option<Location> {
+        let nearest = self
+            .coord_tree
+            .nearest_neighbor(&Coordinate(lat, lon))
+            .expect("empty coordinate");
+
+        self.locations
+            .get(nearest)
+            .map(|l| (nearest, l))
+            .map(|(k, l)| self.decode_location(*k, l))
     }
 }
 
@@ -205,22 +215,41 @@ struct LocationDetails {
     pub country_code: CountryCode,
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
-#[repr(transparent)]
-struct Coordinate([u8; 4]);
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
+struct Coordinate(f32, f32);
 
-impl From<(f16, f16)> for Coordinate {
-    fn from((lat, lon): (f16, f16)) -> Self {
-        let [a, b] = lat.to_le_bytes();
-        let [c, d] = lon.to_le_bytes();
-        Self([a, b, c, d])
+impl Eq for Coordinate {}
+
+// eff you :)
+impl Hash for Coordinate {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.0.to_ne_bytes().hash(state);
+        self.1.to_ne_bytes().hash(state);
     }
 }
 
-impl Into<(f16, f16)> for Coordinate {
-    fn into(self) -> (f16, f16) {
-        let [a, b, c, d] = self.0;
-        (f16::from_le_bytes([a, b]), f16::from_le_bytes([c, d]))
+impl rstar::Point for Coordinate {
+    type Scalar = f32;
+    const DIMENSIONS: usize = 2;
+
+    fn generate(mut generator: impl FnMut(usize) -> Self::Scalar) -> Self {
+        Self(generator(0), generator(1))
+    }
+
+    fn nth(&self, index: usize) -> Self::Scalar {
+        match index {
+            0 => self.0,
+            1 => self.1,
+            _ => unreachable!(),
+        }
+    }
+
+    fn nth_mut(&mut self, index: usize) -> &mut Self::Scalar {
+        match index {
+            0 => &mut self.0,
+            1 => &mut self.1,
+            _ => unreachable!(),
+        }
     }
 }
 
@@ -263,19 +292,7 @@ fn str_from_byte_record(record: &[u8]) -> Option<String> {
 
 #[cfg(test)]
 mod test {
-    use super::{Coordinate, CountryCode};
-    use half::f16;
-
-    #[test]
-    fn coord_isomorphism() {
-        let lat = f16::from_f32(1.234);
-        let lon = f16::from_f32(5.678);
-
-        let coord = Coordinate::from((lat, lon));
-
-        assert_eq!(std::mem::size_of::<Coordinate>(), 4);
-        assert_eq!((lat, lon), coord.into());
-    }
+    use super::CountryCode;
 
     #[test]
     fn countrycode() {

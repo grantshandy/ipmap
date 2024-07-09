@@ -39,6 +39,7 @@ const unloadDatabase = async (path: string) => invoke("unload_database", { path 
 const listDatabases = async (): Promise<DatabaseInfo[]> => invoke("list_databases");
 const lookupIp = async (ip: string, database: DatabaseInfo | null): Promise<Location | null> => invoke("lookup_ip", { ip, database: database?.path });
 const lookupIpRange = async (ip: string, database: DatabaseInfo | null): Promise<IpRange | null> => invoke("lookup_ip_range", { database: database?.path, ip });
+const nearestLocation = async (latitude: number, longitude: number, database: DatabaseInfo | null): Promise<Location | null> => invoke("nearest_location", { database: database?.path, latitude, longitude })
 
 const lookupDns = async (ip: string): Promise<string | null> => invoke("dns_lookup_addr", { ip });
 const validateIp = async (ip: string): Promise<boolean> => invoke("validate_ip", { ip });
@@ -70,6 +71,7 @@ export {
     unloadDatabase,
     listDatabases,
     lookupIpRange,
+    nearestLocation,
 
     lookupIp,
     lookupDns,

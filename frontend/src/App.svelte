@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { open } from "@tauri-apps/api/shell";
+
   import { database } from "./stores/database";
   import { theme } from "./stores/theme";
   import { fade } from "svelte/transition";
@@ -6,10 +8,10 @@
   import Capture from "./components/Capture.svelte";
   import DatabaseSelector from "./components/DatabaseSelector.svelte";
   import Search from "./components/Search.svelte";
-  import { open } from "@tauri-apps/api/shell";
+  import Reverse from "./components/Reverse.svelte";
   import ThemeSwitcher from "./components/ThemeSwitcher.svelte";
 
-  let state: "search" | "capture" = "capture";
+  let state: "search" | "capture" | "reverse" = "reverse";
   let loading: string | null = "Internal Database";
 </script>
 
@@ -47,6 +49,7 @@
       <select bind:value={state} class="select select-sm select-bordered">
         <option value="search">Search</option>
         <option value="capture">Capture</option>
+        <option value="reverse">Reverse Search</option>
       </select>
       <ThemeSwitcher size={"1.5rem"} />
       <div class="grow flex justify-end items-center space-x-3">
@@ -58,6 +61,8 @@
       <Search />
     {:else if state == "capture"}
       <Capture />
+    {:else if state == "reverse"}
+      <Reverse />
     {/if}
   </main>
 {/if}
