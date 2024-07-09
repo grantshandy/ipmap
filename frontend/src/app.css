@@ -16,20 +16,24 @@
 
 .map-line-stroke {
     stroke-dasharray: 10 10;
+    width: 20rem;
 }
 
 path.Outgoing {
-    @apply map-line map-line-stroke;
-    animation: line 0.5s linear infinite, fade 0.5s ease-in-out forwards;
-}
-
-path.Incoming {
-    @apply map-line map-line-stroke;
+    @apply map-line-stroke;
+    stroke: oklch(var(--er));
     animation: line 0.5s linear infinite reverse, fade 0.5s ease-in-out forwards;
 }
 
+path.Incoming {
+    @apply map-line-stroke;
+    stroke: oklch(var(--su));
+    animation: line 0.5s linear infinite, fade 0.5s ease-in-out forwards;
+}
+
 path.Mixed {
-    @apply map-line map-line-stroke;
+    @apply map-line-stroke;
+    stroke: oklch(var(--wa));
     animation: line 0.5s linear infinite alternate, fade 0.5s ease-in-out forwards;
 }
 

@@ -62,7 +62,7 @@
 </script>
 
 <div class="grow flex flex-col space-y-3">
-    <div>
+    <div class="flex space-x-3 select-none">
         <select
             bind:value={device}
             disabled={capturing != null}
@@ -89,6 +89,27 @@
         >
             {capturing ? "Stop" : "Start"} Capturing
         </button>
+
+        <div class="grow flex justify-end space-x-2 text-sm font-semibold">
+            <div
+                class="flex items-center space-x-2 px-2 rounded-box bg-base-200"
+            >
+                <div class="rounded-full w-3 h-3 bg-success" />
+                <span>Incoming</span>
+            </div>
+            <div
+                class="flex items-center space-x-2 px-2 rounded-box bg-base-200"
+            >
+                <div class="rounded-full w-3 h-3 bg-error" />
+                <span>Outgoing</span>
+            </div>
+            <div
+                class="flex items-center space-x-2 px-2 rounded-box bg-base-200"
+            >
+                <div class="rounded-full w-3 h-3 bg-warning" />
+                <span>Mixed</span>
+            </div>
+        </div>
     </div>
 
     <MapView />
