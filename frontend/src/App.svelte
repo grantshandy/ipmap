@@ -46,7 +46,7 @@
     {/if}
   </main>
 {:else}
-  <main class="page flex flex-col p-2 space-y-3" data-theme={$theme}>
+  <main class="page flex flex-col p-2 space-y-3 h-screen" data-theme={$theme}>
     <div class="flex space-x-3 items-center">
       <select bind:value={state} class="select select-sm select-bordered">
         <option value="search">Search</option>

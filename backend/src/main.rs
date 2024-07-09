@@ -10,11 +10,10 @@ use tauri::{
 };
 
 mod capture;
+mod capture_state;
 
 mod analyze;
 mod geoip;
-
-mod capture_state;
 
 /// The cached result of public_ip::addr()
 type PublicIpAddress = IpAddr;

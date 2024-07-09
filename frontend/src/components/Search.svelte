@@ -6,7 +6,7 @@
         validateIp,
     } from "../bindings";
     import { database } from "../stores/database";
-    import { map } from "../stores/map";
+    import { map, type IpLocation } from "../stores/map";
     import MapView from "./MapView.svelte";
 
     const countryNames = new Intl.DisplayNames("en", { type: "region" });
@@ -48,7 +48,7 @@
         }
     };
 
-    let selection: IpLocation | null = null;
+    let selection: IpLocation | null | undefined = null;
     $: selection = $map?.selection;
 </script>
 

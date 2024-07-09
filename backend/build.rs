@@ -3,7 +3,7 @@ use std::{env, fs};
 #[path = "src/database.rs"]
 mod database;
 
-use database::Database;
+use database::CompactDatabase;
 
 fn main() {
     tauri_build::build();
@@ -17,7 +17,7 @@ fn main() {
             let attribution =
                 env::var("IPV4NUM_DB_ATTRIBUTION").expect("IPV4NUM_DB_ATTRIBUTION must be set.");
 
-            let db = Database::from_csv(ip_csv_path, Some(attribution)).expect("parse csv");
+            let db = CompactDatabase::from_csv(ip_csv_path, Some(attribution)).expect("parse csv");
 
             #[cfg(windows)]
             let db_path = format!("{out_dir}/encoded_db")
@@ -47,6 +47,7 @@ fn main() {
                             ).expect("decompress database 1")
                         ).expect("decompress database 2")
                     ).expect("deserialize database")
+                    .into()
                 )"#
             )
         })

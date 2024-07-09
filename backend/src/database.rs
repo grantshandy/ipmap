@@ -17,6 +17,9 @@ use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use ts_rs::TS;
 
+type FxIndexSet<T> = IndexSet<T, BuildHasherDefault<FxHasher>>;
+type Ipv4Bytes = u32;
+
 /// A highly memory-efficient map for Ipv4Addr -> Location.
 ///
 /// <Ipv4Addr>
@@ -27,6 +30,7 @@ use ts_rs::TS;
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Database {
     map: RangeInclusiveMap<Ipv4Bytes, Coordinate>,
+    rev_map: FxHashMap<Coordinate, Vec<IpRange>>,
     locations: FxHashMap<Coordinate, LocationDetails>,
     strings: FxIndexSet<CompactString>,
     coord_tree: RTree<Coordinate>,
@@ -37,7 +41,110 @@ pub struct Database {
     build_time: OffsetDateTime,
 }
 
+#[allow(dead_code)]
 impl Database {
+    pub fn from_csv(path: impl AsRef<Path>, attribution: Option<String>) -> eyre::Result<Self> {
+        CompactDatabase::from_csv(path, attribution).map(|d| d.into())
+    }
+
+    pub fn get(&self, ip: Ipv4Addr) -> Option<Location> {
+        self.map
+            .get(&u32::from(ip))
+            .and_then(|k| self.locations.get(k).map(|l| (k, l)))
+            .map(|(k, l)| self.decode_location(*k, l))
+    }
+
+    pub fn get_range(&self, ip: Ipv4Addr) -> Option<RangeInclusive<Ipv4Addr>> {
+        self.map.get_key_value(&u32::from(ip)).map(|(range, _)| {
+            RangeInclusive::new(Ipv4Addr::from(*range.start()), Ipv4Addr::from(*range.end()))
+        })
+    }
+
+    fn decode_location(&self, k: Coordinate, l: &LocationDetails) -> Location {
+        Location {
+            latitude: k.0,
+            longitude: k.1,
+            city: self
+                .strings
+                .get_index(l.city as usize)
+                .map(|c| c.to_title_case()),
+            country_code: l.country_code.to_string(),
+            state: self
+                .strings
+                .get_index(l.state as usize)
+                .map(|c| c.to_title_case()),
+        }
+    }
+
+    pub fn info(&self) -> DatabaseInfo {
+        DatabaseInfo {
+            name: self.name.to_string(),
+            attribution_text: self.attribution.clone().map(|c| c.to_string()),
+            path: self.path.clone(),
+            build_time: self.build_time.to_string(),
+            unique_locations: self.locations.len(),
+            strings: self.strings.len(),
+        }
+    }
+
+    pub fn nearest_location(&self, lat: f32, lon: f32) -> LocationBlock {
+        let nearest = self
+            .coord_tree
+            .nearest_neighbor(&Coordinate(lat, lon))
+            .expect("empty database");
+
+        let location = self
+            .locations
+            .get(nearest)
+            .map(|l| (nearest, l))
+            .map(|(k, l)| self.decode_location(*k, l))
+            .expect("no location for nearest coord");
+
+        let blocks = self.rev_map.get(nearest).expect("no blocks").clone();
+
+        LocationBlock { location, blocks }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Default, TS)]
+#[ts(export, export_to = "../../frontend/src/bindings/")]
+pub struct Location {
+    pub latitude: f32,
+    pub longitude: f32,
+    pub city: Option<String>,
+    pub country_code: String,
+    pub state: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, TS)]
+#[ts(export, export_to = "../../frontend/src/bindings/")]
+pub struct DatabaseInfo {
+    pub name: String,
+    pub attribution_text: Option<String>,
+    pub path: Option<PathBuf>,
+    pub build_time: String,
+    pub unique_locations: usize,
+    pub strings: usize,
+}
+
+/// The database stored in the executable,
+/// as information dense as possible.
+///
+/// TODO: use f16 for coords.
+///
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CompactDatabase {
+    map: RangeInclusiveMap<Ipv4Bytes, Coordinate>,
+    locations: FxHashMap<Coordinate, LocationDetails>,
+    strings: FxIndexSet<CompactString>,
+
+    name: CompactString,
+    attribution: Option<CompactString>,
+    path: Option<PathBuf>,
+    build_time: OffsetDateTime,
+}
+
+impl CompactDatabase {
     pub fn from_csv(path: impl AsRef<Path>, attribution: Option<String>) -> eyre::Result<Self> {
         let path = path.as_ref();
         let file = File::open(path)?;
@@ -58,7 +165,6 @@ impl Database {
             map: RangeInclusiveMap::default(),
             locations: FxHashMap::default(),
             strings: FxIndexSet::default(),
-            coord_tree: RTree::new(),
 
             name: CompactString::from(name),
             attribution: attribution.map(CompactString::from),
@@ -120,7 +226,6 @@ impl Database {
             },
         );
 
-        self.coord_tree.insert(loc_key);
         self.map.insert(ip_range, loc_key);
     }
 
@@ -130,83 +235,48 @@ impl Database {
     }
 }
 
-#[allow(dead_code)]
-impl Database {
-    pub fn get(&self, ip: Ipv4Addr) -> Option<Location> {
-        self.map
-            .get(&u32::from(ip))
-            .and_then(|k| self.locations.get(k).map(|l| (k, l)))
-            .map(|(k, l)| self.decode_location(*k, l))
-    }
-
-    pub fn get_range(&self, ip: Ipv4Addr) -> Option<RangeInclusive<Ipv4Addr>> {
-        self.map.get_key_value(&u32::from(ip)).map(|(range, _)| {
-            RangeInclusive::new(Ipv4Addr::from(*range.start()), Ipv4Addr::from(*range.end()))
-        })
-    }
-
-    fn decode_location(&self, k: Coordinate, l: &LocationDetails) -> Location {
-        Location {
-            latitude: k.0,
-            longitude: k.1,
-            city: self
-                .strings
-                .get_index(l.city as usize)
-                .map(|c| c.to_title_case()),
-            country_code: l.country_code.to_string(),
-            state: self
-                .strings
-                .get_index(l.state as usize)
-                .map(|c| c.to_title_case()),
-        }
-    }
-
-    pub fn info(&self) -> DatabaseInfo {
-        DatabaseInfo {
-            name: self.name.to_string(),
-            attribution_text: self.attribution.clone().map(|c| c.to_string()),
-            path: self.path.clone(),
-            build_time: self.build_time.to_string(),
-            unique_locations: self.locations.len(),
-            strings: self.strings.len(),
-        }
-    }
-
-    pub fn nearest_location(&self, lat: f32, lon: f32) -> Option<Location> {
-        let nearest = self
-            .coord_tree
-            .nearest_neighbor(&Coordinate(lat, lon))
-            .expect("empty coordinate");
+impl Into<Database> for CompactDatabase {
+    fn into(self) -> Database {
+        let mut coord_tree = RTree::new();
 
         self.locations
-            .get(nearest)
-            .map(|l| (nearest, l))
-            .map(|(k, l)| self.decode_location(*k, l))
+            .keys()
+            .for_each(|coord| coord_tree.insert(*coord));
+
+        let mut rev_map: FxHashMap<Coordinate, Vec<IpRange>> = FxHashMap::default();
+
+        self.map
+            .iter()
+            .map(|(range, coord)| {
+                (
+                    *coord,
+                    IpRange {
+                        lower: Ipv4Addr::from(*range.start()),
+                        upper: Ipv4Addr::from(*range.end()),
+                    },
+                )
+            })
+            .for_each(|(k, v)| {
+                if let Some(c) = rev_map.get_mut(&k) {
+                    c.push(v);
+                } else {
+                    rev_map.insert(k, vec![v]);
+                }
+            });
+
+        Database {
+            map: self.map,
+            rev_map,
+            locations: self.locations,
+            strings: self.strings,
+            coord_tree,
+            name: self.name,
+            attribution: self.attribution,
+            path: self.path,
+            build_time: self.build_time,
+        }
     }
 }
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Default, TS)]
-#[ts(export, export_to = "../../frontend/src/bindings/")]
-pub struct Location {
-    pub latitude: f32,
-    pub longitude: f32,
-    pub city: Option<String>,
-    pub country_code: String,
-    pub state: Option<String>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, TS)]
-#[ts(export, export_to = "../../frontend/src/bindings/")]
-pub struct DatabaseInfo {
-    pub name: String,
-    pub attribution_text: Option<String>,
-    pub path: Option<PathBuf>,
-    pub build_time: String,
-    pub unique_locations: usize,
-    pub strings: usize,
-}
-
-// vvv internal structs vvv
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 struct LocationDetails {
@@ -279,9 +349,29 @@ impl Display for CountryCode {
     }
 }
 
-type FxIndexSet<T> = IndexSet<T, BuildHasherDefault<FxHasher>>;
+/// A location and its associated Ip Ranges
+#[derive(Clone, Debug, PartialEq, Serialize, Default, TS)]
+#[ts(export, export_to = "../../frontend/src/bindings/")]
+pub struct LocationBlock {
+    pub location: Location,
+    pub blocks: Vec<IpRange>,
+}
 
-type Ipv4Bytes = u32;
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../frontend/src/bindings/")]
+pub struct IpRange {
+    lower: Ipv4Addr,
+    upper: Ipv4Addr,
+}
+
+impl From<RangeInclusive<Ipv4Addr>> for IpRange {
+    fn from(value: RangeInclusive<Ipv4Addr>) -> Self {
+        Self {
+            lower: *value.start(),
+            upper: *value.end(),
+        }
+    }
+}
 
 fn str_from_byte_record(record: &[u8]) -> Option<String> {
     match record.is_empty() {

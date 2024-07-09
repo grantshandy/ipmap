@@ -97,7 +97,7 @@ const initImpl = (container: HTMLDivElement): MapStore => {
     const arcLayer = layerGroup();
     const markerLayer = layerGroup();
 
-    const inst = mkMap(container, { preferCanvas: false, minZoom: 2, maxZoom: 12, layers: [arcLayer, markerLayer] });
+    const inst = mkMap(container, { preferCanvas: false, minZoom: 2, maxZoom: 13, layers: [arcLayer, markerLayer] });
     resetMapView(inst);
 
     tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {

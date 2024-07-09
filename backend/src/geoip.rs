@@ -1,6 +1,5 @@
 use std::{
     net::{IpAddr, Ipv4Addr},
-    ops::RangeInclusive,
     path::PathBuf,
 };
 
@@ -11,8 +10,7 @@ pub mod database {
     include!(concat!(env!("OUT_DIR"), "/internal_database.rs"));
 }
 
-use database::{Database, DatabaseInfo, Location};
-use ts_rs::TS;
+use database::{Database, DatabaseInfo, IpRange, Location, LocationBlock};
 
 #[tauri::command]
 pub async fn lookup_ip(
@@ -133,29 +131,13 @@ pub async fn my_location(
         .and_then(|loc| loc.ok_or(format!("no location found for your public ip address {ip}")))
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, serde::Serialize, TS)]
-#[ts(export, export_to = "../../frontend/src/bindings/")]
-pub struct IpRange {
-    lower: Ipv4Addr,
-    upper: Ipv4Addr,
-}
-
-impl From<RangeInclusive<Ipv4Addr>> for IpRange {
-    fn from(value: RangeInclusive<Ipv4Addr>) -> Self {
-        Self {
-            lower: *value.start(),
-            upper: *value.end(),
-        }
-    }
-}
-
 #[tauri::command]
 pub async fn nearest_location(
     databases: State<'_, Global>,
     database: Option<PathBuf>,
     latitude: f32,
     longitude: f32,
-) -> Result<Option<Location>, String> {
+) -> Result<LocationBlock, String> {
     let res = match database {
         Some(path) => databases
             .get(&path)

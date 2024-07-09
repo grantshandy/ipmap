@@ -11,26 +11,29 @@
 }
 
 .code {
-    @apply px-1 py-0.5 rounded-md bg-base-300 text-sm;
+    @apply px-1 py-0.5 rounded-md bg-base-300 text-sm font-mono;
 }
 
 .map-line {
     stroke: oklch(var(--p));
+}
+
+.map-line-stroke {
     stroke-dasharray: 10 10;
 }
 
 path.Outgoing {
-    @apply map-line;
+    @apply map-line map-line-stroke;
     animation: line 0.5s linear infinite, fade 0.5s ease-in-out forwards;
 }
 
 path.Incoming {
-    @apply map-line;
+    @apply map-line map-line-stroke;
     animation: line 0.5s linear infinite reverse, fade 0.5s ease-in-out forwards;
 }
 
 path.Mixed {
-    @apply map-line;
+    @apply map-line map-line-stroke;
     animation: line 0.5s linear infinite alternate, fade 0.5s ease-in-out forwards;
 }
 
