@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { open } from "@tauri-apps/api/shell";
     import {
         lookupDns,
         lookupIp,
@@ -12,7 +13,7 @@
     const countryNames = new Intl.DisplayNames("en", { type: "region" });
 
     let query = "";
-    let error: string | null = "asdf";
+    let error: string | null = null;
 
     $: validateAndSearch(query, true);
     $: if (!error || error) setTimeout(() => map.invalidateSize(), 10);
@@ -76,6 +77,16 @@
                     {selection.info.state},
                 {/if}
                 {countryNames.of(selection.info.country_code)}
+            </p>
+            <p>
+                <button
+                    class="link text-sm italic"
+                    on:click={() =>
+                        open(
+                            `https://openstreetmap.org/#map=12/${selection.info.latitude}/${selection.info.longitude}`,
+                        )}
+                    >View in OpenStreetMap
+                </button>
             </p>
             <hr />
             {#each selection.ips as ip}

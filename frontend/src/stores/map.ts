@@ -292,7 +292,7 @@ const mkLine = (current: Location, to: Location, direction: ConnectionDirection,
             [to.latitude, to.longitude]
         ],
         {
-            weight: 1,
+            weight: 2,
             steps: 3,
             opacity: 0.5,
             className: direction,
