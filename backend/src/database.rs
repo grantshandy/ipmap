@@ -8,6 +8,7 @@ use std::{
 };
 
 use compact_str::CompactString;
+use half::f16;
 use heck::ToTitleCase;
 use indexmap::IndexSet;
 use rangemap::RangeInclusiveMap;
@@ -29,11 +30,11 @@ type Ipv4Bytes = u32;
 ///
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Database {
-    map: RangeInclusiveMap<Ipv4Bytes, Coordinate>,
-    rev_map: FxHashMap<Coordinate, Vec<IpRange>>,
-    locations: FxHashMap<Coordinate, LocationDetails>,
+    map: RangeInclusiveMap<Ipv4Bytes, Coordinate<f32>>,
+    rev_map: FxHashMap<Coordinate<f32>, Vec<IpRange>>,
+    locations: FxHashMap<Coordinate<f32>, LocationDetails>,
     strings: FxIndexSet<CompactString>,
-    coord_tree: RTree<Coordinate>,
+    coord_tree: RTree<Coordinate<f32>>,
 
     name: CompactString,
     attribution: Option<CompactString>,
@@ -60,7 +61,7 @@ impl Database {
         })
     }
 
-    fn decode_location(&self, k: Coordinate, l: &LocationDetails) -> Location {
+    fn decode_location(&self, k: Coordinate<f32>, l: &LocationDetails) -> Location {
         Location {
             latitude: k.0,
             longitude: k.1,
@@ -79,7 +80,7 @@ impl Database {
     pub fn info(&self) -> DatabaseInfo {
         DatabaseInfo {
             name: self.name.to_string(),
-            attribution_text: self.attribution.clone().map(|c| c.to_string()),
+            attribution_text: self.attribution.as_ref().map(|c| c.to_string()),
             path: self.path.clone(),
             build_time: self.build_time.to_string(),
             unique_locations: self.locations.len(),
@@ -129,13 +130,10 @@ pub struct DatabaseInfo {
 
 /// The database stored in the executable,
 /// as information dense as possible.
-///
-/// TODO: use f16 for coords.
-///
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CompactDatabase {
-    map: RangeInclusiveMap<Ipv4Bytes, Coordinate>,
-    locations: FxHashMap<Coordinate, LocationDetails>,
+    map: RangeInclusiveMap<Ipv4Bytes, Coordinate<f16>>,
+    locations: FxHashMap<Coordinate<f16>, LocationDetails>,
     strings: FxIndexSet<CompactString>,
 
     name: CompactString,
@@ -183,73 +181,73 @@ impl CompactDatabase {
             let record = record.expect("deserialize byte record");
 
             let (Some(ip_range_start), Some(ip_range_end)) = (
-                str_from_byte_record(&record[0]).and_then(|r| r.parse::<u32>().ok()),
-                str_from_byte_record(&record[1]).and_then(|r| r.parse::<u32>().ok()),
+                str_from_byte_record(&record[IP_RANGE_START_IDX]).and_then(|r| r.parse::<u32>().ok()),
+                str_from_byte_record(&record[IP_RANGE_END_IDX]).and_then(|r| r.parse::<u32>().ok()),
             ) else {
                 return Err(eyre::eyre!("couldn't parse ip ranges"));
             };
 
-            let (Some(latitude), Some(longitude)) = (
-                str_from_byte_record(&record[7]).and_then(|s| s.parse::<f32>().ok()),
-                str_from_byte_record(&record[8]).and_then(|s| s.parse::<f32>().ok()),
-            ) else {
-                continue;
+            let loc_key = match (
+                str_from_byte_record(&record[LATITUDE_IDX]).and_then(|s| s.parse::<f16>().ok()),
+                str_from_byte_record(&record[LONGITUDE_IDX]).and_then(|s| s.parse::<f16>().ok()),
+            ) {
+                (Some(latitude), Some(longitude)) => Coordinate(latitude, longitude),
+                _ => continue,
             };
 
-            db.insert(
-                ip_range_start..=ip_range_end,
-                Location {
-                    latitude,
-                    longitude,
-                    city: str_from_byte_record(&record[5]),
-                    country_code: str_from_byte_record(&record[2]).unwrap_or_default(),
-                    state: str_from_byte_record(&record[3]),
-                },
-            );
+            if !db.locations.contains_key(&loc_key) {
+                let city = db.hash_and_insert_str(str_from_byte_record(&record[CITY_IDX]));
+                let state = db.hash_and_insert_str(str_from_byte_record(&record[STATE_IDX]));
+                let country_code =
+                    CountryCode::from(str_from_byte_record(&record[COUNTRY_CODE_IDX]).unwrap_or_default());
+
+                db.locations.insert(
+                    loc_key,
+                    LocationDetails {
+                        city,
+                        country_code,
+                        state,
+                    },
+                );
+            }
+
+            db.map.insert(ip_range_start..=ip_range_end, loc_key);
         }
 
         Ok(db)
     }
 
-    fn insert(&mut self, ip_range: RangeInclusive<Ipv4Bytes>, location: Location) {
-        let loc_key = Coordinate(location.latitude, location.longitude);
-
-        let city = self.hash_and_insert_str(location.city);
-        let state = self.hash_and_insert_str(location.state);
-
-        self.locations.insert(
-            loc_key,
-            LocationDetails {
-                city,
-                country_code: location.country_code.into(),
-                state,
-            },
-        );
-
-        self.map.insert(ip_range, loc_key);
-    }
-
     fn hash_and_insert_str(&mut self, item: Option<String>) -> u32 {
-        item.map(|item| self.strings.insert_full(item.to_lowercase().into()).0 as u32)
+        item.map(|item| {
+            let idx = self.strings.insert_full(item.to_lowercase().into()).0;
+
+            if idx > u32::MAX as usize {
+                panic!("Database has more than {} elements, pls contact developer :)", u32::MAX);
+            }
+
+            idx as u32
+        })
             .unwrap_or(0) // no value is a zero.
     }
 }
 
 impl Into<Database> for CompactDatabase {
     fn into(self) -> Database {
-        let mut coord_tree = RTree::new();
+        let map =
+            RangeInclusiveMap::from_iter(self.map.iter().map(|(k, v)| (k.clone(), (*v).into())));
+        let locations = FxHashMap::from_iter(self.locations.iter().map(|(k, v)| ((*k).into(), *v)));
 
+        let mut coord_tree = RTree::new();
         self.locations
             .keys()
-            .for_each(|coord| coord_tree.insert(*coord));
+            .for_each(|coord| coord_tree.insert((*coord).into()));
 
-        let mut rev_map: FxHashMap<Coordinate, Vec<IpRange>> = FxHashMap::default();
-
+        let mut rev_map: FxHashMap<Coordinate<f32>, Vec<IpRange>> = FxHashMap::default();
         self.map
             .iter()
             .map(|(range, coord)| {
                 (
-                    *coord,
+                    (*coord).into(),
                     IpRange {
                         lower: Ipv4Addr::from(*range.start()),
                         upper: Ipv4Addr::from(*range.end()),
@@ -260,14 +258,14 @@ impl Into<Database> for CompactDatabase {
                 if let Some(c) = rev_map.get_mut(&k) {
                     c.push(v);
                 } else {
-                    rev_map.insert(k, vec![v]);
+                    rev_map.insert(k.into(), vec![v]);
                 }
             });
 
         Database {
-            map: self.map,
+            map,
             rev_map,
-            locations: self.locations,
+            locations,
             strings: self.strings,
             coord_tree,
             name: self.name,
@@ -286,19 +284,36 @@ struct LocationDetails {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
-struct Coordinate(f32, f32);
+struct Coordinate<C>(C, C);
+impl<C: PartialEq> Eq for Coordinate<C> {}
 
-impl Eq for Coordinate {}
-
-// eff you :)
-impl Hash for Coordinate {
+impl Hash for Coordinate<f32> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.0.to_ne_bytes().hash(state);
         self.1.to_ne_bytes().hash(state);
     }
 }
 
-impl rstar::Point for Coordinate {
+impl Hash for Coordinate<f16> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.0.to_ne_bytes().hash(state);
+        self.1.to_ne_bytes().hash(state);
+    }
+}
+
+impl Into<Coordinate<f32>> for Coordinate<f16> {
+    fn into(self) -> Coordinate<f32> {
+        Coordinate(self.0.to_f32(), self.1.to_f32())
+    }
+}
+
+impl Into<Coordinate<f16>> for Coordinate<f32> {
+    fn into(self) -> Coordinate<f16> {
+        Coordinate(f16::from_f32(self.0), f16::from_f32(self.1))
+    }
+}
+
+impl rstar::Point for Coordinate<f32> {
     type Scalar = f32;
     const DIMENSIONS: usize = 2;
 
@@ -380,13 +395,11 @@ fn str_from_byte_record(record: &[u8]) -> Option<String> {
     }
 }
 
-#[cfg(test)]
-mod test {
-    use super::CountryCode;
-
-    #[test]
-    fn countrycode() {
-        assert_eq!(std::mem::size_of::<CountryCode>(), 2);
-        assert_eq!(CountryCode::from("USa").to_string(), "US");
-    }
-}
+// CSV indexes for ipv4-num.csv format
+const IP_RANGE_START_IDX: usize = 0;
+const IP_RANGE_END_IDX: usize = 1;
+const LATITUDE_IDX: usize = 7;
+const LONGITUDE_IDX: usize = 8;
+const CITY_IDX: usize = 5;
+const STATE_IDX: usize = 3;
+const COUNTRY_CODE_IDX: usize = 2;

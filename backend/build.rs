@@ -40,13 +40,16 @@ fn main() {
 
             format!(
                 r#"Some(
-                    bincode::deserialize(
+                    bincode::deserialize::<CompactDatabase>(
                         &miniz_oxide::inflate::decompress_to_vec(
                             &miniz_oxide::inflate::decompress_to_vec(
                                 include_bytes!("{db_path}").as_slice()
-                            ).expect("decompress database 1")
-                        ).expect("decompress database 2")
-                    ).expect("deserialize database")
+                            )
+                            .expect("decompress database 1")
+                        )
+                        .expect("decompress database 2")
+                    )
+                    .expect("deserialize database")
                     .into()
                 )"#
             )
