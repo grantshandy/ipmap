@@ -1,18 +1,20 @@
 <script lang="ts">
   import "leaflet/dist/leaflet.css";
-  import { map } from "../stores/map";
+  import { createMap, type MapStore } from "../stores/map";
   import { darkTheme, theme } from "../stores";
 
+  export let map: MapStore;
+
   const mapAction = (cont: HTMLDivElement) => {
-    map.init(cont);
+    map = createMap(cont);
 
     return {
-      destroy: () => map.deinit(),
+      destroy: () => $map?.inst.remove(),
     };
   };
 </script>
 
-<div class="relative grow select-none rounded-box">
+<div class="rounded-box relative grow select-none">
   {#if $map}
     <div class="join join-vertical absolute left-2 top-2 z-30">
       <button
@@ -32,6 +34,3 @@
     class:map-dark={$theme == darkTheme}
   ></div>
 </div>
-
-<style lang="postcss">
-</style>

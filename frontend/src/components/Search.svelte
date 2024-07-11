@@ -1,8 +1,11 @@
 <script lang="ts">
   import { open } from "@tauri-apps/api/shell";
-  import { geoip } from "../bindings";
-  import { map, type IpLocation } from "../stores/map";
+  import { geoip, type Coordinate } from "../bindings";
+  import { mkIcon, type IpLocation, type MapStore } from "../stores/map";
   import MapView from "./MapView.svelte";
+  import { Marker, marker } from "leaflet";
+
+  let map: MapStore;
 
   const countryNames = new Intl.DisplayNames("en", { type: "region" });
 
@@ -14,42 +17,56 @@
 
   let searchTimeout: number;
   const validateAndSearch = async (ip: string, pause: boolean) => {
-    if (pause) clearTimeout(searchTimeout);
+    if (!map) return;
+    clearTimeout(searchTimeout);
 
     if (ip.length == 0) {
       error = null;
-      map.setSearchIp(null);
+      setSearchIp(null);
       map.resetView();
       return;
     }
 
     if (!(await geoip.validateIp(ip))) {
       error = "Invalid Address";
-      map.setSearchIp(null);
+      setSearchIp(null);
       return;
     }
 
-    if (!(await geoip.lookupIp(ip))) {
+    let coord: Coordinate | null;
+    if (!(coord = await geoip.lookupIp(ip))) {
       error = "IP Not Found in Database";
-      map.setSearchIp(null);
+      setSearchIp(null);
       return;
     }
 
     error = null;
-    if (pause) {
-      searchTimeout = setTimeout(() => map.setSearchIp(ip), 300);
-    } else {
-      map.setSearchIp(ip);
-    }
+    searchTimeout = setTimeout(() => setSearchIp(ip, coord), 300);
   };
 
-  let selection: IpLocation | null | undefined = null;
-  $: selection = $map?.selection;
+  let selection: { ip: string; coord: Coordinate; marker: Marker } | null =
+    null;
+  const setSearchIp = async (ip: string | null, coord?: Coordinate) => {
+    if (selection) {
+      selection.marker.remove();
+      selection = null;
+    }
+
+    if (!coord || !$map || !ip) return;
+
+    selection = {
+      ip,
+      coord,
+      marker: marker(coord, { icon: mkIcon(null, true) }).addTo($map.inst),
+    };
+
+    $map.inst.flyTo(coord, 7);
+  };
 </script>
 
 <div class="flex grow space-x-2">
-  <MapView />
-  <div class="w-1/4 space-y-2 rounded-box bg-base-200 p-2">
+  <MapView bind:map />
+  <div class="rounded-box bg-base-200 w-1/4 space-y-2 p-2">
     <input
       class="input input-sm input-bordered w-full grow"
       class:border-error={error}
@@ -57,7 +74,7 @@
       bind:value={query}
     />
     {#if error}
-      <p class="grow p-2 text-sm font-bold italic text-error">{error}</p>
+      <p class="text-error grow p-2 text-sm font-bold italic">{error}</p>
     {/if}
     {#if selection}
       <h2 class="text-lg font-bold">IP Location Info</h2>
@@ -80,33 +97,30 @@
         class="link text-sm italic"
         on:click={() =>
           open(
-            `https://openstreetmap.org/#map=12/${selection.coord.lat}/${selection.coord.lng}`,
+            `https://openstreetmap.org/#map=12/${selection?.coord.lat}/${selection?.coord.lng}`,
           )}
         >View in OpenStreetMap
       </button>
       <hr />
-      {#each selection.ips as ip}
-        <h3 class="font-semibold">{ip}:</h3>
-        {#await geoip.lookupDns(ip) then dns}
-          {#if dns}
-            <p>Domain: <span class="code">{dns}</span></p>
-          {/if}
-        {/await}
-        {#await geoip.lookupIpRange(ip) then range}
-          {#if range}
-            <p>
-              Block
-              <span class="code break-words">
-                {range.lower}
-              </span>
-              to
-              <span class="code">
-                {range.upper}
-              </span>
-            </p>
-          {/if}
-        {/await}
-      {/each}
+      {#await geoip.lookupDns(selection.ip) then dns}
+        {#if dns}
+          <p>Domain: <span class="code">{dns}</span></p>
+        {/if}
+      {/await}
+      {#await geoip.lookupIpRange(selection.ip) then range}
+        {#if range}
+          <p>
+            Block
+            <span class="code break-words">
+              {range.lower}
+            </span>
+            to
+            <span class="code">
+              {range.upper}
+            </span>
+          </p>
+        {/if}
+      {/await}
     {/if}
   </div>
 </div>

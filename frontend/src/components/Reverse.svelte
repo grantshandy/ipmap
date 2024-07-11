@@ -1,9 +1,11 @@
 <script lang="ts">
   import MapView from "./MapView.svelte";
   import { GeodesicLine } from "leaflet.geodesic";
-  import { map, mkIcon } from "../stores";
+  import { createMap, mkIcon, type MapStore } from "../stores";
   import { marker, type LeafletMouseEvent, type Marker } from "leaflet";
   import { geoip, type Coordinate } from "../bindings";
+
+  let map: MapStore;
 
   const countryNames = new Intl.DisplayNames("en", { type: "region" });
 
@@ -31,18 +33,17 @@
   $: line.setLatLngs([query, result]);
 
   // add marker and line to map when created
-  $: if ($map)
-    (async () => {
-      $map.inst.invalidateSize();
-      queryMarker.addTo($map.markerLayer);
-      line.addTo($map.arcLayer);
-    })();
+  $: if ($map) {
+    $map.inst.invalidateSize();
+    queryMarker.addTo($map.markerLayer);
+    line.addTo($map.arcLayer);
+  }
 </script>
 
 <!-- TODO: Fix Weird Overflow -->
 <div class="flex grow space-x-2 overflow-y-auto">
   <div class="flex h-full grow">
-    <MapView />
+    <MapView bind:map />
   </div>
   <div class="h-full w-1/4 select-none space-y-2">
     <h1 class="rounded-box bg-base-200 p-2 font-semibold">
@@ -62,7 +63,7 @@
       {/if}
     {/await}
     <hr />
-    <div class="overflow-y-auto rounded-box bg-base-200 p-2">
+    <div class="rounded-box bg-base-200 overflow-y-auto p-2">
       <div class="grid grid-cols-2 overflow-y-auto text-xs">
         <span class="font-bold">From</span>
         <span class="font-bold">To</span>

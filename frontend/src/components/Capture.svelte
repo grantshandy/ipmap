@@ -1,9 +1,11 @@
 <script lang="ts">
   import MapView from "./MapView.svelte";
   import { type Device, type ThreadID, capture } from "../bindings";
-  import { map } from "../stores/map";
+  import { type MapStore } from "../stores/map";
   import { onDestroy } from "svelte";
   import type { UnlistenFn } from "@tauri-apps/api/event";
+
+  let map: MapStore;
 
   const POLL_MS = 250;
 
@@ -83,9 +85,9 @@
     </button>
   </div>
 
-  <MapView>
+  <MapView bind:map>
     <div
-      class="absolute bottom-0 left-0 z-30 flex items-center rounded-tr-md bg-base-100 pr-1 pt-0.5 text-xs"
+      class="bg-base-100 absolute bottom-0 left-0 z-30 flex items-center rounded-tr-md pr-1 pt-0.5 text-xs"
     >
       <div class="color-indicator bg-success" />
       <span>Incoming</span>

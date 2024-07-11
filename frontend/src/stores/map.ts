@@ -13,22 +13,16 @@ import {
 import "leaflet-edgebuffer";
 import "leaflet-active-area";
 
-import { writable } from "svelte/store";
-import { database as databaseStore } from "./database";
+import { writable, type Subscriber, type Unsubscriber, type Updater } from "svelte/store";
 import {
   geoip,
   type ConnectionDirection,
   type ConnectionInfo,
-  type DatabaseInfo,
   type Coordinate,
 } from "../bindings";
 import { GeodesicLine } from "leaflet.geodesic";
 
 const SELECT_ZOOM = 7;
-
-// a local-read only copy of the database store
-let database: DatabaseInfo | null = null;
-databaseStore.subscribe((v) => (database = v));
 
 export type IpLocation = {
   coord: Coordinate;
@@ -36,36 +30,34 @@ export type IpLocation = {
   ips: Set<string>;
 };
 
-type MapStore = {
+export type MapState = {
   inst: Map;
   ips: Set<string>;
-
   arcLayer: LayerGroup;
   markerLayer: LayerGroup;
-
-  locations: { [id: LocationKey]: IpLocation };
   selection: IpLocation | null;
-
-  // id: ip
+  locations: { [id: LocationKey]: IpLocation };
   currentConnections: {
     [id: string]: { info: ConnectionInfo; arc: GeodesicLine };
   };
-
   locationMarker: Marker | null;
 };
 
-// a global map store representing the state of the map
-export const map = (() => {
-  const { subscribe, update, set } = writable<MapStore | null>(null);
+export type MapStore = {
+  subscribe(this: void, run: Subscriber<MapState | null>): Unsubscriber,
+  update: (this: void, updater: Updater<MapState>) => void,
+  set: (v: MapState) => void,
 
-  const init = (container: HTMLDivElement) => update(() => initImpl(container));
-  const deinit = () => update(deinitImpl);
+  setSelection: (selection: IpLocation) => void,
+  setArcState: (state: ConnectionInfo[]) => void,
+  addIp: (ip: string) => void,
+  invalidateSize: () => void,
+  resetView: () => void,
+};
 
-  const setSearchIp = (ip: string | null) =>
-    update((store) => {
-      if (store) setSearchIpImpl(store, ip);
-      return store;
-    });
+/** a global map store representing the state of the map */
+export const createMap = (container: HTMLDivElement): MapStore => {
+  const { subscribe, update, set } = writable<MapState>(initImpl(container));
 
   const setSelection = (selection: IpLocation) =>
     update((store) => {
@@ -87,10 +79,7 @@ export const map = (() => {
 
   const invalidateSize = () =>
     update((store) => {
-      if (!store) return null;
-
       store.inst.invalidateSize();
-
       return store;
     });
 
@@ -104,21 +93,16 @@ export const map = (() => {
     subscribe,
     update,
     set,
-
-    init,
-    deinit,
-
-    setSearchIp,
     setSelection,
     setArcState,
     addIp,
     invalidateSize,
     resetView,
   };
-})();
+};
 
 // creates a MapStore on a div element
-const initImpl = (container: HTMLDivElement): MapStore => {
+const initImpl = (container: HTMLDivElement): MapState => {
   const arcLayer = layerGroup();
   const markerLayer = layerGroup();
 
@@ -151,47 +135,12 @@ const initImpl = (container: HTMLDivElement): MapStore => {
   };
 };
 
-// cleans up the map by removing it from the div
-const deinitImpl = (store: MapStore | null): null => {
-  if (store) {
-    store.inst.remove();
-  }
-
-  return null;
-};
-
-const setSearchIpImpl = async (store: MapStore, ip: string | null) => {
-  if (!ip) {
-    if (!store.selection) return;
-
-    store.selection?.marker.remove();
-    store.selection = null;
-
-    return;
-  }
-
-  const coord = await geoip.lookupIp(ip);
-  if (!coord) {
-    console.warn("couldn't find location for " + ip);
-    return;
-  }
-
-  const key = mkLocationKey(coord);
-  resetMarkersImpl(store);
-  store.locations[key] = {
-    coord,
-    marker: marker(coord, { icon: searchIcon }).addTo(store.markerLayer),
-    ips: new Set([ip]),
-  };
-  map.setSelection(store.locations[key]);
-};
-
-const resetMarkersImpl = (store: MapStore) => {
+const resetMarkersImpl = (store: MapState) => {
   store.markerLayer.eachLayer((l) => l.remove());
   store.locations = {};
 };
 
-const setSelectionImpl = (store: MapStore, selection: IpLocation) => {
+const setSelectionImpl = (store: MapState, selection: IpLocation) => {
   if (store.inst.getZoom() < SELECT_ZOOM) {
     store.inst.flyTo(selection.coord, SELECT_ZOOM);
   } else {
@@ -200,7 +149,7 @@ const setSelectionImpl = (store: MapStore, selection: IpLocation) => {
   store.selection = selection;
 };
 
-const setArcStateImpl = (store: MapStore, newState: ConnectionInfo[]) => {
+const setArcStateImpl = (store: MapState, newState: ConnectionInfo[]) => {
   addLocationMarkerIfNotExists(store);
 
   const newStates: { [id: string]: ConnectionInfo } = {};
@@ -240,7 +189,7 @@ const setArcStateImpl = (store: MapStore, newState: ConnectionInfo[]) => {
   });
 };
 
-const addIpImpl = async (store: MapStore, ip: string) => {
+const addIpImpl = async (store: MapState, ip: string) => {
   if (store.ips.has(ip)) return;
   store.ips.add(ip);
 
@@ -266,7 +215,7 @@ const addIpImpl = async (store: MapStore, ip: string) => {
   }
 };
 
-const addLocationMarkerIfNotExists = (store: MapStore) => {
+const addLocationMarkerIfNotExists = (store: MapState) => {
   if (!store.locationMarker) {
     store.locationMarker = marker([0, 0], {
       icon: mkIcon(null, true),
@@ -294,8 +243,6 @@ export const mkIcon = (count: number | null, active?: boolean): DivIcon =>
 
 type LocationKey = string;
 const mkLocationKey = (loc: Coordinate) => `${loc.lat}${loc.lng}`;
-
-const searchIcon: DivIcon = mkIcon(null, true);
 
 const mkLine = (
   current: LatLngExpression,
