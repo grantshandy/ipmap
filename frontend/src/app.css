@@ -69,7 +69,7 @@ path.Mixed {
 }
 
 .leaflet-control-attribution {
-    @apply bg-base-200 rounded-tl-md text-neutral-content !important;
+    @apply bg-base-100 rounded-tl-md text-neutral-content !important;
 }
 
 .leaflet-container {

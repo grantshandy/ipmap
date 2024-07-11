@@ -12,7 +12,7 @@
     };
 </script>
 
-<div class="grow relative rounded-box select-none overflow-hidden">
+<div class="grow relative rounded-box select-none">
     {#if $map}
         <div
             class="absolute top-2 left-2 z-30 join join-vertical"
@@ -27,6 +27,7 @@
             >
         </div>
     {/if}
+    <slot />
     <div
         use:mapAction
         class="w-full h-full z-20"

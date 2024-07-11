@@ -82,28 +82,24 @@
         >
             {capturing ? "Stop" : "Start"} Capturing
         </button>
-
-        <div class="grow flex justify-end space-x-2 text-sm font-semibold">
-            <div
-                class="flex items-center space-x-2 px-2 rounded-box bg-base-200"
-            >
-                <div class="rounded-full w-3 h-3 bg-success" />
-                <span>Incoming</span>
-            </div>
-            <div
-                class="flex items-center space-x-2 px-2 rounded-box bg-base-200"
-            >
-                <div class="rounded-full w-3 h-3 bg-error" />
-                <span>Outgoing</span>
-            </div>
-            <div
-                class="flex items-center space-x-2 px-2 rounded-box bg-base-200"
-            >
-                <div class="rounded-full w-3 h-3 bg-warning" />
-                <span>Mixed</span>
-            </div>
-        </div>
     </div>
 
-    <MapView />
+    <MapView>
+        <div
+            class="absolute left-0 bottom-0 z-30 flex items-center pr-1 pt-0.5 text-xs rounded-tr-md bg-base-100"
+        >
+            <div class="color-indicator bg-success" />
+            <span>Incoming</span>
+            <div class="color-indicator bg-error" />
+            <span>Outgoing</span>
+            <div class="color-indicator bg-warning" />
+            <span>Mixed</span>
+        </div>
+    </MapView>
 </div>
+
+<style lang="postcss">
+    .color-indicator {
+        @apply rounded-full w-3 h-3 ml-1.5 mr-0.5;
+    }
+</style>
