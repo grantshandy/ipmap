@@ -1,18 +1,13 @@
 <script lang="ts">
     import { confirm, message, open } from "@tauri-apps/api/dialog";
     import { basename } from "@tauri-apps/api/path";
-    import {
-        listDatabases,
-        loadDatabase,
-        unloadDatabase,
-        type DatabaseInfo,
-    } from "../bindings";
+    import { type DatabaseInfo, geoip } from "../bindings";
     import { database } from "../stores/database";
 
     export let loading: string | null;
 
     let databases: DatabaseInfo[] = [];
-    listDatabases().then((db) => {
+    geoip.listDatabases().then((db) => {
         databases = db;
         if (databases.length > 0) $database = databases[0];
         loading = null;
@@ -31,12 +26,12 @@
         if (!dir) return;
 
         loading = await basename(dir as string);
-        const db = await loadDatabase(dir).catch(() => null);
+        const db = await geoip.loadDatabase(dir).catch(() => null);
         loading = null;
 
         if (!db) return;
 
-        databases = await listDatabases();
+        databases = await geoip.listDatabases();
         $database =
             databases.find((l) => l.build_time == db?.build_time) ?? null;
     };
@@ -59,14 +54,14 @@
             confirm(msg, {
                 type: "info",
                 title: "Database Info",
-                okLabel: "Close",
-                cancelLabel: "Unload Database",
+                okLabel: "Unload Database",
+                cancelLabel: "Close",
             }).then(async (r) => {
                 if (!$database?.path) return;
 
-                if (!r) {
-                    await unloadDatabase($database.path);
-                    databases = await listDatabases();
+                if (r) {
+                    await geoip.unloadDatabase($database.path);
+                    databases = await geoip.listDatabases();
 
                     if (databases.length != 0) {
                         $database = databases[0];
@@ -110,7 +105,10 @@
 {/if}
 
 {#if databases.length != 0}
-    <select class="select select-sm select-bordered w-xs" bind:value={$database}>
+    <select
+        class="select select-sm select-bordered w-xs"
+        bind:value={$database}
+    >
         <option selected disabled value={null}>No Database</option>
         {#each databases as database}
             <option value={database}>{database.name}</option>

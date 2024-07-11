@@ -1,6 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::{net::IpAddr, path::PathBuf, process};
+use std::{net::IpAddr, path::PathBuf, process, sync::Arc};
 
 use capture_state::CaptureState;
 use dashmap::DashMap;
@@ -11,20 +11,19 @@ use tauri::{
 
 mod capture;
 mod capture_state;
-
-mod analyze;
 mod geoip;
+
+use geoip::database::Database;
 
 /// The cached result of public_ip::addr()
 type PublicIpAddress = IpAddr;
-
-type Global = DashMap<PathBuf, geoip::database::Database>;
+type LoadedDatabases = DashMap<PathBuf, Arc<Database>>;
 
 fn main() {
     tracing_subscriber::fmt::init();
 
     tauri::Builder::default()
-        .manage(Global::default())
+        .manage(LoadedDatabases::default())
         .manage(CaptureState::default())
         .setup(|app| {
             tracing::info!("getting ip");
@@ -59,9 +58,11 @@ fn main() {
             geoip::lookup_ip,
             geoip::my_location,
             geoip::lookup_ip_range,
+            geoip::lookup_ip_blocks,
             geoip::nearest_location,
-            analyze::dns_lookup_addr,
-            analyze::validate_ip,
+            geoip::location_info,
+            geoip::dns_lookup_addr,
+            geoip::validate_ip,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -1,3 +1,5 @@
+//! Corresponding definitions in /frontend/src/bindings/index.ts
+
 use std::net::IpAddr;
 
 use etherparse::{NetHeaders, PacketHeaders};

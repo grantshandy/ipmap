@@ -1,10 +1,10 @@
-import { map as mkMap, type Map, tileLayer, LayerGroup, layerGroup, Marker, marker, DivIcon, divIcon, type LatLngExpression, type TileLayerOptions } from "leaflet";
+import { map as mkMap, type Map, tileLayer, LayerGroup, layerGroup, Marker, marker, DivIcon, divIcon, type LatLngExpression } from "leaflet";
 import "leaflet-edgebuffer";
 import "leaflet-active-area";
 
 import { writable } from "svelte/store";
 import { database as databaseStore } from "./database";
-import { lookupIp, myLocation, type ConnectionDirection, type ConnectionInfo, type DatabaseInfo, type Location } from "../bindings";
+import { geoip, type ConnectionDirection, type ConnectionInfo, type DatabaseInfo, type Coordinate, type LocationInfo } from "../bindings";
 import { GeodesicLine } from "leaflet.geodesic";
 
 const SELECT_ZOOM = 7;
@@ -14,8 +14,8 @@ let database: DatabaseInfo | null = null;
 databaseStore.subscribe((v) => (database = v));
 
 export type IpLocation = {
+    coord: Coordinate,
     marker: Marker,
-    info: Location,
     ips: Set<string>,
 };
 
@@ -145,22 +145,20 @@ const setSearchIpImpl = async (store: MapStore, ip: string | null) => {
         return;
     }
 
-    const location = await lookupIp(ip, database);
-
-    if (!location) {
+    const coord = await geoip.lookupIp(ip);
+    if (!coord) {
         console.warn("couldn't find location for " + ip);
         return;
     }
 
-    const key = mkLocationKey(location);
-
+    const key = mkLocationKey(coord);
     resetMarkersImpl(store);
     store.locations[key] = {
+        coord,
         marker: marker(
-            [location.latitude, location.longitude],
+            coord,
             { icon: searchIcon }
         ).addTo(store.markerLayer),
-        info: location,
         ips: new Set([ip]),
     };
     map.setSelection(store.locations[key]);
@@ -172,15 +170,10 @@ const resetMarkersImpl = (store: MapStore) => {
 };
 
 const setSelectionImpl = (store: MapStore, selection: IpLocation) => {
-    const latlng: LatLngExpression = [
-        selection.info.latitude,
-        selection.info.longitude,
-    ];
-
     if (store.inst.getZoom() < SELECT_ZOOM) {
-        store.inst.flyTo(latlng, SELECT_ZOOM);
+        store.inst.flyTo(selection.coord, SELECT_ZOOM);
     } else {
-        store.inst.panTo(latlng);
+        store.inst.panTo(selection.coord);
     }
     store.selection = selection;
 };
@@ -207,13 +200,13 @@ const setArcStateImpl = (store: MapStore, newState: ConnectionInfo[]) => {
         }
     }
 
-    myLocation(database).then((from) => {
+    geoip.myLocation().then((from) => {
         // add arcs that don't already exist
         for (const newState of Object.values(newStates)) {
             // discard already existing connections
             if (store.currentConnections[newState.ip]) continue;
 
-            lookupIp(newState.ip, database).then((to) => {
+            geoip.lookupIp(newState.ip).then((to) => {
                 if (!to) return;
 
                 store.currentConnections[newState.ip] = {
@@ -229,11 +222,11 @@ const addIpImpl = async (store: MapStore, ip: string) => {
     if (store.ips.has(ip)) return;
     store.ips.add(ip);
 
-    const location = await lookupIp(ip, database);
+    const coord = await geoip.lookupIp(ip);
 
-    if (!location) return;
+    if (!coord) return;
 
-    const key = mkLocationKey(location);
+    const key = mkLocationKey(coord);
 
     const iploc = store.locations[key];
 
@@ -242,10 +235,10 @@ const addIpImpl = async (store: MapStore, ip: string) => {
         iploc.marker.setIcon(mkIcon(iploc.ips.size, false));
     } else {
         store.locations[key] = {
-            info: location,
+            coord,
             ips: new Set([ip]),
             marker: marker(
-                [location.latitude, location.longitude],
+                coord,
                 { icon: mkIcon(1, false) }
             ).addTo(store.markerLayer)
         };
@@ -258,12 +251,12 @@ const addLocationMarkerIfNotExists = (store: MapStore) => {
             icon: mkIcon(null, true)
         });
 
-        myLocation(database).then((location) => {
+        geoip.myLocation().then((location) => {
             if (!store.locationMarker) return;
 
             store
                 .locationMarker
-                .setLatLng([location.latitude, location.longitude])
+                .setLatLng(location)
                 .addTo(store.markerLayer);
         });
     }
@@ -281,16 +274,13 @@ export const mkIcon = (count: number | null, active?: boolean): DivIcon => divIc
 });
 
 type LocationKey = string;
-const mkLocationKey = (loc: Location) => `${loc.latitude}${loc.longitude}`;
+const mkLocationKey = (loc: Coordinate) => `${loc.lat}${loc.lng}`;
 
 const searchIcon: DivIcon = mkIcon(null, true);
 
-const mkLine = (current: Location, to: Location, direction: ConnectionDirection, map: LayerGroup<any>) => {
+const mkLine = (current: LatLngExpression, to: LatLngExpression, direction: ConnectionDirection, map: LayerGroup<any>) => {
     const line = new GeodesicLine(
-        [
-            [current.latitude, current.longitude],
-            [to.latitude, to.longitude]
-        ],
+        [current, to],
         {
             weight: 2,
             steps: 3,

@@ -11,10 +11,11 @@
   import Reverse from "./components/Reverse.svelte";
   import ThemeSwitcher from "./components/ThemeSwitcher.svelte";
 
-  let state: "search" | "capture" | "reverse" = localStorage.page ?? "reverse";
+  let state: "search" | "capture" | "reverse" = localStorage.page ?? "capture";
   $: localStorage.page = state;
 
-  let loading: string | null = "Internal Database";
+  let loading: string | null = localStorage.loading ?? "Internal Database";
+  $: localStorage.loading = loading;
 </script>
 
 {#if !$database}

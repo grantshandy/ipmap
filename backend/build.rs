@@ -60,8 +60,9 @@ fn main() {
         format!("{out_dir}/internal_database.rs"),
         format!(
             r#"
+                use std::sync::Arc;
                 include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/database.rs"));
-                lazy_static::lazy_static! {{ pub static ref DATABASE: Option<Database> = {database_str}; }}
+                lazy_static::lazy_static! {{ pub static ref DATABASE: Option<Arc<Database>> = {database_str}; }}
             "#
         ),
     )

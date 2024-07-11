@@ -1,36 +1,29 @@
 <script lang="ts">
     import MapView from "./MapView.svelte";
-    import {
-        currentConnections,
-        listDevices,
-        onNewConnection,
-        startCapturing,
-        stopCapturing,
-        type ThreadID,
-    } from "../bindings";
+    import { type Device, type ThreadID, capture } from "../bindings";
     import { map } from "../stores/map";
     import { onDestroy } from "svelte";
     import type { UnlistenFn } from "@tauri-apps/api/event";
 
     const POLL_MS = 250;
 
-    let device: string | null = null;
+    let device: Device | null = null;
     let capturing: { id: ThreadID; unlisten: UnlistenFn } | null = null;
 
     const toggleCapturing = async () => {
         if (!device) return;
 
         if (capturing) {
-            await stopCapturing(capturing.id);
+            await capture.stopCapturing(capturing.id);
             capturing = null;
         } else {
-            const unlisten = await onNewConnection((ip) => {
+            const unlisten = await capture.onNewConnection((ip) => {
                 if (!capturing) unlisten();
                 map.addIp(ip);
             });
 
             capturing = {
-                id: await startCapturing(device),
+                id: await capture.startCapturing(device),
                 unlisten,
             };
 
@@ -44,14 +37,14 @@
             return;
         }
 
-        currentConnections().then(map.setArcState);
+        capture.currentConnections().then(map.setArcState);
         setTimeout(currentConnectionLoop, POLL_MS);
     };
 
     const cleanup = () => {
         if (capturing) {
             console.log("stopping capture of " + capturing.id);
-            stopCapturing(capturing.id);
+            capture.stopCapturing(capturing.id);
             capturing.unlisten();
             capturing = null;
         }
@@ -70,9 +63,9 @@
         >
             <option disabled selected value={null}>Select Network Device</option
             >
-            {#await listDevices() then devices}
+            {#await capture.listDevices() then devices}
                 {#each devices as device}
-                    <option value={device.name}>
+                    <option value={device}>
                         {device.desc ?? `${device.name} (No Description)`}
                         {device.prefered ? " (Default)" : ""}
                     </option>

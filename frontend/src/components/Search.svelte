@@ -1,12 +1,6 @@
 <script lang="ts">
     import { open } from "@tauri-apps/api/shell";
-    import {
-        lookupDns,
-        lookupIp,
-        lookupIpRange,
-        validateIp,
-    } from "../bindings";
-    import { database } from "../stores/database";
+    import { geoip } from "../bindings";
     import { map, type IpLocation } from "../stores/map";
     import MapView from "./MapView.svelte";
 
@@ -29,13 +23,13 @@
             return;
         }
 
-        if (!(await validateIp(ip))) {
+        if (!(await geoip.validateIp(ip))) {
             error = "Invalid Address";
             map.setSearchIp(null);
             return;
         }
 
-        if (!(await lookupIp(ip, $database))) {
+        if (!(await geoip.lookupIp(ip))) {
             error = "IP Not Found in Database";
             map.setSearchIp(null);
             return;
@@ -67,36 +61,38 @@
         {/if}
         {#if selection}
             <h2 class="text-lg font-bold">IP Location Info</h2>
-            <p>
-                Location:
+            {#await geoip.locationInfo(selection.coord) then info}
+                {#if info}
+                    <p>
+                        Location:
 
-                {#if selection.info.city}
-                    {selection.info.city},
+                        {#if info.city}
+                            {info.city},
+                        {/if}
+                        {#if info.state}
+                            {info.state},
+                        {/if}
+                        {countryNames.of(info.country_code)}
+                    </p>
                 {/if}
-                {#if selection.info.state}
-                    {selection.info.state},
-                {/if}
-                {countryNames.of(selection.info.country_code)}
-            </p>
-            <p>
-                <button
-                    class="link text-sm italic"
-                    on:click={() =>
-                        open(
-                            `https://openstreetmap.org/#map=12/${selection.info.latitude}/${selection.info.longitude}`,
-                        )}
-                    >View in OpenStreetMap
-                </button>
-            </p>
+            {/await}
+            <button
+                class="link text-sm italic"
+                on:click={() =>
+                    open(
+                        `https://openstreetmap.org/#map=12/${selection.coord.lat}/${selection.coord.lng}`,
+                    )}
+                >View in OpenStreetMap
+            </button>
             <hr />
             {#each selection.ips as ip}
                 <h3 class="font-semibold">{ip}:</h3>
-                {#await lookupDns(ip) then dns}
+                {#await geoip.lookupDns(ip) then dns}
                     {#if dns}
                         <p>Domain: <span class="code">{dns}</span></p>
                     {/if}
                 {/await}
-                {#await lookupIpRange(ip, $database) then range}
+                {#await geoip.lookupIpRange(ip) then range}
                     {#if range}
                         <p>
                             Block
