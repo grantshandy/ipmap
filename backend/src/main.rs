@@ -4,6 +4,7 @@ use std::{net::IpAddr, path::PathBuf, process, sync::Arc};
 
 use capture_state::CaptureState;
 use dashmap::DashMap;
+use geoip::database::Database;
 use tauri::{
     api::dialog::{blocking::MessageDialogBuilder, MessageDialogKind},
     async_runtime, Manager,
@@ -12,8 +13,6 @@ use tauri::{
 mod capture;
 mod capture_state;
 mod geoip;
-
-use geoip::database::Database;
 
 /// The cached result of public_ip::addr()
 type PublicIpAddress = IpAddr;

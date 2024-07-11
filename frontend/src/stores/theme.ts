@@ -3,47 +3,52 @@ import { lightTheme, darkTheme } from "../themes.json";
 
 const LS_KEY = "theme";
 
-const osPrefersDarkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+const osPrefersDarkMode =
+  window.matchMedia &&
+  window.matchMedia("(prefers-color-scheme: dark)").matches;
 const storageInitValue: string | null = (() => {
-    const v = localStorage.getItem(LS_KEY);
-    localStorage.removeItem(LS_KEY);
+  const v = localStorage.getItem(LS_KEY);
+  localStorage.removeItem(LS_KEY);
 
-    if (!v || (v != lightTheme && v != darkTheme)) return null;
+  if (!v || (v != lightTheme && v != darkTheme)) return null;
 
-    return v;
+  return v;
 })();
 
 export const theme = (() => {
-    const { subscribe, update, set } = writable<string>(storageInitValue ?? (osPrefersDarkMode ? darkTheme : lightTheme));
+  const { subscribe, update, set } = writable<string>(
+    storageInitValue ?? (osPrefersDarkMode ? darkTheme : lightTheme),
+  );
 
-    subscribe((theme) => localStorage.setItem(LS_KEY, theme));
+  subscribe((theme) => localStorage.setItem(LS_KEY, theme));
 
-    const toggle = () => update((theme) => {
-        if (theme === lightTheme) {
-            return darkTheme;
-        } else {
-            return lightTheme;
-        }
+  const toggle = () =>
+    update((theme) => {
+      if (theme === lightTheme) {
+        return darkTheme;
+      } else {
+        return lightTheme;
+      }
     });
 
-    const isLight = (): boolean => {
-        let light = false;
+  const isLight = (): boolean => {
+    let light = false;
 
-        update((theme) => {
-            light = (theme == lightTheme);
-            return theme;
-        });
+    update((theme) => {
+      light = theme == lightTheme;
+      return theme;
+    });
 
-        return light;
-    }
+    return light;
+  };
 
-    return {
-        subscribe,
-        update,
-        set,
-        toggle,
-        isLight,
-    };
+  return {
+    subscribe,
+    update,
+    set,
+    toggle,
+    isLight,
+  };
 })();
 
 export { lightTheme, darkTheme };

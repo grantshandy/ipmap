@@ -7,13 +7,12 @@ use std::{
 };
 
 use crate::{LoadedDatabases, PublicIpAddress};
+use database::{Coordinate, Database, DatabaseInfo, IpRange, LocationInfo};
 use tauri::State;
 
 pub mod database {
     include!(concat!(env!("OUT_DIR"), "/internal_database.rs"));
 }
-
-use database::{Coordinate, Database, DatabaseInfo, IpRange, LocationInfo};
 
 fn db(
     databases: State<'_, LoadedDatabases>,
@@ -117,7 +116,7 @@ pub async fn lookup_ip_range(
         return Err(format!("ip {ip} not found in database"));
     };
 
-    Ok(range.into())
+    Ok(range)
 }
 
 /// Finds the block of ips for a given coordinate in the database

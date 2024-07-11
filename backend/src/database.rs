@@ -1,7 +1,7 @@
 use std::{
     fmt::{Display, Formatter},
     fs::File,
-    hash::{BuildHasherDefault, Hash},
+    hash::{BuildHasherDefault, Hash, Hasher},
     net::Ipv4Addr,
     ops::RangeInclusive,
     path::{Path, PathBuf},
@@ -13,13 +13,23 @@ use heck::ToTitleCase;
 use indexmap::IndexSet;
 use rangemap::RangeInclusiveMap;
 use rstar::RTree;
-use rustc_hash::{FxHashMap, FxHasher};
+use rustc_hash::FxHashMap;
+use rustc_hash::FxHasher;
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use ts_rs::TS;
 
-type FxIndexSet<T> = IndexSet<T, BuildHasherDefault<FxHasher>>;
-type Ipv4Bytes = u32;
+// CSV indexes for ipv4-num.csv format
+//
+//   https://github.com/sapics/ip-location-db?tab=readme-ov-file#city-csv-format
+//
+const IP_RANGE_START_IDX: usize = 0;
+const IP_RANGE_END_IDX: usize = 1;
+const LATITUDE_IDX: usize = 7;
+const LONGITUDE_IDX: usize = 8;
+const CITY_IDX: usize = 5;
+const STATE_IDX: usize = 3;
+const COUNTRY_CODE_IDX: usize = 2;
 
 /// A highly memory-efficient map for Ipv4Addr -> Location.
 ///
@@ -32,7 +42,7 @@ type Ipv4Bytes = u32;
 pub struct Database {
     map: RangeInclusiveMap<Ipv4Bytes, Coordinate>,
     rev_map: FxHashMap<Coordinate, Vec<IpRange>>,
-    locations: FxHashMap<Coordinate, LocationDetails>,
+    locations: FxHashMap<Coordinate, CompactLocationInfo>,
     strings: FxIndexSet<CompactString>,
     coord_tree: RTree<Coordinate>,
 
@@ -74,7 +84,7 @@ impl Database {
     }
 
     /// Create a uncompressed, full LocationInfo
-    fn decode_location(&self, info: &LocationDetails) -> LocationInfo {
+    fn decode_location(&self, info: &CompactLocationInfo) -> LocationInfo {
         LocationInfo {
             city: self
                 .strings
@@ -88,7 +98,7 @@ impl Database {
         }
     }
 
-    /// Get the metadata for this Database
+    /// Get the [`DatabaseInfo`] metadata.
     pub fn get_db_info(&self) -> DatabaseInfo {
         DatabaseInfo {
             name: self.name.to_string(),
@@ -100,7 +110,7 @@ impl Database {
         }
     }
 
-    /// The nearest Coordinate in the database
+    /// The nearest [`Coordinate`] in the database
     pub fn nearest_location(&self, coord: &Coordinate) -> Coordinate {
         *self
             .coord_tree
@@ -109,12 +119,56 @@ impl Database {
     }
 }
 
-/// The database stored in the executable,
-/// as information dense as possible.
+impl From<CompactDatabase> for Database {
+    fn from(val: CompactDatabase) -> Database {
+        let map =
+            RangeInclusiveMap::from_iter(val.map.iter().map(|(k, v)| (k.clone(), (*v).into())));
+        let locations = FxHashMap::from_iter(val.locations.iter().map(|(k, v)| ((*k).into(), *v)));
+
+        let mut coord_tree = RTree::new();
+        val.locations
+            .keys()
+            .for_each(|coord| coord_tree.insert((*coord).into()));
+
+        let mut rev_map: FxHashMap<Coordinate, Vec<IpRange>> = FxHashMap::default();
+        val.map
+            .iter()
+            .map(|(range, coord)| {
+                (
+                    (*coord).into(),
+                    IpRange {
+                        lower: Ipv4Addr::from(*range.start()),
+                        upper: Ipv4Addr::from(*range.end()),
+                    },
+                )
+            })
+            .for_each(|(k, v)| {
+                if let Some(c) = rev_map.get_mut(&k) {
+                    c.push(v);
+                } else {
+                    rev_map.insert(k, vec![v]);
+                }
+            });
+
+        Database {
+            map,
+            rev_map,
+            locations,
+            strings: val.strings,
+            coord_tree,
+            name: val.name,
+            attribution: val.attribution,
+            path: val.path,
+            build_time: val.build_time,
+        }
+    }
+}
+
+/// A variant of [`Database`] which stores only essential information, created to be embedded in the executable at as-small-as-possible sizes.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CompactDatabase {
     map: RangeInclusiveMap<Ipv4Bytes, TinyCoordinate>,
-    locations: FxHashMap<TinyCoordinate, LocationDetails>,
+    locations: FxHashMap<TinyCoordinate, CompactLocationInfo>,
     strings: FxIndexSet<CompactString>,
 
     name: CompactString,
@@ -173,7 +227,7 @@ impl CompactDatabase {
                 str_from_byte_record(&record[LATITUDE_IDX]).and_then(|s| s.parse::<f16>().ok()),
                 str_from_byte_record(&record[LONGITUDE_IDX]).and_then(|s| s.parse::<f16>().ok()),
             ) {
-                (Some(latitude), Some(longitude)) => GenCoordinate {
+                (Some(latitude), Some(longitude)) => TinyCoordinate {
                     lat: latitude,
                     lng: longitude,
                 },
@@ -189,7 +243,7 @@ impl CompactDatabase {
 
                 db.locations.insert(
                     loc_key,
-                    LocationDetails {
+                    CompactLocationInfo {
                         city,
                         country_code,
                         state,
@@ -222,103 +276,88 @@ impl CompactDatabase {
     }
 }
 
-impl Into<Database> for CompactDatabase {
-    fn into(self) -> Database {
-        let map =
-            RangeInclusiveMap::from_iter(self.map.iter().map(|(k, v)| (k.clone(), (*v).into())));
-        let locations = FxHashMap::from_iter(self.locations.iter().map(|(k, v)| ((*k).into(), *v)));
-
-        let mut coord_tree = RTree::new();
-        self.locations
-            .keys()
-            .for_each(|coord| coord_tree.insert((*coord).into()));
-
-        let mut rev_map: FxHashMap<Coordinate, Vec<IpRange>> = FxHashMap::default();
-        self.map
-            .iter()
-            .map(|(range, coord)| {
-                (
-                    (*coord).into(),
-                    IpRange {
-                        lower: Ipv4Addr::from(*range.start()),
-                        upper: Ipv4Addr::from(*range.end()),
-                    },
-                )
-            })
-            .for_each(|(k, v)| {
-                if let Some(c) = rev_map.get_mut(&k) {
-                    c.push(v);
-                } else {
-                    rev_map.insert(k.into(), vec![v]);
-                }
-            });
-
-        Database {
-            map,
-            rev_map,
-            locations,
-            strings: self.strings,
-            coord_tree,
-            name: self.name,
-            attribution: self.attribution,
-            path: self.path,
-            build_time: self.build_time,
-        }
+fn str_from_byte_record(record: &[u8]) -> Option<String> {
+    match record.is_empty() {
+        true => None,
+        false => Some(String::from_utf8_lossy(record).to_string()),
     }
 }
 
+#[allow(dead_code)]
+pub type FxIndexSet<T> = IndexSet<T, BuildHasherDefault<FxHasher>>;
+#[allow(dead_code)]
+pub type Ipv4Bytes = u32;
+
+/// A compact representation of [`LocationInfo`] which uses indexes into [`Database::strings`] instead of the strings themselves.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-struct LocationDetails {
+pub struct CompactLocationInfo {
     pub city: u32,
     pub state: u32,
     pub country_code: CountryCode,
 }
 
+/// A generalized lat/lon coordinate type which seeps all the way up the stack to leaflet's `LatLngExpression`.
 #[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../frontend/src/bindings/")]
 pub struct GenCoordinate<C> {
     pub lat: C,
     pub lng: C,
 }
-impl<C: PartialEq> Eq for GenCoordinate<C> {}
 
-type TinyCoordinate = GenCoordinate<f16>;
-
-#[allow(private_interfaces)]
+pub type TinyCoordinate = GenCoordinate<f16>;
 pub type Coordinate = GenCoordinate<f32>;
 
+// using floating point numbers in maps
+// throughout the application is *concerning*,
+// but we should be never doing any arithmetic
+// on them and our database should never produce
+// f16/32::NAN, so we should be safe to `Hash`
+// and `Eq` them with their raw bytes.
+
+impl<C: PartialEq> Eq for GenCoordinate<C> {}
+
 impl Hash for Coordinate {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    fn hash<H: Hasher>(&self, state: &mut H) {
         self.lat.to_ne_bytes().hash(state);
         self.lng.to_ne_bytes().hash(state);
     }
 }
 
 impl Hash for TinyCoordinate {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    fn hash<H: Hasher>(&self, state: &mut H) {
         self.lat.to_ne_bytes().hash(state);
         self.lng.to_ne_bytes().hash(state);
     }
 }
 
-impl Into<Coordinate> for TinyCoordinate {
-    fn into(self) -> Coordinate {
+impl From<TinyCoordinate> for Coordinate {
+    fn from(val: TinyCoordinate) -> Coordinate {
         Coordinate {
-            lat: self.lat.to_f32(),
-            lng: self.lng.to_f32(),
+            lat: val.lat.to_f32(),
+            lng: val.lng.to_f32(),
         }
     }
 }
 
-impl Into<TinyCoordinate> for Coordinate {
-    fn into(self) -> TinyCoordinate {
-        GenCoordinate {
-            lat: f16::from_f32(self.lat),
-            lng: f16::from_f32(self.lng),
+impl From<Coordinate> for TinyCoordinate {
+    fn from(val: Coordinate) -> TinyCoordinate {
+        TinyCoordinate {
+            lat: f16::from_f32(val.lat),
+            lng: f16::from_f32(val.lng),
         }
     }
 }
 
+/// There is a 'num-traits' feature for
+/// `half` (our f16 impl provider), but
+/// it doesn't implement all the traits
+/// that we would need to impl rstar::Point
+///
+/// This leads to a major PITA, converting
+/// to f32s for the main in-memory database
+/// representation, which takes up significantly
+/// more data.
+///
 impl rstar::Point for Coordinate {
     type Scalar = f32;
     const DIMENSIONS: usize = 2;
@@ -347,10 +386,11 @@ impl rstar::Point for Coordinate {
     }
 }
 
-/// An ISO 3166 2-digit ASCII Country Code
+/// An ISO 3166 2-digit ASCII country code
+/// which takes advantage of their compact representation :)
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 #[repr(transparent)]
-struct CountryCode([u8; 2]);
+pub struct CountryCode([u8; 2]);
 
 impl<A: AsRef<[u8]>> From<A> for CountryCode {
     fn from(value: A) -> Self {
@@ -373,7 +413,7 @@ impl Display for CountryCode {
     }
 }
 
-/// A location and its associated Ip Ranges
+/// A location and its associated IpRanges
 #[derive(Clone, Debug, PartialEq, Serialize, Default, TS)]
 #[ts(export, export_to = "../../frontend/src/bindings/")]
 pub struct LocationBlock {
@@ -381,11 +421,12 @@ pub struct LocationBlock {
     pub blocks: Vec<IpRange>,
 }
 
+/// A simplified RangeInclusive<Ipv4Addr/u32> for our TS api.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../frontend/src/bindings/")]
 pub struct IpRange {
-    lower: Ipv4Addr,
-    upper: Ipv4Addr,
+    pub lower: Ipv4Addr,
+    pub upper: Ipv4Addr,
 }
 
 impl From<&RangeInclusive<u32>> for IpRange {
@@ -397,6 +438,7 @@ impl From<&RangeInclusive<u32>> for IpRange {
     }
 }
 
+/// Associated metadata for a certain coordinate in the database.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Default, TS)]
 #[ts(export, export_to = "../../frontend/src/bindings/")]
 pub struct LocationInfo {
@@ -405,6 +447,7 @@ pub struct LocationInfo {
     pub state: Option<String>,
 }
 
+/// The associated metadata for a given Database
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, TS)]
 #[ts(export, export_to = "../../frontend/src/bindings/")]
 pub struct DatabaseInfo {
@@ -415,19 +458,3 @@ pub struct DatabaseInfo {
     pub unique_locations: usize,
     pub strings: usize,
 }
-
-fn str_from_byte_record(record: &[u8]) -> Option<String> {
-    match record.is_empty() {
-        true => None,
-        false => Some(String::from_utf8_lossy(record).to_string()),
-    }
-}
-
-// CSV indexes for ipv4-num.csv format
-const IP_RANGE_START_IDX: usize = 0;
-const IP_RANGE_END_IDX: usize = 1;
-const LATITUDE_IDX: usize = 7;
-const LONGITUDE_IDX: usize = 8;
-const CITY_IDX: usize = 5;
-const STATE_IDX: usize = 3;
-const COUNTRY_CODE_IDX: usize = 2;

@@ -19,18 +19,19 @@
 </script>
 
 {#if !$database}
+  <!-- Intro page, prompts user to input database -->
   <main
     transition:fade={{ duration: 200 }}
     class="page flex items-center justify-center"
     data-theme={$theme}
   >
-    <div class="text-center space-y-9 select-none">
+    <div class="select-none space-y-9 text-center">
       {#if !loading}
-        <h1 class="font-bold text-2xl">Load an IP-Geolocation Database</h1>
+        <h1 class="text-2xl font-bold">Load an IP-Geolocation Database</h1>
       {/if}
       <DatabaseSelector bind:loading />
       {#if !loading}
-        <p class="max-w-sm mx-auto leading-loose">
+        <p class="mx-auto max-w-sm leading-loose">
           Databases must be in the <span class="code">*-city-ipv4-num.csv</span>
           format, and can be found at the
           <button
@@ -41,21 +42,22 @@
       {/if}
     </div>
     {#if !loading}
-      <div class="absolute top-5 left-5">
+      <div class="absolute left-5 top-5">
         <ThemeSwitcher size={"1.25rem"} />
       </div>
     {/if}
   </main>
 {:else}
-  <main class="page flex flex-col p-2 space-y-3 h-screen" data-theme={$theme}>
-    <div class="flex space-x-3 items-center">
-      <select bind:value={state} class="select select-sm select-bordered">
+  <!-- Main page with switcher for different modes -->
+  <main class="page flex h-screen flex-col space-y-3 p-2" data-theme={$theme}>
+    <div class="flex items-center space-x-3">
+      <select bind:value={state} class="select select-bordered select-sm">
         <option value="search">Search</option>
         <option value="capture">Capture</option>
         <option value="reverse">Reverse Search</option>
       </select>
       <ThemeSwitcher size={"1.5rem"} />
-      <div class="grow flex justify-end items-center space-x-3">
+      <div class="flex grow items-center justify-end space-x-3">
         <DatabaseSelector bind:loading />
       </div>
     </div>
@@ -72,6 +74,6 @@
 
 <style>
   .page {
-    @apply absolute top-0 left-0 w-screen min-h-screen overflow-hidden;
+    @apply absolute left-0 top-0 min-h-screen w-screen overflow-hidden;
   }
 </style>
