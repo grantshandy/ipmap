@@ -73,11 +73,17 @@
   const myLocation = marker([0, 0], { icon: mkIcon(null, true) }).addTo(
     markerLayer,
   );
-  $: if ($database) geoip.myLocation().then((c) => myLocation.setLatLng(c));
+  $: if ($database)
+    geoip.myLocation().then((c) => {
+      myLocation.setLatLng(c);
+      for (const state of Object.values(arcState)) {
+        state.arc.setLatLngs([c, state.to]);
+      }
+    });
 
   // current state of arcs (connections)
   let arcState: {
-    [id: string]: { info: ConnectionInfo; arc: GeodesicLine };
+    [id: string]: { info: ConnectionInfo; arc: GeodesicLine; to: Coordinate };
   } = {};
 
   const setArcState = async (newState: ConnectionInfo[]) => {
@@ -116,6 +122,7 @@
             className: newState.direction,
           }).addTo(arcLayer),
           info: newState,
+          to,
         };
       });
     }
@@ -199,7 +206,7 @@
       {capturing ? "Stop" : "Start"} Capturing
     </button>
 
-    <div class="grow flex items-center justify-end space-x-3">
+    <div class="flex grow items-center justify-end space-x-3">
       <button
         on:click={() => {
           if (markerLayerVisible) {
