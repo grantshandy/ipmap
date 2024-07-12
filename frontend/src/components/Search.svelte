@@ -1,29 +1,35 @@
 <script lang="ts">
-  import { open } from "@tauri-apps/api/shell";
-  import { geoip, type Coordinate } from "../bindings";
-  import { mkIcon, type IpLocation, type MapStore } from "../stores/map";
+  import LocationName from "./LocationName.svelte";
   import MapView from "./MapView.svelte";
-  import { Marker, marker } from "leaflet";
 
-  let map: MapStore;
+  import { open } from "@tauri-apps/api/shell";
+  import { Marker, marker, Map } from "leaflet";
 
-  const countryNames = new Intl.DisplayNames("en", { type: "region" });
+  import { geoip, type Coordinate } from "../bindings";
+  import { DEFAULT_POS, DEFAULT_ZOOM, mkIcon } from "../map";
 
   let query = "";
   let error: string | null = null;
 
-  $: validateAndSearch(query, true);
+  let map: Map;
+  let selection: {
+    ip: string;
+    coord: Coordinate;
+    marker: Marker;
+  } | null = null;
+
+  $: validateAndSearch(query);
   $: if (!error || error) setTimeout(() => map.invalidateSize(), 10);
 
   let searchTimeout: number;
-  const validateAndSearch = async (ip: string, pause: boolean) => {
+  const validateAndSearch = async (ip: string) => {
     if (!map) return;
     clearTimeout(searchTimeout);
 
     if (ip.length == 0) {
       error = null;
       setSearchIp(null);
-      map.resetView();
+      map.flyTo(DEFAULT_POS, DEFAULT_ZOOM);
       return;
     }
 
@@ -33,8 +39,8 @@
       return;
     }
 
-    let coord: Coordinate | null;
-    if (!(coord = await geoip.lookupIp(ip))) {
+    const coord = await geoip.lookupIp(ip);
+    if (!coord) {
       error = "IP Not Found in Database";
       setSearchIp(null);
       return;
@@ -44,29 +50,27 @@
     searchTimeout = setTimeout(() => setSearchIp(ip, coord), 300);
   };
 
-  let selection: { ip: string; coord: Coordinate; marker: Marker } | null =
-    null;
-  const setSearchIp = async (ip: string | null, coord?: Coordinate) => {
+  const setSearchIp = (ip: string | null, coord?: Coordinate) => {
     if (selection) {
       selection.marker.remove();
       selection = null;
     }
 
-    if (!coord || !$map || !ip) return;
+    if (!coord || !map || !ip) return;
 
     selection = {
       ip,
       coord,
-      marker: marker(coord, { icon: mkIcon(null, true) }).addTo($map.inst),
+      marker: marker(coord, { icon: mkIcon(null, true) }).addTo(map),
     };
 
-    $map.inst.flyTo(coord, 7);
+    map.flyTo(coord, 7);
   };
 </script>
 
 <div class="flex grow space-x-2">
   <MapView bind:map />
-  <div class="rounded-box bg-base-200 w-1/4 space-y-2 p-2">
+  <div class="w-1/4 space-y-2 rounded-box bg-base-200 p-2">
     <input
       class="input input-sm input-bordered w-full grow"
       class:border-error={error}
@@ -74,23 +78,13 @@
       bind:value={query}
     />
     {#if error}
-      <p class="text-error grow p-2 text-sm font-bold italic">{error}</p>
+      <p class="grow p-2 text-sm font-bold italic text-error">{error}</p>
     {/if}
     {#if selection}
       <h2 class="text-lg font-bold">IP Location Info</h2>
       {#await geoip.locationInfo(selection.coord) then info}
         {#if info}
-          <p>
-            Location:
-
-            {#if info.city}
-              {info.city},
-            {/if}
-            {#if info.state}
-              {info.state},
-            {/if}
-            {countryNames.of(info.country_code)}
-          </p>
+          <p>Location: <LocationName {info} /></p>
         {/if}
       {/await}
       <button
@@ -111,13 +105,9 @@
         {#if range}
           <p>
             Block
-            <span class="code break-words">
-              {range.lower}
-            </span>
+            <span class="code break-words">{range.lower}</span>
             to
-            <span class="code">
-              {range.upper}
-            </span>
+            <span class="code">{range.upper}</span>
           </p>
         {/if}
       {/await}

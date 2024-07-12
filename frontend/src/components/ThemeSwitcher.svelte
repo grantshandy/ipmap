@@ -1,7 +1,7 @@
 <script lang="ts">
-  export let size: string;
-
   import { theme } from "../stores/theme";
+
+  export let size: string;
 </script>
 
 <label class="btn btn-circle btn-primary swap swap-rotate btn-sm">

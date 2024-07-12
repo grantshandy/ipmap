@@ -1,6 +1,7 @@
 <script lang="ts">
   import { confirm, message, open } from "@tauri-apps/api/dialog";
   import { basename } from "@tauri-apps/api/path";
+
   import { type DatabaseInfo, geoip } from "../bindings";
   import { database } from "../stores/database";
 

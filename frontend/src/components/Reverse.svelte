@@ -1,13 +1,14 @@
 <script lang="ts">
   import MapView from "./MapView.svelte";
+  import LocationName from "./LocationName.svelte";
+
   import { GeodesicLine } from "leaflet.geodesic";
-  import { createMap, mkIcon, type MapStore } from "../stores";
-  import { marker, type LeafletMouseEvent, type Marker } from "leaflet";
+  import { Map, marker, type LeafletMouseEvent, type Marker } from "leaflet";
+
   import { geoip, type Coordinate } from "../bindings";
+  import { mkIcon } from "../map";
 
-  let map: MapStore;
-
-  const countryNames = new Intl.DisplayNames("en", { type: "region" });
+  let map: Map;
 
   let query: Coordinate = { lat: 0, lng: 0 };
   let result: Coordinate = query;
@@ -33,10 +34,10 @@
   $: line.setLatLngs([query, result]);
 
   // add marker and line to map when created
-  $: if ($map) {
-    $map.inst.invalidateSize();
-    queryMarker.addTo($map.markerLayer);
-    line.addTo($map.arcLayer);
+  $: if (map) {
+    map.invalidateSize();
+    queryMarker.addTo(map);
+    line.addTo(map);
   }
 </script>
 
@@ -52,18 +53,12 @@
     {#await geoip.locationInfo(result) then info}
       {#if info}
         <p class="rounded-box bg-base-200 p-2">
-          {#if info.city}
-            {info.city},
-          {/if}
-          {#if info.state}
-            {info.state},
-          {/if}
-          {countryNames.of(info.country_code)}
+          <LocationName {info} />
         </p>
       {/if}
     {/await}
     <hr />
-    <div class="rounded-box bg-base-200 overflow-y-auto p-2">
+    <div class="overflow-y-auto rounded-box bg-base-200 p-2">
       <div class="grid grid-cols-2 overflow-y-auto text-xs">
         <span class="font-bold">From</span>
         <span class="font-bold">To</span>

@@ -2,7 +2,7 @@ import { invoke as rawInvoke } from "@tauri-apps/api";
 import { type InvokeArgs } from "@tauri-apps/api/tauri";
 import { message } from "@tauri-apps/api/dialog";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import { database } from "../stores";
+import { database } from "../stores/database";
 
 import { type ConnectionDirection } from "./ConnectionDirection";
 import { type ConnectionInfo } from "./ConnectionInfo";

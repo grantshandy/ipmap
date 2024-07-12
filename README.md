@@ -28,5 +28,5 @@ $ IPV4NUM_DB_ATTRIBUTION="IP Geolocation by DB-IP"
   current connections based on the stream of packets. Also determines incoming/outgoing/mixed status.
  - [x] ^ maintain arc animations from this state
  - [x] dark/light mode
- - [ ] fix capture -> search marker update bug
- - [ ] reverse search? move a marker on the map and it shows the geographically closest blocks.
+ - [x] fix capture -> search marker update bug
+ - [x] reverse search? move a marker on the map and it shows the geographically closest blocks.
