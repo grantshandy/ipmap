@@ -3,7 +3,11 @@
 @tailwind utilities;
 
 .marker-icon {
-  @apply h-full w-full rounded-full border text-center font-bold text-neutral-600 drop-shadow-lg;
+  @apply h-full w-full rounded-full border text-center align-sub font-bold text-secondary-content drop-shadow-lg bg-secondary;
+}
+
+.marker-icon-active {
+  @apply marker-icon bg-primary text-lg text-primary-content !important;
 }
 
 .code {
@@ -67,8 +71,7 @@ path.Mixed {
     https://blog.jamie.holdings/2022/05/15/dark-mode-for/
 */
 :root {
-  --leaflet-tile-filter: brightness(0.6) invert(1) contrast(3)
-    hue-rotate(200deg) saturate(0.3) brightness(0.7);
+  --leaflet-tile-filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7);
 }
 
 .map-dark .leaflet-tile {

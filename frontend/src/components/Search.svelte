@@ -69,8 +69,8 @@
 </script>
 
 <div class="flex grow space-x-2">
-  <MapView bind:map />
-  <div class="w-1/4 space-y-2 rounded-box bg-base-200 p-2">
+  <MapView bind:map>
+  <div class="bg-base-200/[0.8] rounded-l-box absolute z-30 bottom-0 right-0 top-0 w-1/4 space-y-3 p-2">
     <input
       class="input input-sm input-bordered w-full grow"
       class:border-error={error}
@@ -113,4 +113,5 @@
       {/await}
     {/if}
   </div>
+  </MapView>
 </div>

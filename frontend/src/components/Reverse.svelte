@@ -41,34 +41,34 @@
   }
 </script>
 
-<!-- TODO: Fix Weird Overflow -->
-<div class="flex grow space-x-2 overflow-y-auto">
-  <div class="flex h-full grow">
-    <MapView bind:map />
-  </div>
-  <div class="h-full w-1/4 select-none space-y-2">
-    <h1 class="rounded-box bg-base-200 p-2 font-semibold">
-      Nearest IP Location Blocks
-    </h1>
-    {#await geoip.locationInfo(result) then info}
-      {#if info}
-        <p class="rounded-box bg-base-200 p-2">
-          <LocationName {info} />
-        </p>
-      {/if}
-    {/await}
-    <hr />
-    <div class="overflow-y-auto rounded-box bg-base-200 p-2">
-      <div class="grid grid-cols-2 overflow-y-auto text-xs">
-        <span class="font-bold">From</span>
-        <span class="font-bold">To</span>
-        {#await geoip.lookupIpBlocks(result) then ranges}
-          {#each ranges as range}
-            <span>{range.lower}</span>
-            <span>{range.upper}</span>
-          {/each}
-        {/await}
+<div class="flex grow space-x-2">
+  <MapView bind:map>
+    <div
+      class="bg-base-200/[0.8] rounded-l-box absolute bottom-0 right-0 top-0 z-30 w-1/4 space-y-3 overflow-y-auto p-2"
+    >
+      <h1 class="rounded-box bg-base-200 p-2 font-semibold">
+        Nearest IP Location Blocks
+      </h1>
+      {#await geoip.locationInfo(result) then info}
+        {#if info}
+          <p class="rounded-box bg-base-200 p-2">
+            <LocationName {info} />
+          </p>
+        {/if}
+      {/await}
+      <hr />
+      <div class="rounded-box bg-base-200 overflow-y-auto p-2">
+        <div class="grid grid-cols-2 overflow-y-auto text-xs">
+          <span class="font-bold">From</span>
+          <span class="font-bold">To</span>
+          {#await geoip.lookupIpBlocks(result) then ranges}
+            {#each ranges as range}
+              <span>{range.lower}</span>
+              <span>{range.upper}</span>
+            {/each}
+          {/await}
+        </div>
       </div>
     </div>
-  </div>
+  </MapView>
 </div>

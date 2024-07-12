@@ -1,13 +1,15 @@
 <script lang="ts">
   import MapView from "./MapView.svelte";
+  import CaptureLocationView from "./CaptureLocationView.svelte";
 
   import { onDestroy } from "svelte";
+  import { fly } from "svelte/transition";
   import type { UnlistenFn } from "@tauri-apps/api/event";
-  import { layerGroup, marker, Marker, type Map } from "leaflet";
+  import { layerGroup, marker, type Map } from "leaflet";
   import { GeodesicLine } from "leaflet.geodesic";
 
   import { database } from "../stores/database";
-  import { mkIcon } from "../map";
+  import { mkIcon, type CaptureLocation } from "../map";
   import {
     type ConnectionInfo,
     type Coordinate,
@@ -59,6 +61,17 @@
     }
   };
 
+  const cleanup = () => {
+    if (capturing) {
+      console.log("stopping capture of " + capturing.id);
+      capture.stopCapturing(capturing.id);
+      capturing.unlisten();
+      capturing = null;
+    }
+  };
+  onDestroy(cleanup);
+  window.onbeforeunload = cleanup;
+
   const currentConnectionLoop = () => {
     if (!capturing) {
       setArcState([]);
@@ -70,7 +83,7 @@
   };
 
   // auto-updating location from database
-  const myLocation = marker([0, 0], { icon: mkIcon(null, true) }).addTo(
+  const myLocation = marker([0, 0], { icon: mkIcon(null, false) }).addTo(
     markerLayer,
   );
   $: if ($database)
@@ -131,12 +144,9 @@
   type LocationKey = string;
   const locationKey = (c: Coordinate): LocationKey => `${c.lat}${c.lng}`;
 
+  let selection: CaptureLocation | null = null;
   let locations: {
-    [id: LocationKey]: {
-      coord: Coordinate;
-      marker: Marker;
-      ips: Set<string>;
-    };
+    [id: LocationKey]: CaptureLocation;
   } = {};
   let ips: Set<string> = new Set();
 
@@ -161,21 +171,40 @@
       locations[key] = {
         coord,
         ips: new Set([ip]),
-        marker: marker(coord, { icon: mkIcon(1, false) }).addTo(markerLayer),
+        marker: marker(coord, { icon: mkIcon(1, false) })
+          .on("click", () => markerOnClick(key))
+          .addTo(markerLayer),
       };
     }
   };
 
-  const cleanup = () => {
-    if (capturing) {
-      console.log("stopping capture of " + capturing.id);
-      capture.stopCapturing(capturing.id);
-      capturing.unlisten();
-      capturing = null;
+  const markerOnClick = (key: LocationKey) => {
+    // wait for animation with timeout
+
+    if (selection) {
+      selection.marker
+        .setIcon(mkIcon(selection.ips.size, false))
+        .setZIndexOffset(50);
     }
+
+    if (selection && locationKey(selection.coord) == key) {
+      selection = null;
+      return;
+    }
+
+    selection = locations[key];
+    if (!selection) return;
+
+    if (map.getZoom() < 5) {
+      map.flyTo(selection.coord, 5);
+    } else {
+      map.panTo(selection.coord);
+    }
+
+    selection.marker
+      .setIcon(mkIcon(selection.ips.size, true))
+      .setZIndexOffset(1000);
   };
-  onDestroy(cleanup);
-  window.onbeforeunload = cleanup;
 </script>
 
 <div class="flex grow flex-col space-y-3">
@@ -240,18 +269,27 @@
     </div>
   </div>
 
-  <MapView bind:map>
-    <div
-      class="bg-base-100 absolute bottom-0 left-0 z-30 flex items-center rounded-tr-md pr-1 pt-0.5 text-xs"
-    >
-      <div class="color-indicator bg-success" />
-      <span>Incoming</span>
-      <div class="color-indicator bg-error" />
-      <span>Outgoing</span>
-      <div class="color-indicator bg-warning" />
-      <span>Mixed</span>
-    </div>
-  </MapView>
+  <div class="flex grow space-x-3">
+    <MapView bind:map>
+      <div
+        class="bg-base-100 absolute bottom-0 left-0 z-30 flex items-center rounded-tr-md pr-1 pt-0.5 text-xs"
+      >
+        <div class="color-indicator bg-success" />
+        <span>Incoming</span>
+        <div class="color-indicator bg-error" />
+        <span>Outgoing</span>
+        <div class="color-indicator bg-warning" />
+        <span>Mixed</span>
+      </div>
+      {#if selection}
+        <div
+          class="bg-base-200/[0.8] rounded-l-box absolute z-30 bottom-0 right-0 top-0 w-1/4 space-y-3 p-2"
+        >
+          <CaptureLocationView bind:selection />
+        </div>
+      {/if}
+    </MapView>
+  </div>
 </div>
 
 <style lang="postcss">

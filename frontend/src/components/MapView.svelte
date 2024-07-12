@@ -1,5 +1,8 @@
 <script lang="ts">
   import "leaflet/dist/leaflet.css";
+  import "leaflet";
+  import "leaflet-active-area";
+  import "leaflet-edgebuffer";
 
   import { darkTheme, theme } from "../stores/theme";
   import { Map, map as mkMap, tileLayer } from "leaflet";
@@ -15,6 +18,7 @@
       zoomControl: false,
     });
     map.setView(DEFAULT_POS, DEFAULT_ZOOM);
+    map.setActiveArea(cont);
     tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: "&copy; OSM Contributors",
       noWrap: true,
@@ -27,7 +31,9 @@
   };
 </script>
 
-<div class="overflow-none relative grow select-none rounded-box">
+<svelte:window on:resize={() => map.invalidateSize()} />
+
+<div class="overflow-none rounded-box relative grow select-none">
   {#if map}
     <div class="join join-vertical absolute left-2 top-2 z-30">
       <button
@@ -43,7 +49,7 @@
   <slot />
   <div
     use:mapAction
-    class="z-20 h-full w-full rounded-box"
+    class="rounded-box z-20 h-full w-full"
     class:map-dark={$theme == darkTheme}
   ></div>
 </div>

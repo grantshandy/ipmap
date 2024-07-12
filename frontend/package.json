@@ -31,6 +31,7 @@
   "dependencies": {
     "@tauri-apps/api": "^1.5.4",
     "leaflet": "^1.9.4",
+    "leaflet-active-area": "^1.2.1",
     "leaflet-edgebuffer": "^1.0.6",
     "leaflet.geodesic": "^2.7.1"
   }
