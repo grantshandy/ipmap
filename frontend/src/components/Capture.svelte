@@ -22,10 +22,18 @@
   let map: Map;
 
   const markerLayer = layerGroup();
-  $: if (map) markerLayer.addTo(map);
+  let markerLayerVisible = false;
+  $: if (map) {
+    markerLayer.addTo(map);
+    markerLayerVisible = true;
+  }
 
   const arcLayer = layerGroup();
-  $: if (map) arcLayer.addTo(map);
+  let arcLayerVisible = false;
+  $: if (map) {
+    arcLayer.addTo(map);
+    arcLayerVisible = true;
+  }
 
   let device: Device | null = null;
   let capturing: { id: ThreadID; unlisten: UnlistenFn } | null = null;
@@ -190,6 +198,39 @@
     >
       {capturing ? "Stop" : "Start"} Capturing
     </button>
+
+    <div class="grow flex items-center justify-end space-x-3">
+      <button
+        on:click={() => {
+          if (markerLayerVisible) {
+            markerLayer.remove();
+          } else {
+            markerLayer.addTo(map);
+          }
+
+          markerLayerVisible = !markerLayerVisible;
+        }}
+        class="btn btn-sm"
+        class:btn-active={markerLayerVisible}
+      >
+        Markers
+      </button>
+      <button
+        on:click={() => {
+          if (arcLayerVisible) {
+            arcLayer.remove();
+          } else {
+            arcLayer.addTo(map);
+          }
+
+          arcLayerVisible = !arcLayerVisible;
+        }}
+        class="btn btn-sm"
+        class:btn-active={arcLayerVisible}
+      >
+        Arcs
+      </button>
+    </div>
   </div>
 
   <MapView bind:map>
