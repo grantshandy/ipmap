@@ -33,7 +33,7 @@
 
 <svelte:window on:resize={() => map.invalidateSize()} />
 
-<div class="overflow-none rounded-box relative grow select-none">
+<div class="overflow-none relative grow select-none rounded-box">
   {#if map}
     <div class="join join-vertical absolute left-2 top-2 z-30">
       <button
@@ -49,7 +49,7 @@
   <slot />
   <div
     use:mapAction
-    class="rounded-box z-20 h-full w-full"
+    class="z-20 h-full w-full rounded-box"
     class:map-dark={$theme == darkTheme}
   ></div>
 </div>

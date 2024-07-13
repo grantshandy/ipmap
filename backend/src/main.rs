@@ -4,7 +4,7 @@ use std::{net::IpAddr, path::PathBuf, process, sync::Arc};
 
 use capture_state::CaptureState;
 use dashmap::DashMap;
-use geoip::database::Database;
+use geoip::database::{Database, Ipv4Bytes, Ipv6Bytes};
 use tauri::{
     api::dialog::{blocking::MessageDialogBuilder, MessageDialogKind},
     async_runtime, Manager,
@@ -16,13 +16,15 @@ mod geoip;
 
 /// The cached result of public_ip::addr()
 type PublicIpAddress = IpAddr;
-type LoadedDatabases = DashMap<PathBuf, Arc<Database>>;
+type LoadedIpv4Databases = DashMap<PathBuf, Arc<Database<Ipv4Bytes>>>;
+type LoadedIpv6Databases = DashMap<PathBuf, Arc<Database<Ipv6Bytes>>>;
 
 fn main() {
     tracing_subscriber::fmt::init();
 
     tauri::Builder::default()
-        .manage(LoadedDatabases::default())
+        .manage(LoadedIpv4Databases::default())
+        .manage(LoadedIpv6Databases::default())
         .manage(CaptureState::default())
         .setup(|app| {
             tracing::info!("getting ip");

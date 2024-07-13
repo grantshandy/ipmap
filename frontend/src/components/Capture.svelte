@@ -272,7 +272,7 @@
   <div class="flex grow space-x-3">
     <MapView bind:map>
       <div
-        class="bg-base-100 absolute bottom-0 left-0 z-30 flex items-center rounded-tr-md pr-1 pt-0.5 text-xs"
+        class="absolute bottom-0 left-0 z-30 flex items-center rounded-tr-md bg-base-100 pr-1 pt-0.5 text-xs"
       >
         <div class="color-indicator bg-success" />
         <span>Incoming</span>
@@ -283,7 +283,7 @@
       </div>
       {#if selection}
         <div
-          class="bg-base-200/[0.8] rounded-l-box absolute z-30 bottom-0 right-0 top-0 w-1/4 space-y-3 p-2"
+          class="absolute bottom-0 right-0 top-0 z-30 w-1/4 space-y-3 rounded-l-box bg-base-200/[0.8] p-2"
         >
           <CaptureLocationView bind:selection />
         </div>

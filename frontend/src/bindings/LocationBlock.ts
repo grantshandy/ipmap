@@ -3,6 +3,6 @@ import type { IpRange } from "./IpRange";
 import type { LocationInfo } from "./LocationInfo";
 
 /**
- * A location and its associated Ip Ranges
+ * A location and its associated IpRanges
  */
 export type LocationBlock = { location: LocationInfo; blocks: Array<IpRange> };

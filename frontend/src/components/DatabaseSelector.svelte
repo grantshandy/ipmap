@@ -9,6 +9,7 @@
 
   let databases: DatabaseInfo[] = [];
   geoip.listDatabases().then((db) => {
+    console.log(db);
     databases = db;
     if (databases.length > 0) $database = databases[0];
     loading = null;

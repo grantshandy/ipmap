@@ -70,48 +70,50 @@
 
 <div class="flex grow space-x-2">
   <MapView bind:map>
-  <div class="bg-base-200/[0.8] rounded-l-box absolute z-30 bottom-0 right-0 top-0 w-1/4 space-y-3 p-2">
-    <input
-      class="input input-sm input-bordered w-full grow"
-      class:border-error={error}
-      placeholder="IPv4 Address"
-      bind:value={query}
-    />
-    {#if error}
-      <p class="grow p-2 text-sm font-bold italic text-error">{error}</p>
-    {/if}
-    {#if selection}
-      <h2 class="text-lg font-bold">IP Location Info</h2>
-      {#await geoip.locationInfo(selection.coord) then info}
-        {#if info}
-          <p>Location: <LocationName {info} /></p>
-        {/if}
-      {/await}
-      <button
-        class="link text-sm italic"
-        on:click={() =>
-          open(
-            `https://openstreetmap.org/#map=12/${selection?.coord.lat}/${selection?.coord.lng}`,
-          )}
-        >View in OpenStreetMap
-      </button>
-      <hr />
-      {#await geoip.lookupDns(selection.ip) then dns}
-        {#if dns}
-          <p>Domain: <span class="code">{dns}</span></p>
-        {/if}
-      {/await}
-      {#await geoip.lookupIpRange(selection.ip) then range}
-        {#if range}
-          <p>
-            Block
-            <span class="code break-words">{range.lower}</span>
-            to
-            <span class="code">{range.upper}</span>
-          </p>
-        {/if}
-      {/await}
-    {/if}
-  </div>
+    <div
+      class="absolute bottom-0 right-0 top-0 z-30 w-1/4 space-y-3 rounded-l-box bg-base-200/[0.8] p-2"
+    >
+      <input
+        class="input input-sm input-bordered w-full grow"
+        class:border-error={error}
+        placeholder="IP Address"
+        bind:value={query}
+      />
+      {#if error}
+        <p class="grow p-2 text-sm font-bold italic text-error">{error}</p>
+      {/if}
+      {#if selection}
+        <h2 class="text-lg font-bold">IP Location Info</h2>
+        {#await geoip.locationInfo(selection.coord) then info}
+          {#if info}
+            <p>Location: <LocationName {info} /></p>
+          {/if}
+        {/await}
+        <button
+          class="link text-sm italic"
+          on:click={() =>
+            open(
+              `https://openstreetmap.org/#map=12/${selection?.coord.lat}/${selection?.coord.lng}`,
+            )}
+          >View in OpenStreetMap
+        </button>
+        <hr />
+        {#await geoip.lookupDns(selection.ip) then dns}
+          {#if dns}
+            <p>Domain: <span class="code">{dns}</span></p>
+          {/if}
+        {/await}
+        {#await geoip.lookupIpRange(selection.ip) then range}
+          {#if range}
+            <p>
+              Block
+              <span class="code break-words">{range.lower}</span>
+              to
+              <span class="code">{range.upper}</span>
+            </p>
+          {/if}
+        {/await}
+      {/if}
+    </div>
   </MapView>
 </div>

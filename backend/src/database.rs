@@ -2,16 +2,17 @@ use std::{
     fmt::{Display, Formatter},
     fs::File,
     hash::{BuildHasherDefault, Hash, Hasher},
-    net::Ipv4Addr,
+    net::{IpAddr, Ipv4Addr, Ipv6Addr},
     ops::RangeInclusive,
     path::{Path, PathBuf},
+    str::FromStr,
 };
 
 use compact_str::CompactString;
 use half::f16;
 use heck::ToTitleCase;
 use indexmap::IndexSet;
-use rangemap::RangeInclusiveMap;
+use rangemap::{RangeInclusiveMap, StepLite};
 use rstar::RTree;
 use rustc_hash::FxHashMap;
 use rustc_hash::FxHasher;
@@ -19,7 +20,7 @@ use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use ts_rs::TS;
 
-// CSV indexes for ipv4-num.csv format
+// CSV indexes for ipvx-num.csv format
 //
 //   https://github.com/sapics/ip-location-db?tab=readme-ov-file#city-csv-format
 //
@@ -39,8 +40,8 @@ const COUNTRY_CODE_IDX: usize = 2;
 /// --(strings)--> <Location>
 ///
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Database {
-    map: RangeInclusiveMap<Ipv4Bytes, Coordinate>,
+pub struct Database<B: Ord + Clone + StepLite> {
+    map: RangeInclusiveMap<B, Coordinate>,
     rev_map: FxHashMap<Coordinate, Vec<IpRange>>,
     locations: FxHashMap<Coordinate, CompactLocationInfo>,
     strings: FxIndexSet<CompactString>,
@@ -53,24 +54,18 @@ pub struct Database {
 }
 
 #[allow(dead_code)]
-impl Database {
+impl<B: Ord + Clone + StepLite + FromStr> Database<B>
+where
+    IpRange: From<RangeInclusive<B>>,
+{
     /// Read a database from a ipv4-num.csv
     pub fn from_csv(path: impl AsRef<Path>, attribution: Option<String>) -> eyre::Result<Self> {
         CompactDatabase::from_csv(path, attribution).map(|d| d.into())
     }
+}
 
-    /// Get a coordinate from the ip.
-    pub fn get(&self, ip: Ipv4Addr) -> Option<Coordinate> {
-        self.map.get(&u32::from(ip)).copied()
-    }
-
-    /// Get the associated range that ip falls into in the database.
-    pub fn get_range(&self, ip: Ipv4Addr) -> Option<IpRange> {
-        self.map
-            .get_key_value(&u32::from(ip))
-            .map(|(r, _)| IpRange::from(r))
-    }
-
+#[allow(dead_code)]
+impl<B: Ord + Clone + StepLite> Database<B> {
     /// Gets the nearest range of ips
     pub fn get_ranges(&self, coord: &Coordinate) -> Vec<IpRange> {
         self.rev_map.get(coord).cloned().unwrap_or_default()
@@ -98,18 +93,6 @@ impl Database {
         }
     }
 
-    /// Get the [`DatabaseInfo`] metadata.
-    pub fn get_db_info(&self) -> DatabaseInfo {
-        DatabaseInfo {
-            name: self.name.to_string(),
-            attribution_text: self.attribution.as_ref().map(|c| c.to_string()),
-            path: self.path.clone(),
-            build_time: self.build_time.to_string(),
-            unique_locations: self.locations.len(),
-            strings: self.strings.len(),
-        }
-    }
-
     /// The nearest [`Coordinate`] in the database
     pub fn nearest_location(&self, coord: &Coordinate) -> Coordinate {
         *self
@@ -119,8 +102,67 @@ impl Database {
     }
 }
 
-impl From<CompactDatabase> for Database {
-    fn from(val: CompactDatabase) -> Database {
+#[allow(dead_code)]
+impl Database<Ipv4Bytes> {
+    /// Get a coordinate from the ip.
+    pub fn get(&self, ip: Ipv4Addr) -> Option<Coordinate> {
+        self.map.get(&Ipv4Bytes::from(ip)).copied()
+    }
+
+    /// Get the associated range that ip falls into in the database.
+    pub fn get_range(&self, ip: Ipv4Addr) -> Option<IpRange> {
+        self.map
+            .get_key_value(&Ipv4Bytes::from(ip))
+            .map(|(r, _)| IpRange::from(r.clone()))
+    }
+
+    /// Get the [`DatabaseInfo`] metadata.
+    pub fn get_db_info(&self) -> DatabaseInfo {
+        DatabaseInfo {
+            name: self.name.to_string(),
+            kind: IpType::IPv4,
+            attribution_text: self.attribution.as_ref().map(|c| c.to_string()),
+            path: self.path.clone(),
+            build_time: self.build_time.to_string(),
+            unique_locations: self.locations.len(),
+            strings: self.strings.len(),
+        }
+    }
+}
+
+#[allow(dead_code)]
+impl Database<Ipv6Bytes> {
+    /// Get a coordinate from the ip.
+    pub fn get(&self, ip: Ipv6Addr) -> Option<Coordinate> {
+        self.map.get(&Ipv6Bytes::from(ip)).copied()
+    }
+
+    /// Get the associated range that ip falls into in the database.
+    pub fn get_range(&self, ip: Ipv6Addr) -> Option<IpRange> {
+        self.map
+            .get_key_value(&Ipv6Bytes::from(ip))
+            .map(|(r, _)| IpRange::from(r.clone()))
+    }
+
+    /// Get the [`DatabaseInfo`] metadata.
+    pub fn get_db_info(&self) -> DatabaseInfo {
+        DatabaseInfo {
+            name: self.name.to_string(),
+            kind: IpType::IPv6,
+            attribution_text: self.attribution.as_ref().map(|c| c.to_string()),
+            path: self.path.clone(),
+            build_time: self.build_time.to_string(),
+            unique_locations: self.locations.len(),
+            strings: self.strings.len(),
+        }
+    }
+}
+
+impl<B: Ord + Clone + StepLite> From<CompactDatabase<B>> for Database<B>
+where
+    IpRange: From<RangeInclusive<B>>,
+{
+    fn from(val: CompactDatabase<B>) -> Database<B> {
         let map =
             RangeInclusiveMap::from_iter(val.map.iter().map(|(k, v)| (k.clone(), (*v).into())));
         let locations = FxHashMap::from_iter(val.locations.iter().map(|(k, v)| ((*k).into(), *v)));
@@ -133,15 +175,7 @@ impl From<CompactDatabase> for Database {
         let mut rev_map: FxHashMap<Coordinate, Vec<IpRange>> = FxHashMap::default();
         val.map
             .iter()
-            .map(|(range, coord)| {
-                (
-                    (*coord).into(),
-                    IpRange {
-                        lower: Ipv4Addr::from(*range.start()),
-                        upper: Ipv4Addr::from(*range.end()),
-                    },
-                )
-            })
+            .map(|(range, coord)| ((*coord).into(), IpRange::from(range.clone())))
             .for_each(|(k, v)| {
                 if let Some(c) = rev_map.get_mut(&k) {
                     c.push(v);
@@ -166,8 +200,8 @@ impl From<CompactDatabase> for Database {
 
 /// A variant of [`Database`] which stores only essential information, created to be embedded in the executable at as-small-as-possible sizes.
 #[derive(Debug, Serialize, Deserialize)]
-pub struct CompactDatabase {
-    map: RangeInclusiveMap<Ipv4Bytes, TinyCoordinate>,
+pub struct CompactDatabase<B: Ord + Clone + StepLite> {
+    map: RangeInclusiveMap<B, TinyCoordinate>,
     locations: FxHashMap<TinyCoordinate, CompactLocationInfo>,
     strings: FxIndexSet<CompactString>,
 
@@ -177,7 +211,7 @@ pub struct CompactDatabase {
     build_time: OffsetDateTime,
 }
 
-impl CompactDatabase {
+impl<B: Ord + Clone + StepLite + FromStr> CompactDatabase<B> {
     pub fn from_csv(path: impl AsRef<Path>, attribution: Option<String>) -> eyre::Result<Self> {
         let path = path.as_ref();
         let file = File::open(path)?;
@@ -216,9 +250,8 @@ impl CompactDatabase {
             let record = record.expect("deserialize byte record");
 
             let (Some(ip_range_start), Some(ip_range_end)) = (
-                str_from_byte_record(&record[IP_RANGE_START_IDX])
-                    .and_then(|r| r.parse::<u32>().ok()),
-                str_from_byte_record(&record[IP_RANGE_END_IDX]).and_then(|r| r.parse::<u32>().ok()),
+                str_from_byte_record(&record[IP_RANGE_START_IDX]).and_then(|r| r.parse::<B>().ok()),
+                str_from_byte_record(&record[IP_RANGE_END_IDX]).and_then(|r| r.parse::<B>().ok()),
             ) else {
                 return Err(eyre::eyre!("couldn't parse ip ranges"));
             };
@@ -285,8 +318,12 @@ fn str_from_byte_record(record: &[u8]) -> Option<String> {
 
 #[allow(dead_code)]
 pub type FxIndexSet<T> = IndexSet<T, BuildHasherDefault<FxHasher>>;
+
 #[allow(dead_code)]
 pub type Ipv4Bytes = u32;
+
+#[allow(dead_code)]
+pub type Ipv6Bytes = u128;
 
 /// A compact representation of [`LocationInfo`] which uses indexes into [`Database::strings`] instead of the strings themselves.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -425,15 +462,24 @@ pub struct LocationBlock {
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../frontend/src/bindings/")]
 pub struct IpRange {
-    pub lower: Ipv4Addr,
-    pub upper: Ipv4Addr,
+    pub lower: IpAddr,
+    pub upper: IpAddr,
 }
 
-impl From<&RangeInclusive<u32>> for IpRange {
-    fn from(value: &RangeInclusive<u32>) -> Self {
+impl From<RangeInclusive<Ipv4Bytes>> for IpRange {
+    fn from(value: RangeInclusive<Ipv4Bytes>) -> Self {
         Self {
-            lower: Ipv4Addr::from(*value.start()),
-            upper: Ipv4Addr::from(*value.end()),
+            lower: IpAddr::V4(Ipv4Addr::from(*value.start())),
+            upper: IpAddr::V4(Ipv4Addr::from(*value.end())),
+        }
+    }
+}
+
+impl From<RangeInclusive<Ipv6Bytes>> for IpRange {
+    fn from(value: RangeInclusive<Ipv6Bytes>) -> Self {
+        Self {
+            lower: IpAddr::V6(Ipv6Addr::from(*value.start())),
+            upper: IpAddr::V6(Ipv6Addr::from(*value.end())),
         }
     }
 }
@@ -452,9 +498,17 @@ pub struct LocationInfo {
 #[ts(export, export_to = "../../frontend/src/bindings/")]
 pub struct DatabaseInfo {
     pub name: String,
+    pub kind: IpType,
     pub attribution_text: Option<String>,
     pub path: Option<PathBuf>,
     pub build_time: String,
     pub unique_locations: usize,
     pub strings: usize,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, TS)]
+#[ts(export, export_to = "../../frontend/src/bindings/")]
+pub enum IpType {
+    IPv4,
+    IPv6,
 }

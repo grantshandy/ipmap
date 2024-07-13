@@ -30,3 +30,7 @@ $ IPV4NUM_DB_ATTRIBUTION="IP Geolocation by DB-IP"
  - [x] dark/light mode
  - [x] fix capture -> search marker update bug
  - [x] reverse search? move a marker on the map and it shows the geographically closest blocks.
+ - [ ] traceroute
+ - [ ] detect undersea cables in traceroute
+ - [ ] identify internet access points in traceroute
+ 

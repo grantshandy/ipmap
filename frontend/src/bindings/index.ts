@@ -11,6 +11,7 @@ import { type Device } from "./Device";
 import { type IpRange } from "./IpRange";
 import { type GenCoordinate } from "./GenCoordinate";
 import { type LocationInfo } from "./LocationInfo";
+import { type IpType } from "./IpType";
 
 type Coordinate = GenCoordinate<number>;
 type ThreadID = string;
@@ -112,6 +113,7 @@ export {
   type IpRange,
   type Coordinate,
   type LocationInfo,
+  type IpType,
   errorDialog,
   capture,
   geoip,

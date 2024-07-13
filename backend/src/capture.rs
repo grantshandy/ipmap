@@ -122,11 +122,6 @@ fn capture_thread<R: Runtime>(handle: AppHandle<R>, thread_id: Uuid, cap: Captur
                 return Ok(()); // continue
             };
 
-            if ip.is_ipv6() {
-                tracing::warn!("unhandled ipv6 captured");
-                return Ok(()); // continue
-            }
-
             if state.connection(ip, packet) {
                 handle
                     .emit_all("new_connection", ip)
