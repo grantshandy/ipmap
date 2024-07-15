@@ -1,5 +1,4 @@
-import { invoke as rawInvoke } from "@tauri-apps/api";
-import { type InvokeArgs } from "@tauri-apps/api/tauri";
+import { invoke } from "@tauri-apps/api";
 import { message } from "@tauri-apps/api/dialog";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { database } from "../stores/database";
@@ -20,21 +19,6 @@ type ThreadID = string;
 
 const errorDialog = (msg: string): Promise<void> =>
   message(`Error: ${msg}`, { title: "Error", type: "error" });
-
-/** invoke a tauri command, showing the error on screen if error returned */
-const invoke = async (
-  cmd: string,
-  args?: InvokeArgs | undefined,
-): Promise<any> => {
-  try {
-    return await rawInvoke(cmd, args);
-  } catch (e) {
-    // console.error(e);
-    await errorDialog(e as string);
-
-    throw e;
-  }
-};
 
 /** Corresponding definitions in /backend/src/capture.rs */
 const capture = {
@@ -101,6 +85,10 @@ const geoip = {
   /** Lookup the associated DNS address with a string */
   lookupDns: (ip: string): Promise<string | null> =>
     invoke("dns_lookup_addr", { ip }),
+
+  /** Lookup the associated IP address with a DNS address. */
+  lookupHost: (host: string): Promise<string | null> =>
+    invoke("dns_lookup_host", { host }),
 
   /** Validate if a string is a global IPv4 address */
   validateIp: (ip: string): Promise<boolean> => invoke("validate_ip", { ip }),

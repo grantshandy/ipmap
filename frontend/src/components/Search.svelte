@@ -7,8 +7,9 @@
 
   import { geoip, type Coordinate } from "../bindings";
   import { DEFAULT_POS, DEFAULT_ZOOM, mkIcon } from "../map";
+  import IpAddrInput from "./IpAddrInput.svelte";
 
-  let query = "";
+  let ip: string | null = null;
   let error: string | null = null;
 
   let map: Map;
@@ -18,26 +19,17 @@
     marker: Marker;
   } | null = null;
 
-  $: validateAndSearch(query);
   $: if (!error || error) setTimeout(() => map.invalidateSize(), 10);
+  $: if (ip && !error) validateAndSearch(ip);
+  $: if (map && !ip && !error) {
+    setSearchIp(null);
+    map.flyTo(DEFAULT_POS, DEFAULT_ZOOM);
+  }
 
   let searchTimeout: number;
   const validateAndSearch = async (ip: string) => {
     if (!map) return;
     clearTimeout(searchTimeout);
-
-    if (ip.length == 0) {
-      error = null;
-      setSearchIp(null);
-      map.flyTo(DEFAULT_POS, DEFAULT_ZOOM);
-      return;
-    }
-
-    if (!(await geoip.validateIp(ip))) {
-      error = "Invalid Address";
-      setSearchIp(null);
-      return;
-    }
 
     const coord = await geoip.lookupIp(ip);
     if (!coord) {
@@ -64,23 +56,22 @@
       marker: marker(coord, { icon: mkIcon(null, true) }).addTo(map),
     };
 
-    map.flyTo(coord, 7);
+    if (map.getZoom() == 7) {
+      map.panTo(coord);
+    } else {
+      map.flyTo(coord, 7);
+    }
   };
 </script>
 
 <div class="flex grow space-x-2">
   <MapView bind:map>
     <div
-      class="absolute bottom-0 right-0 top-0 z-30 w-1/4 space-y-3 rounded-l-box bg-base-200/[0.8] p-2"
+      class="rounded-l-box bg-base-200/[0.8] absolute bottom-0 right-0 top-0 z-30 w-1/4 space-y-3 p-2"
     >
-      <input
-        class="input input-sm input-bordered w-full grow"
-        class:border-error={error}
-        placeholder="IP Address"
-        bind:value={query}
-      />
+      <IpAddrInput bind:ip bind:error />
       {#if error}
-        <p class="grow p-2 text-sm font-bold italic text-error">{error}</p>
+        <p class="text-error grow p-2 text-sm font-bold italic">{error}</p>
       {/if}
       {#if selection}
         <h2 class="text-lg font-bold">IP Location Info</h2>

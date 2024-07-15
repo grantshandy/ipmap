@@ -74,14 +74,16 @@ pub async fn lookup_ip(
         return Err(format!("ip {ip} is not global"));
     }
 
+    let dbs = loaded_databases.get(&database);
+
     let coord = match ip {
-        IpAddr::V4(ip) => loaded_databases
-            .ipv4(&database)
-            .map_err(|e| e.to_string())?
+        IpAddr::V4(ip) => dbs
+            .ipv4
+            .ok_or("no ipv4 database loaded".to_string())?
             .get(ip),
-        IpAddr::V6(ip) => loaded_databases
-            .ipv6(&database)
-            .map_err(|e| e.to_string())?
+        IpAddr::V6(ip) => dbs
+            .ipv6
+            .ok_or("no ipv6 database loaded".to_string())?
             .get(ip),
     };
 
@@ -99,14 +101,16 @@ pub async fn lookup_ip_range(
         return Err(format!("ip {ip} is not global"));
     }
 
+    let dbs = loaded_databases.get(&database);
+
     let range = match ip {
-        IpAddr::V4(ip) => loaded_databases
-            .ipv4(&database)
-            .map_err(|e| e.to_string())?
+        IpAddr::V4(ip) => dbs
+            .ipv4
+            .ok_or("no ipv4 database loaded".to_string())?
             .get_range(ip),
-        IpAddr::V6(ip) => loaded_databases
-            .ipv6(&database)
-            .map_err(|e| e.to_string())?
+        IpAddr::V6(ip) => dbs
+            .ipv6
+            .ok_or("no ipv6 database loaded".to_string())?
             .get_range(ip),
     };
 
@@ -120,13 +124,14 @@ pub async fn lookup_ip_blocks(
     database: DatabaseQuery,
     coord: Coordinate,
 ) -> Result<Vec<IpRange>, ()> {
+    let dbs = loaded_databases.get(&database);
     let mut ranges = Vec::new();
 
-    if let Ok(db) = loaded_databases.ipv4(&database) {
+    if let Some(db) = dbs.ipv4 {
         ranges.extend(db.get_ranges(&coord));
     }
 
-    if let Ok(db) = loaded_databases.ipv6(&database) {
+    if let Some(db) = dbs.ipv6 {
         ranges.extend(db.get_ranges(&coord));
     }
 
@@ -140,16 +145,14 @@ pub async fn nearest_location(
     database: DatabaseQuery,
     coord: Coordinate,
 ) -> Result<Coordinate, String> {
+    let dbs = loaded_databases.get(&database);
+
     match (
-        loaded_databases
-            .ipv4(&database)
-            .map(|db| db.nearest_location(&coord)),
-        loaded_databases
-            .ipv6(&database)
-            .map(|db| db.nearest_location(&coord)),
+        dbs.ipv4.map(|db| db.nearest_location(&coord)),
+        dbs.ipv6.map(|db| db.nearest_location(&coord)),
     ) {
         // closest in both
-        (Ok(v4_location), Ok(v6_location)) => {
+        (Some(v4_location), Some(v6_location)) => {
             match coord
                 .distance_2(&v4_location)
                 .partial_cmp(&coord.distance_2(&v6_location))
@@ -161,9 +164,9 @@ pub async fn nearest_location(
             }
         }
         // ipv4 only
-        (Ok(location), _) => Ok(location),
+        (Some(location), _) => Ok(location),
         // ipv6 only
-        (_, Ok(location)) => Ok(location),
+        (_, Some(location)) => Ok(location),
         // neither
         (_, _) => Err("No locations found in either database".to_string()),
     }
@@ -176,17 +179,14 @@ pub fn location_info(
     database: DatabaseQuery,
     coord: Coordinate,
 ) -> Result<Option<LocationInfo>, String> {
+    let dbs = loaded_databases.get(&database);
+
     match (
-        loaded_databases
-            .ipv4(&database)
-            .map(|db| db.get_location_info(&coord)),
-        loaded_databases
-            .ipv6(&database)
-            .map(|db| db.get_location_info(&coord)),
+        dbs.ipv4.and_then(|db| db.get_location_info(&coord)),
+        dbs.ipv6.and_then(|db| db.get_location_info(&coord)),
     ) {
-        (Ok(Some(info)), _) | (_, Ok(Some(info))) => Ok(Some(info)),
-        (Ok(None), _) | (_, Ok(None)) => Ok(None),
-        (Err(_), Err(_)) => Err("No databases loaded".to_string()),
+        (Some(info), _) | (_, Some(info)) => Ok(Some(info)),
+        (None, None) => Ok(None),
     }
 }
 
@@ -211,6 +211,14 @@ pub async fn my_location(
 #[tauri::command]
 pub async fn dns_lookup_addr(ip: IpAddr) -> Option<String> {
     dns_lookup::lookup_addr(&ip).ok()
+}
+
+/// Lookup the associated IP address with a DNS address.
+#[tauri::command]
+pub async fn dns_lookup_host(host: String) -> Option<IpAddr> {
+    dns_lookup::lookup_host(&host)
+        .ok()
+        .and_then(|ips| ips.get(0).copied())
 }
 
 /// Validate if a string is a global IP address.

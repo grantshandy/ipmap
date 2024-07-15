@@ -179,7 +179,6 @@
 
   const markerOnClick = (key: LocationKey) => {
     // wait for animation with timeout
-
     if (selection) {
       selection.marker
         .setIcon(mkIcon(selection.ips.size, false))

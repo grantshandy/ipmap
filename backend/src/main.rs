@@ -4,7 +4,9 @@ use std::{net::IpAddr, path::PathBuf, process, sync::Arc};
 
 use capture_state::CaptureState;
 use dashmap::DashMap;
-use geoip::database::{self, Database, DatabaseInfo, DatabaseQuery, DatabaseType, Ipv4Bytes, Ipv6Bytes};
+use geoip::database::{
+    self, Database, DatabaseInfo, DatabaseQuery, DatabaseType, Ipv4Bytes, Ipv6Bytes,
+};
 use tauri::{
     api::dialog::{blocking::MessageDialogBuilder, MessageDialogKind},
     async_runtime, Manager,
@@ -60,6 +62,7 @@ fn main() {
             geoip::nearest_location,
             geoip::location_info,
             geoip::dns_lookup_addr,
+            geoip::dns_lookup_host,
             geoip::validate_ip,
         ])
         .run(tauri::generate_context!())
@@ -84,26 +87,19 @@ impl GlobalDatabases {
         }
     }
 
-    pub fn ipv4(&self, query: &DatabaseQuery) -> Result<Arc<Database<Ipv4Bytes>>, &'static str> {
-        let Some(ipv4) = &query.ipv4 else {
-            return Err("No ipv4 database set");
-        };
-
-        self.ipv4
-            .get(ipv4)
-            .map(|kv| kv.value().clone())
-            .ok_or("No ipv4 database available")
-    }
-
-    pub fn ipv6(&self, query: &DatabaseQuery) -> Result<Arc<Database<Ipv6Bytes>>, &'static str> {
-        let Some(ipv6) = &query.ipv6 else {
-            return Err("No ipv6 database set");
-        };
-
-        self.ipv6
-            .get(ipv6)
-            .map(|kv| kv.value().clone())
-            .ok_or("No ipv4 database available")
+    pub fn get(&self, query: &DatabaseQuery) -> DatabaseResult {
+        DatabaseResult {
+            ipv4: query
+                .ipv4
+                .as_ref()
+                .and_then(|t| self.ipv4.get(t))
+                .map(|kv| kv.value().clone()),
+            ipv6: query
+                .ipv6
+                .as_ref()
+                .and_then(|t| self.ipv6.get(t))
+                .map(|kv| kv.value().clone()),
+        }
     }
 
     pub fn databases(&self) -> Vec<DatabaseInfo> {
@@ -127,4 +123,10 @@ impl GlobalDatabases {
     pub fn insert_ipv6(&self, path: PathBuf, db: Database<Ipv6Bytes>) {
         self.ipv6.insert(DatabaseType::Loaded(path), Arc::new(db));
     }
+}
+
+#[derive(Clone, Debug)]
+struct DatabaseResult {
+    ipv4: Option<Arc<Database<Ipv4Bytes>>>,
+    ipv6: Option<Arc<Database<Ipv6Bytes>>>,
 }

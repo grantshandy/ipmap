@@ -58,9 +58,11 @@ impl<B: Ord + Clone + StepLite + FromStr> Database<B>
 where
     IpRange: From<RangeInclusive<B>>,
 {
-    /// Read a database from a ipv4-num.csv
+    /// Read a database from a ipv4/6-num.csv
     pub fn from_csv(path: impl AsRef<Path>, attribution: Option<String>) -> eyre::Result<Self> {
-        CompactDatabase::from_csv(path, attribution).map(|d| d.into())
+        let res = CompactDatabase::from_csv(path, attribution).map(|d| d.into());
+        tracing::info!("finished loading db");
+        res
     }
 }
 
@@ -294,8 +296,6 @@ impl<B: Ord + Clone + StepLite + FromStr> CompactDatabase<B> {
 
             db.map.insert(ip_range_start..=ip_range_end, loc_key);
         }
-
-        tracing::info!("finished");
 
         Ok(db)
     }
