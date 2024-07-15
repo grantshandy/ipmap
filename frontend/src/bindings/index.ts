@@ -94,6 +94,10 @@ const geoip = {
   validateIp: (ip: string): Promise<boolean> => invoke("validate_ip", { ip }),
 };
 
+const traceroute = {
+  trace: (ip: string): Promise<string[]> => invoke("traceroute", { ip }),
+};
+
 export {
   type ConnectionDirection,
   type ConnectionInfo,
@@ -109,4 +113,5 @@ export {
   errorDialog,
   capture,
   geoip,
+  traceroute,
 };

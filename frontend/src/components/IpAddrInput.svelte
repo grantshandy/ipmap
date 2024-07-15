@@ -3,6 +3,7 @@
 
   export let error: string | null;
   export let ip: string | null;
+  export let disabled: boolean = false;
 
   let buff: string;
   $: validate(buff);
@@ -35,5 +36,6 @@
   class:border-error={error}
   placeholder="IP or DNS Address"
   spellcheck="false"
+  disabled={disabled}
   bind:value={buff}
 />

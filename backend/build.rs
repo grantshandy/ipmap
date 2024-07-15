@@ -35,7 +35,7 @@ fn embed_database(out_dir: &String, kind: IpType) -> String {
         IpType::IPv6 => "IPV6NUM_DB",
     };
 
-    println!("cargo:rerun-if-env-changed={db_var}");
+    // println!("cargo:rerun-if-env-changed={db_var}");
 
     match env::var(db_var) {
         Ok(ip_csv_path) => {

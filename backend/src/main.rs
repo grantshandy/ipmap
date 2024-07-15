@@ -15,6 +15,7 @@ use tauri::{
 mod capture;
 mod capture_state;
 mod geoip;
+mod traceroute;
 
 /// The cached result of public_ip::addr()
 type PublicIpAddress = IpAddr;
@@ -64,6 +65,7 @@ fn main() {
             geoip::dns_lookup_addr,
             geoip::dns_lookup_host,
             geoip::validate_ip,
+            traceroute::traceroute
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

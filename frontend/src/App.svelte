@@ -9,8 +9,9 @@
   import Search from "./components/Search.svelte";
   import Capture from "./components/Capture.svelte";
   import Reverse from "./components/Reverse.svelte";
+  import Traceroute from "./components/Traceroute.svelte";
 
-  let view: "search" | "capture" | "reverse" = localStorage.view ?? "capture";
+  let view: "search" | "capture" | "reverse" | "traceroute" = localStorage.view ?? "capture";
   $: localStorage.view = view;
 </script>
 
@@ -25,6 +26,7 @@
           <option value="search">Search</option>
           <option value="capture">Capture</option>
           <option value="reverse">Reverse Search</option>
+          <option value="traceroute">Traceroute</option>
         </select>
         <ThemeSwitcher size={"1.5rem"} />
         <div class="flex grow items-center justify-end space-x-3">
@@ -38,6 +40,8 @@
         <Capture />
       {:else if view == "reverse"}
         <Reverse />
+      {:else if view == "traceroute"}
+        <Traceroute />
       {/if}
     </main>
   {:else}
