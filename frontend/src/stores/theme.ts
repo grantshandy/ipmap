@@ -6,6 +6,7 @@ const LS_KEY = "theme";
 const osPrefersDarkMode =
   window.matchMedia &&
   window.matchMedia("(prefers-color-scheme: dark)").matches;
+
 const storageInitValue: string | null = (() => {
   const v = localStorage.getItem(LS_KEY);
   localStorage.removeItem(LS_KEY);

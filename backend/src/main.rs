@@ -4,7 +4,7 @@ use std::{net::IpAddr, path::PathBuf, process, sync::Arc};
 
 use capture_state::CaptureState;
 use dashmap::DashMap;
-use geoip::database::{Database, Ipv4Bytes, Ipv6Bytes};
+use geoip::database::{self, Database, DatabaseInfo, DatabaseQuery, DatabaseType, Ipv4Bytes, Ipv6Bytes};
 use tauri::{
     api::dialog::{blocking::MessageDialogBuilder, MessageDialogKind},
     async_runtime, Manager,
@@ -16,15 +16,12 @@ mod geoip;
 
 /// The cached result of public_ip::addr()
 type PublicIpAddress = IpAddr;
-type LoadedIpv4Databases = DashMap<PathBuf, Arc<Database<Ipv4Bytes>>>;
-type LoadedIpv6Databases = DashMap<PathBuf, Arc<Database<Ipv6Bytes>>>;
 
 fn main() {
     tracing_subscriber::fmt::init();
 
     tauri::Builder::default()
-        .manage(LoadedIpv4Databases::default())
-        .manage(LoadedIpv6Databases::default())
+        .manage(GlobalDatabases::default())
         .manage(CaptureState::default())
         .setup(|app| {
             tracing::info!("getting ip");
@@ -67,4 +64,67 @@ fn main() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[derive(Default)]
+struct GlobalDatabases {
+    ipv4: DashMap<DatabaseType, Arc<Database<Ipv4Bytes>>>,
+    ipv6: DashMap<DatabaseType, Arc<Database<Ipv6Bytes>>>,
+}
+
+impl GlobalDatabases {
+    /// TODO: only load once
+    pub fn init_internal(&self) {
+        if let Some(internal) = database::IPV4_DATABASE.as_ref() {
+            self.ipv4.insert(DatabaseType::Internal, internal.clone());
+        }
+
+        if let Some(internal) = database::IPV6_DATABASE.as_ref() {
+            self.ipv6.insert(DatabaseType::Internal, internal.clone());
+        }
+    }
+
+    pub fn ipv4(&self, query: &DatabaseQuery) -> Result<Arc<Database<Ipv4Bytes>>, &'static str> {
+        let Some(ipv4) = &query.ipv4 else {
+            return Err("No ipv4 database set");
+        };
+
+        self.ipv4
+            .get(ipv4)
+            .map(|kv| kv.value().clone())
+            .ok_or("No ipv4 database available")
+    }
+
+    pub fn ipv6(&self, query: &DatabaseQuery) -> Result<Arc<Database<Ipv6Bytes>>, &'static str> {
+        let Some(ipv6) = &query.ipv6 else {
+            return Err("No ipv6 database set");
+        };
+
+        self.ipv6
+            .get(ipv6)
+            .map(|kv| kv.value().clone())
+            .ok_or("No ipv4 database available")
+    }
+
+    pub fn databases(&self) -> Vec<DatabaseInfo> {
+        let mut infos = Vec::new();
+
+        infos.extend(self.ipv4.iter().map(|db| db.get_db_info()));
+        infos.extend(self.ipv6.iter().map(|db| db.get_db_info()));
+
+        infos
+    }
+
+    pub fn remove(&self, path: PathBuf) {
+        self.ipv4.remove(&DatabaseType::Loaded(path.clone()));
+        self.ipv6.remove(&DatabaseType::Loaded(path));
+    }
+
+    pub fn insert_ipv4(&self, path: PathBuf, db: Database<Ipv4Bytes>) {
+        self.ipv4.insert(DatabaseType::Loaded(path), Arc::new(db));
+    }
+
+    pub fn insert_ipv6(&self, path: PathBuf, db: Database<Ipv6Bytes>) {
+        self.ipv6.insert(DatabaseType::Loaded(path), Arc::new(db));
+    }
 }

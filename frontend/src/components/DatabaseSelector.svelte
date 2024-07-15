@@ -1,75 +1,37 @@
 <script lang="ts">
-  import { confirm, message, open } from "@tauri-apps/api/dialog";
-  import { basename } from "@tauri-apps/api/path";
-
-  import { type DatabaseInfo, geoip } from "../bindings";
+  import { type DatabaseInfo, type IpType } from "../bindings";
   import { database } from "../stores/database";
+  import { confirm, message } from "@tauri-apps/api/dialog";
 
-  export let loading: string | null;
+  const dbInfo = (db: IpType) => {
+    let info: DatabaseInfo;
 
-  let databases: DatabaseInfo[] = [];
-  geoip.listDatabases().then((db) => {
-    console.log(db);
-    databases = db;
-    if (databases.length > 0) $database = databases[0];
-    loading = null;
-  });
-
-  const importDatabase = async () => {
-    const dir = await open({
-      multiple: false,
-      filters: [
-        {
-          name: "IPv4 City CSV Database",
-          extensions: ["csv"],
-        },
-      ],
-    });
-    if (!dir) return;
-
-    loading = await basename(dir as string);
-    const db = await geoip.loadDatabase(dir).catch(() => null);
-    loading = null;
-
-    if (!db) return;
-
-    databases = await geoip.listDatabases();
-    $database = databases.find((l) => l.build_time == db?.build_time) ?? null;
-  };
-
-  const dbInfo = () => {
-    if (!$database) return;
+    if (db == "IPv4") {
+      if (!$database.ipv4) return;
+      info = $database.ipv4;
+    } else {
+      if (!$database.ipv6) return;
+      info = $database.ipv6;
+    }
 
     const msg =
-      `Name: ${$database.name}\n` +
-      ($database.attribution_text
-        ? `Attribution: ${$database.attribution_text}\n`
-        : "") +
-      ($database.path ? `Path: ${$database.path}\n` : "") +
-      `Build Time: ${$database.build_time}\n` +
-      `Locations: ${$database.unique_locations.toLocaleString()}\n` +
-      `Unique Strings: ${$database.strings.toLocaleString()}`;
+      `Name: ${info.name}\n` +
+      (info.attribution_text ? `Attribution: ${info.attribution_text}\n` : "") +
+      `Type: ${info.kind}\n` +
+      (info.query != "Internal" ? `Path: ${info.query.Loaded}\n` : "") +
+      `Build Time: ${info.build_time}\n` +
+      `Locations: ${info.unique_locations.toLocaleString()}\n` +
+      `Unique Strings: ${info.strings.toLocaleString()}`;
 
-    if ($database.path) {
+    if (info.query != "Internal") {
       // imported database that can be unloaded
       confirm(msg, {
         type: "info",
         title: "Database Info",
         okLabel: "Unload Database",
         cancelLabel: "Close",
-      }).then(async (r) => {
-        if (!$database?.path) return;
-
-        if (r) {
-          await geoip.unloadDatabase($database.path);
-          databases = await geoip.listDatabases();
-
-          if (databases.length != 0) {
-            $database = databases[0];
-          } else {
-            $database = null;
-          }
-        }
+      }).then((r) => {
+        if (r) database.unloadDatabase(info);
       });
     } else {
       // internal database with no path
@@ -81,41 +43,53 @@
   };
 </script>
 
-{#if loading}
-  <div
-    class="flex items-center"
-    class:space-x-3={$database}
-    class:space-x-6={!$database}
-  >
-    <span
-      class="italic"
-      class:text-sm={$database}
-      class:text-lg={!$database}
-      class:mx-auto={!$database}>Loading {loading}...</span
-    >
-    <span
-      class="loading loading-spinner"
-      class:loading-lg={!$database}
-      class:loading-sm={$database}
-    ></span>
+{#if $database.loading}
+  <div class="flex items-center space-x-3">
+    <span class="text-sm italic">Loading {$database.loading}...</span>
+    <span class="loading loading-spinner loading-sm"></span>
   </div>
 {/if}
 
-{#if $database}
-  <button class="btn btn-sm" on:click={dbInfo}>Info</button>
+{#if $database.ipv4dbs.length != 0}
+  <div class="join join-horizontal">
+    <button
+      class="btn join-item btn-sm"
+      disabled={$database.ipv4 == null}
+      on:click={() => dbInfo("IPv4")}>Info</button
+    >
+    <select
+      class="w-xs join-item select select-bordered select-sm"
+      bind:value={$database.ipv4}
+    >
+      <option selected disabled value={null}>No IPv4 Database</option>
+      {#each $database.ipv4dbs as database}
+        <option value={database}>{database.name}</option>
+      {/each}
+    </select>
+  </div>
 {/if}
 
-{#if databases.length != 0}
-  <select class="w-xs select select-bordered select-sm" bind:value={$database}>
-    <option selected disabled value={null}>No Database</option>
-    {#each databases as database}
-      <option value={database}>{database.name}</option>
-    {/each}
-  </select>
+{#if $database.ipv6dbs.length != 0}
+  <div class="join join-horizontal">
+    <button
+      class="btn join-item btn-sm"
+      disabled={$database.ipv6 == null}
+      on:click={() => dbInfo("IPv6")}>Info</button
+    >
+    <select
+      class="w-xs join-item select select-bordered select-sm"
+      bind:value={$database.ipv6}
+    >
+      <option selected disabled value={null}>No IPv6 Database</option>
+      {#each $database.ipv6dbs as database}
+        <option value={database}>{database.name}</option>
+      {/each}
+    </select>
+  </div>
 {/if}
 
-{#if !loading}
-  <button class="btn btn-primary btn-sm" on:click={importDatabase}
-    >Load Database</button
-  >
-{/if}
+<button
+  class="btn btn-primary btn-sm"
+  disabled={$database.loading != null}
+  on:click={database.importDatabase}>Load Database</button
+>

@@ -121,8 +121,12 @@ impl Database<Ipv4Bytes> {
         DatabaseInfo {
             name: self.name.to_string(),
             kind: IpType::IPv4,
+            query: self
+                .path
+                .clone()
+                .map(DatabaseType::Loaded)
+                .unwrap_or(DatabaseType::Internal),
             attribution_text: self.attribution.as_ref().map(|c| c.to_string()),
-            path: self.path.clone(),
             build_time: self.build_time.to_string(),
             unique_locations: self.locations.len(),
             strings: self.strings.len(),
@@ -149,8 +153,12 @@ impl Database<Ipv6Bytes> {
         DatabaseInfo {
             name: self.name.to_string(),
             kind: IpType::IPv6,
+            query: self
+                .path
+                .clone()
+                .map(DatabaseType::Loaded)
+                .unwrap_or(DatabaseType::Internal),
             attribution_text: self.attribution.as_ref().map(|c| c.to_string()),
-            path: self.path.clone(),
             build_time: self.build_time.to_string(),
             unique_locations: self.locations.len(),
             strings: self.strings.len(),
@@ -286,6 +294,8 @@ impl<B: Ord + Clone + StepLite + FromStr> CompactDatabase<B> {
 
             db.map.insert(ip_range_start..=ip_range_end, loc_key);
         }
+
+        tracing::info!("finished");
 
         Ok(db)
     }
@@ -499,8 +509,8 @@ pub struct LocationInfo {
 pub struct DatabaseInfo {
     pub name: String,
     pub kind: IpType,
+    pub query: DatabaseType,
     pub attribution_text: Option<String>,
-    pub path: Option<PathBuf>,
     pub build_time: String,
     pub unique_locations: usize,
     pub strings: usize,
@@ -511,4 +521,18 @@ pub struct DatabaseInfo {
 pub enum IpType {
     IPv4,
     IPv6,
+}
+
+#[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../frontend/src/bindings/")]
+pub enum DatabaseType {
+    Loaded(PathBuf),
+    Internal,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../frontend/src/bindings/")]
+pub struct DatabaseQuery {
+    pub ipv4: Option<DatabaseType>,
+    pub ipv6: Option<DatabaseType>,
 }

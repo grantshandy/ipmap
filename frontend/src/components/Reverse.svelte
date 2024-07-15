@@ -28,7 +28,7 @@
     clearTimeout(timeout);
     timeout = setTimeout(async () => {
       result = await geoip.nearestLocation(query);
-    }, 10);
+    }, 50);
   }
 
   $: line.setLatLngs([query, result]);

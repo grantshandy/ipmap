@@ -2,6 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
+.page {
+  @apply absolute bottom-0 left-0 right-0 top-0;
+}
+
 .marker-icon {
   @apply h-full w-full rounded-full border bg-secondary text-center align-sub font-bold text-secondary-content drop-shadow-lg;
 }

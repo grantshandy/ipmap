@@ -1,100 +1,54 @@
 //! Corresponding definitions in /frontend/src/bindings/index.ts
 
-use std::{net::IpAddr, path::PathBuf, sync::Arc};
+use std::{cmp::Ordering, net::IpAddr, path::PathBuf};
 
-use crate::{LoadedIpv4Databases, LoadedIpv6Databases, PublicIpAddress};
 use database::{Coordinate, Database, DatabaseInfo, IpRange, Ipv4Bytes, Ipv6Bytes, LocationInfo};
+use rstar::PointDistance;
 use tauri::State;
+
+use crate::{DatabaseQuery, GlobalDatabases, PublicIpAddress};
 
 pub mod database {
     include!(concat!(env!("OUT_DIR"), "/internal_database.rs"));
-}
-
-fn db_v4(
-    databases: State<'_, LoadedIpv4Databases>,
-    database: Option<PathBuf>,
-) -> Result<Arc<Database<Ipv4Bytes>>, String> {
-    match database {
-        Some(path) => databases
-            .get(&path)
-            .ok_or("IPv4 database path not loaded".to_string())
-            .map(|db| db.value().clone()),
-        None => database::IPV4_DATABASE
-            .as_ref()
-            .ok_or("no internal ipv4 database set".to_string())
-            .cloned(),
-    }
-}
-
-fn db_v6(
-    databases: State<'_, LoadedIpv6Databases>,
-    database: Option<PathBuf>,
-) -> Result<Arc<Database<Ipv6Bytes>>, String> {
-    match database {
-        Some(path) => databases
-            .get(&path)
-            .ok_or("IPv6 database path not loaded".to_string())
-            .map(|db| db.value().clone()),
-        None => database::IPV6_DATABASE
-            .as_ref()
-            .ok_or("no internal ipv6 database set".to_string())
-            .cloned(),
-    }
 }
 
 /// Load a database by its identifier (a path).
 /// No path (None) is for the database optionally compiled into the executable.
 #[tauri::command]
 pub async fn load_database(
-    ipv4_databases: State<'_, LoadedIpv4Databases>,
-    ipv6_databases: State<'_, LoadedIpv6Databases>,
-    path: Option<PathBuf>,
-) -> Result<Option<DatabaseInfo>, String> {
-    match path {
-        Some(path) => {
-            let path_str = path.to_string_lossy();
+    loaded_databases: State<'_, GlobalDatabases>,
+    path: PathBuf,
+) -> Result<DatabaseInfo, String> {
+    tracing::info!("loading {path:?} database");
 
-            let info = if path_str.contains("ipv4") {
-                tracing::info!("reading ipv4 db at {path:?}");
-                let db = database::Database::<Ipv4Bytes>::from_csv(&path, None)
-                    .map_err(|e| e.to_string())?;
-
-                let info = db.get_db_info();
-                ipv4_databases.insert(path, db.into());
-                info
-            } else if path_str.contains("ipv6") {
-                tracing::info!("reading ipv6 db at {path:?}");
-                let db = database::Database::<Ipv6Bytes>::from_csv(&path, None)
-                    .map_err(|e| e.to_string())?;
-
-                let info = db.get_db_info();
-                ipv6_databases.insert(path, db.into());
-                info
-            } else {
-                return Err("database filename must include ipv4 or ipv6, sorry.".to_string());
-            };
-
-            Ok(Some(info))
+    match Database::<Ipv4Bytes>::from_csv(&path, None) {
+        Ok(db) => {
+            let info = db.get_db_info();
+            loaded_databases.insert_ipv4(path, db);
+            Ok(info)
         }
-        None => {
-            if database::IPV4_DATABASE.is_none() {
-                tracing::warn!("no internal ipv4 database set");
+        Err(ipv4_err) => match Database::<Ipv6Bytes>::from_csv(&path, None) {
+            Ok(db) => {
+                let info = db.get_db_info();
+                loaded_databases.insert_ipv6(path, db);
+                Ok(info)
             }
-
-            Ok(database::IPV4_DATABASE.as_ref().map(|db| db.get_db_info()))
-        }
+            Err(ipv6_err) => Err(format!(
+                "failed to parse as ipv4-num: {ipv4_err}, and as ipv6-num: {ipv6_err}"
+            )),
+        },
     }
 }
 
 /// Delete a database from the global state, freeing up memory
 #[tauri::command]
 pub async fn unload_database(
-    databases: State<'_, LoadedIpv4Databases>,
+    loaded_databases: State<'_, GlobalDatabases>,
     path: PathBuf,
 ) -> Result<(), String> {
     tracing::info!("unloading {path:?} database");
 
-    databases.remove(&path);
+    loaded_databases.remove(path);
 
     Ok(())
 }
@@ -102,50 +56,43 @@ pub async fn unload_database(
 /// List all databases (by info)
 #[tauri::command]
 pub async fn list_databases(
-    ipv4_databases: State<'_, LoadedIpv4Databases>,
-    ipv6_databases: State<'_, LoadedIpv6Databases>,
+    loaded_databases: State<'_, GlobalDatabases>,
 ) -> Result<Vec<DatabaseInfo>, ()> {
-    let mut databases: Vec<DatabaseInfo> = ipv4_databases.iter().map(|v| v.get_db_info()).collect();
+    loaded_databases.init_internal();
 
-    databases.extend(ipv6_databases.iter().map(|v| v.get_db_info()));
-
-    if let Some(internal) = database::IPV4_DATABASE.as_ref() {
-        databases.insert(0, internal.get_db_info());
-    }
-
-    if let Some(internal) = database::IPV6_DATABASE.as_ref() {
-        databases.insert(0, internal.get_db_info());
-    }
-
-    tracing::info!("{databases:#?}");
-
-    Ok(databases)
+    Ok(loaded_databases.databases())
 }
 
 /// Lookup the coordinate for an IP address in the database
 #[tauri::command]
 pub async fn lookup_ip(
-    ipv4_databases: State<'_, LoadedIpv4Databases>,
-    ipv6_databases: State<'_, LoadedIpv6Databases>,
-    database: Option<PathBuf>,
+    loaded_databases: State<'_, GlobalDatabases>,
+    database: DatabaseQuery,
     ip: IpAddr,
 ) -> Result<Option<Coordinate>, String> {
     if !ip_rfc::global(&ip) {
         return Err(format!("ip {ip} is not global"));
     }
 
-    match ip {
-        IpAddr::V4(ip) => db_v4(ipv4_databases, database).map(|db| db.get(ip)),
-        IpAddr::V6(ip) => db_v6(ipv6_databases, database).map(|db| db.get(ip)),
-    }
+    let coord = match ip {
+        IpAddr::V4(ip) => loaded_databases
+            .ipv4(&database)
+            .map_err(|e| e.to_string())?
+            .get(ip),
+        IpAddr::V6(ip) => loaded_databases
+            .ipv6(&database)
+            .map_err(|e| e.to_string())?
+            .get(ip),
+    };
+
+    Ok(coord)
 }
 
 /// Find the range in the database for a given IP
 #[tauri::command]
 pub async fn lookup_ip_range(
-    databases_v4: State<'_, LoadedIpv4Databases>,
-    databases_v6: State<'_, LoadedIpv6Databases>,
-    database: Option<PathBuf>,
+    loaded_databases: State<'_, GlobalDatabases>,
+    database: DatabaseQuery,
     ip: IpAddr,
 ) -> Result<IpRange, String> {
     if !ip_rfc::global(&ip) {
@@ -153,71 +100,104 @@ pub async fn lookup_ip_range(
     }
 
     let range = match ip {
-        IpAddr::V4(ip) => db_v4(databases_v4, database)?.get_range(ip),
-        IpAddr::V6(ip) => db_v6(databases_v6, database)?.get_range(ip),
+        IpAddr::V4(ip) => loaded_databases
+            .ipv4(&database)
+            .map_err(|e| e.to_string())?
+            .get_range(ip),
+        IpAddr::V6(ip) => loaded_databases
+            .ipv6(&database)
+            .map_err(|e| e.to_string())?
+            .get_range(ip),
     };
 
-    let Some(range) = range else {
-        return Err(format!("ip {ip} not found in database"));
-    };
-
-    Ok(range)
+    range.ok_or(format!("ip {ip} not found in database"))
 }
 
 /// Finds the block of ips for a given coordinate in the database
 #[tauri::command]
 pub async fn lookup_ip_blocks(
-    databases_v4: State<'_, LoadedIpv4Databases>,
-    databases_v6: State<'_, LoadedIpv6Databases>,
-    database: Option<PathBuf>,
+    loaded_databases: State<'_, GlobalDatabases>,
+    database: DatabaseQuery,
     coord: Coordinate,
-) -> Result<Vec<IpRange>, String> {
-    let mut res = db_v4(databases_v4, database.clone())
-        .map(|db| db.get_ranges(&coord))
-        .unwrap_or_default();
-    res.extend(
-        db_v6(databases_v6, database)
-            .map(|db| db.get_ranges(&coord))
-            .unwrap_or_default(),
-    );
-    Ok(res)
+) -> Result<Vec<IpRange>, ()> {
+    let mut ranges = Vec::new();
+
+    if let Ok(db) = loaded_databases.ipv4(&database) {
+        ranges.extend(db.get_ranges(&coord));
+    }
+
+    if let Ok(db) = loaded_databases.ipv6(&database) {
+        ranges.extend(db.get_ranges(&coord));
+    }
+
+    Ok(ranges)
 }
 
 /// The nearest location in the database from a given coordinate
 #[tauri::command]
 pub async fn nearest_location(
-    databases_v4: State<'_, LoadedIpv4Databases>,
-    databases_v6: State<'_, LoadedIpv6Databases>,
-    database: Option<PathBuf>,
+    loaded_databases: State<'_, GlobalDatabases>,
+    database: DatabaseQuery,
     coord: Coordinate,
 ) -> Result<Coordinate, String> {
-    Ok(db_v4(databases_v4, database.clone())
-        .map(|db| db.nearest_location(&coord))
-        .unwrap_or(db_v6(databases_v6, database).map(|db| db.nearest_location(&coord))?))
+    match (
+        loaded_databases
+            .ipv4(&database)
+            .map(|db| db.nearest_location(&coord)),
+        loaded_databases
+            .ipv6(&database)
+            .map(|db| db.nearest_location(&coord)),
+    ) {
+        // closest in both
+        (Ok(v4_location), Ok(v6_location)) => {
+            match coord
+                .distance_2(&v4_location)
+                .partial_cmp(&coord.distance_2(&v6_location))
+            {
+                // v4 closer
+                Some(Ordering::Less) => Ok(v4_location),
+                // v6 closer
+                _ => Ok(v6_location),
+            }
+        }
+        // ipv4 only
+        (Ok(location), _) => Ok(location),
+        // ipv6 only
+        (_, Ok(location)) => Ok(location),
+        // neither
+        (_, _) => Err("No locations found in either database".to_string()),
+    }
 }
 
 /// Associated City, State, and Country for a Coordinate
 #[tauri::command]
 pub fn location_info(
-    databases_v4: State<'_, LoadedIpv4Databases>,
-    databases_v6: State<'_, LoadedIpv6Databases>,
-    database: Option<PathBuf>,
+    loaded_databases: State<'_, GlobalDatabases>,
+    database: DatabaseQuery,
     coord: Coordinate,
 ) -> Result<Option<LocationInfo>, String> {
-    Ok(db_v4(databases_v4, database.clone())
-        .map(|db| db.get_location_info(&coord))
-        .unwrap_or(db_v6(databases_v6, database).map(|db| db.get_location_info(&coord))?))
+    match (
+        loaded_databases
+            .ipv4(&database)
+            .map(|db| db.get_location_info(&coord)),
+        loaded_databases
+            .ipv6(&database)
+            .map(|db| db.get_location_info(&coord)),
+    ) {
+        (Ok(Some(info)), _) | (_, Ok(Some(info))) => Ok(Some(info)),
+        (Ok(None), _) | (_, Ok(None)) => Ok(None),
+        (Err(_), Err(_)) => Err("No databases loaded".to_string()),
+    }
 }
 
 /// Our coordinate based on the current database
 #[tauri::command]
 pub async fn my_location(
-    databases_v4: State<'_, LoadedIpv4Databases>,
-    databases_v6: State<'_, LoadedIpv6Databases>,
+    loaded_databases: State<'_, GlobalDatabases>,
     ip: State<'_, PublicIpAddress>,
-    database: Option<PathBuf>,
+    database: DatabaseQuery,
 ) -> Result<Coordinate, String> {
-    lookup_ip(databases_v4, databases_v6, database, *ip)
+    lookup_ip(loaded_databases, database, *ip)
         .await
         .and_then(|loc| {
             loc.ok_or(format!(

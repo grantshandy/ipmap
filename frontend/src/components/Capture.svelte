@@ -3,7 +3,6 @@
   import CaptureLocationView from "./CaptureLocationView.svelte";
 
   import { onDestroy } from "svelte";
-  import { fly } from "svelte/transition";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { layerGroup, marker, type Map } from "leaflet";
   import { GeodesicLine } from "leaflet.geodesic";
