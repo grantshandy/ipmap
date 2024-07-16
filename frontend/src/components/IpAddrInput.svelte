@@ -2,8 +2,9 @@
   import { geoip } from "../bindings";
 
   export let error: string | null;
-  export let ip: string | null;
+  export let onSearch: ((ip: string) => void) | null = null;
   export let disabled: boolean = false;
+  let ip: string | null;
 
   let buff: string;
   $: validate(buff);
@@ -31,11 +32,21 @@
   };
 </script>
 
-<input
-  class="input input-sm input-bordered w-full grow"
-  class:border-error={error}
-  placeholder="IP or DNS Address"
-  spellcheck="false"
-  disabled={disabled}
-  bind:value={buff}
-/>
+<div class="w-full join join-horizontal">
+  <input
+    class="input input-sm input-bordered join-item"
+    class:border-error={error}
+    placeholder="IP or DNS Address"
+    spellcheck="false"
+    {disabled}
+    bind:value={buff}
+    on:submit={() => console.log("submit event")}
+  />
+  <button
+    class="btn btn-primary btn-sm join-item"
+    disabled={error != null || !ip || disabled}
+    on:click={() => {
+      if (onSearch && ip) onSearch(ip);
+    }}>Search</button
+  >
+</div>

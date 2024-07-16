@@ -1,15 +1,14 @@
 <script lang="ts">
-  import LocationName from "./LocationName.svelte";
-  import MapView from "./MapView.svelte";
+  import LocationName from "../components/LocationName.svelte";
+  import MapView from "../components/MapView.svelte";
+  import IpAddrInput from "../components/IpAddrInput.svelte";
 
   import { open } from "@tauri-apps/api/shell";
   import { Marker, marker, Map } from "leaflet";
 
   import { geoip, type Coordinate } from "../bindings";
-  import { DEFAULT_POS, DEFAULT_ZOOM, mkIcon } from "../map";
-  import IpAddrInput from "./IpAddrInput.svelte";
+  import { mkIcon } from "../map";
 
-  let ip: string | null = null;
   let error: string | null = null;
 
   let map: Map;
@@ -18,13 +17,6 @@
     coord: Coordinate;
     marker: Marker;
   } | null = null;
-
-  $: if (!error || error) setTimeout(() => map.invalidateSize(), 10);
-  $: if (ip && !error) validateAndSearch(ip);
-  $: if (map && !ip && !error) {
-    setSearchIp(null);
-    map.flyTo(DEFAULT_POS, DEFAULT_ZOOM);
-  }
 
   let searchTimeout: number;
   const validateAndSearch = async (ip: string) => {
@@ -66,12 +58,10 @@
 
 <div class="flex grow space-x-2">
   <MapView bind:map>
-    <div
-      class="absolute bottom-0 right-0 top-0 z-30 w-1/4 space-y-3 rounded-l-box bg-base-200/[0.8] p-2"
-    >
-      <IpAddrInput bind:ip bind:error />
+    <div class="map-info-panel">
+      <IpAddrInput bind:error onSearch={validateAndSearch} />
       {#if error}
-        <p class="grow p-2 text-sm font-bold italic text-error">{error}</p>
+        <p class="text-error grow p-2 text-sm font-bold italic">{error}</p>
       {/if}
       {#if selection}
         <h2 class="text-lg font-bold">IP Location Info</h2>

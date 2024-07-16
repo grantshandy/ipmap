@@ -36,14 +36,16 @@ Variables for building:
  - [x] fix arc animation memory leak bug
  - [x] ipv6 support
  - [x] unload database
- - [ ] visual traceroute
+ - [x] visual traceroute
  - [x] novel data structure for maintaining a live-updated list of
   current connections based on the stream of packets. Also determines incoming/outgoing/mixed status.
  - [x] ^ maintain arc animations from this state
  - [x] dark/light mode
  - [x] fix capture -> search marker update bug
  - [x] reverse search? move a marker on the map and it shows the geographically closest blocks.
- - [ ] detect undersea cables in traceroute
- - [ ] identify internet access points in traceroute
+ - [x] disable capture/traceroute modes when user doesn't have privileges.
+ - [ ] detect undersea cables in traceroute (?)
+ - [ ] identify internet access points in traceroute (?)
  - [ ] load `.csv.gz` and `.csv.7z` compressed databases
- 
+ - [ ] show paris/dublin-traceroute alternate flows
+ - [ ] add settings for traceroute query

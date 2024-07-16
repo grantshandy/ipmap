@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api";
 import { message } from "@tauri-apps/api/dialog";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import { database } from "../stores/database";
+import { database } from "../utils/database";
 
 import { type ConnectionDirection } from "./ConnectionDirection";
 import { type ConnectionInfo } from "./ConnectionInfo";

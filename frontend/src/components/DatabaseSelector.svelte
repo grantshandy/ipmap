@@ -1,6 +1,6 @@
 <script lang="ts">
   import { type DatabaseInfo, type IpType } from "../bindings";
-  import { database } from "../stores/database";
+  import { database } from "../utils/database";
   import { confirm, message } from "@tauri-apps/api/dialog";
 
   const dbInfo = (db: IpType) => {

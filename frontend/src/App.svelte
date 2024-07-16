@@ -1,17 +1,18 @@
 <script lang="ts">
   import { fade } from "svelte/transition";
   import { traceroute } from "./bindings";
-  import { theme } from "./stores/theme";
-  import { database } from "./stores/database";
+  import { theme } from "./utils/theme";
+  import { database } from "./utils/database";
   import { open } from "@tauri-apps/api/shell";
   import { platform } from "@tauri-apps/api/os";
 
+  import Search from "./modes/Search.svelte";
+  import Capture from "./modes/Capture.svelte";
+  import Reverse from "./modes/Reverse.svelte";
+  import Traceroute from "./modes/Traceroute.svelte";
+
   import ThemeSwitcher from "./components/ThemeSwitcher.svelte";
   import DatabaseSelector from "./components/DatabaseSelector.svelte";
-  import Search from "./components/Search.svelte";
-  import Capture from "./components/Capture.svelte";
-  import Reverse from "./components/Reverse.svelte";
-  import Traceroute from "./components/Traceroute.svelte";
 
   let view: "search" | "capture" | "reverse" | "traceroute" =
     localStorage.view ?? "capture";

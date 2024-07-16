@@ -1,13 +1,13 @@
 <script lang="ts">
-  import MapView from "./MapView.svelte";
-  import CaptureLocationView from "./CaptureLocationView.svelte";
+  import MapView from "../components/MapView.svelte";
+  import CaptureLocationView from "../components/CaptureLocationView.svelte";
 
   import { onDestroy } from "svelte";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { layerGroup, marker, type Map } from "leaflet";
   import { GeodesicLine } from "leaflet.geodesic";
 
-  import { database } from "../stores/database";
+  import { database } from "../utils/database";
   import { mkIcon, type CaptureLocation } from "../map";
   import {
     type ConnectionInfo,
@@ -280,9 +280,7 @@
         <span>Mixed</span>
       </div>
       {#if selection}
-        <div
-          class="absolute bottom-0 right-0 top-0 z-30 w-1/4 space-y-3 rounded-l-box bg-base-200/[0.8] p-2"
-        >
+        <div class="map-info-panel">
           <CaptureLocationView bind:selection />
         </div>
       {/if}

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { theme } from "../stores/theme";
+  import { theme } from "../utils/theme";
 
   export let size: string;
 </script>

@@ -1,10 +1,9 @@
 <script lang="ts">
   import "leaflet/dist/leaflet.css";
   import "leaflet";
-  import "leaflet-active-area";
   import "leaflet-edgebuffer";
 
-  import { darkTheme, theme } from "../stores/theme";
+  import { darkTheme, theme } from "../utils/theme";
   import { Map, map as mkMap, tileLayer } from "leaflet";
   import { DEFAULT_POS, DEFAULT_ZOOM } from "../map";
 
@@ -18,7 +17,6 @@
       zoomControl: false,
     });
     map.setView(DEFAULT_POS, DEFAULT_ZOOM);
-    map.setActiveArea(cont);
     tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: "&copy; OSM Contributors",
       noWrap: true,

@@ -1,6 +1,6 @@
 <script lang="ts">
-  import MapView from "./MapView.svelte";
-  import LocationName from "./LocationName.svelte";
+  import MapView from "../components/MapView.svelte";
+  import LocationName from "../components/LocationName.svelte";
 
   import { GeodesicLine } from "leaflet.geodesic";
   import { Map, marker, type LeafletMouseEvent, type Marker } from "leaflet";
@@ -30,7 +30,7 @@
     clearTimeout(timeout);
     timeout = setTimeout(async () => {
       result = await geoip.nearestLocation(query);
-    }, 20);
+    }, 5);
   }
 
   $: line.setLatLngs([query, result]);
@@ -45,9 +45,7 @@
 
 <div class="flex grow space-x-2">
   <MapView bind:map>
-    <div
-      class="absolute bottom-0 right-0 top-0 z-30 w-1/4 space-y-3 overflow-y-auto rounded-l-box bg-base-200/[0.8] p-2"
-    >
+    <div class="map-info-panel overflow-y-auto">
       <h1 class="rounded-box bg-base-200 p-2 font-semibold">
         Nearest IP Location Blocks
       </h1>
