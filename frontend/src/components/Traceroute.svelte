@@ -47,9 +47,15 @@
     }
 
     for (let i = 1; i < coords.length; i++) {
-      marker(coords[i], { icon: mkIcon(null, false) }).addTo(traceLayer);
+      const prev = coords[i - 1];
+      const curr = coords[i];
 
-      new GeodesicLine([coords[i - 1], coords[i]], {
+      // don't place markers on the same location
+      if (prev.lat == curr.lat && prev.lng == curr.lng) continue;
+
+      marker(curr, { icon: mkIcon(null, false) }).addTo(traceLayer);
+
+      new GeodesicLine([prev, curr], {
         weight: 3,
         steps: 3,
         opacity: 0.75,

@@ -89,11 +89,6 @@ export const database = (() => {
     await updateListings();
   };
 
-  (async () => {
-    startLoading("Internal Databases");
-    await updateListings();
-  })();
-
   return {
     subscribe,
     update,
@@ -106,5 +101,6 @@ export const database = (() => {
 
     importDatabase,
     unloadDatabase,
+    updateListings,
   };
 })();

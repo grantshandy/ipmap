@@ -96,6 +96,8 @@ const geoip = {
 
 const traceroute = {
   trace: (ip: string): Promise<string[]> => invoke("traceroute", { ip }),
+
+  isPrivileged: (): Promise<boolean> => invoke("is_privileged"),
 };
 
 export {

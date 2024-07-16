@@ -1,6 +1,7 @@
 use std::net::IpAddr;
 
 use trippy_core::{Builder, State};
+use trippy_privilege::Privilege;
 
 #[tauri::command]
 pub async fn traceroute(ip: IpAddr) -> Result<Vec<IpAddr>, String> {
@@ -27,4 +28,11 @@ pub async fn traceroute(ip: IpAddr) -> Result<Vec<IpAddr>, String> {
     }
 
     Ok(ips)
+}
+
+#[tauri::command]
+pub async fn is_privileged() -> bool {
+    Privilege::acquire_privileges()
+        .ok()
+        .is_some_and(|p| p.has_privileges())
 }

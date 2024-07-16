@@ -46,11 +46,13 @@ public-ip.workspace = true
 rstar.workspace = true
 half.workspace = true
 trippy-core.workspace = true
+trippy-privilege.workspace = true
 
 [dependencies.tauri]
 version = "1.6.2"
 default-features = false
 features = [
+    "os-all",
     "shell-open",
     "dialog-confirm",
     "dialog-message",

@@ -92,7 +92,7 @@ fn embed_database(out_dir: &String, kind: IpType) -> String {
                     )
                 )"#
             )
-        },
+        }
         Err(_) => "None".to_string(),
     }
 }

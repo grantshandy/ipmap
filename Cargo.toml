@@ -40,3 +40,4 @@ public-ip = "0.2.2"
 rstar = { version = "0.12.0", features = ["serde"] }
 half = { version = "2.4.1", features = ["serde"] }
 trippy-core = { git = "https://github.com/fujiapple852/trippy", package = "trippy-core" }
+trippy-privilege = { git = "https://github.com/fujiapple852/trippy", package = "trippy-privilege" }

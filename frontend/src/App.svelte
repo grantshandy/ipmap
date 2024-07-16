@@ -1,8 +1,10 @@
 <script lang="ts">
   import { fade } from "svelte/transition";
+  import { traceroute } from "./bindings";
   import { theme } from "./stores/theme";
   import { database } from "./stores/database";
   import { open } from "@tauri-apps/api/shell";
+  import { platform } from "@tauri-apps/api/os";
 
   import ThemeSwitcher from "./components/ThemeSwitcher.svelte";
   import DatabaseSelector from "./components/DatabaseSelector.svelte";
@@ -11,21 +13,25 @@
   import Reverse from "./components/Reverse.svelte";
   import Traceroute from "./components/Traceroute.svelte";
 
-  let view: "search" | "capture" | "reverse" | "traceroute" = localStorage.view ?? "capture";
+  let view: "search" | "capture" | "reverse" | "traceroute" =
+    localStorage.view ?? "capture";
   $: localStorage.view = view;
+
+  database.startLoading("Internal Databases");
+  database.updateListings();
 </script>
 
 <div class="relative h-screen w-screen overflow-hidden" data-theme={$theme}>
   {#if $database.ipv4dbs.length != 0 || $database.ipv6dbs.length != 0}
     <main
-      transition:fade={{ duration: 200 }}
+      transition:fade={{ duration: 100 }}
       class="page flex flex-col space-y-3 p-2"
     >
       <div class="flex items-center space-x-3">
         <select bind:value={view} class="select select-bordered select-sm">
           <option value="search">Search</option>
-          <option value="capture">Capture</option>
           <option value="reverse">Reverse Search</option>
+          <option value="capture">Capture</option>
           <option value="traceroute">Traceroute</option>
         </select>
         <ThemeSwitcher size={"1.5rem"} />
@@ -36,17 +42,41 @@
       <hr />
       {#if view == "search"}
         <Search />
-      {:else if view == "capture"}
-        <Capture />
       {:else if view == "reverse"}
         <Reverse />
-      {:else if view == "traceroute"}
-        <Traceroute />
+      {:else}
+        {#await traceroute.isPrivileged() then privileged}
+          {#await platform() then platform}
+            <!-- capture needs privileges on non-win32 systems -->
+            {#if view == "capture" && ((platform != "win32" && privileged) || platform == "win32")}
+              <Capture />
+
+              <!-- traceroute needs privileges on all systems -->
+            {:else if view == "traceroute" && privileged}
+              <Traceroute />
+
+              <!-- don't have the required privileges for the current mode -->
+            {:else}
+              <div class="flex grow items-center justify-center">
+                {#if platform == "win32"}
+                  <h1 class="text-lg font-semibold">
+                    Run as Administrator to enable this mode.
+                  </h1>
+                {:else}
+                  <h1 class="text-lg font-semibold">
+                    <span class="code">CAP_NET_RAW</span> or root privileges required
+                    for this mode
+                  </h1>
+                {/if}
+              </div>
+            {/if}
+          {/await}
+        {/await}
       {/if}
     </main>
   {:else}
     <main
-      transition:fade={{ duration: 200 }}
+      transition:fade={{ duration: 100 }}
       class="page flex items-center justify-center"
     >
       <div class="absolute left-5 top-5">
