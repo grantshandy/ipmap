@@ -61,7 +61,7 @@
     <div class="map-info-panel">
       <IpAddrInput bind:error onSearch={validateAndSearch} />
       {#if error}
-        <p class="text-error grow p-2 text-sm font-bold italic">{error}</p>
+        <p class="grow p-2 text-sm font-bold italic text-error">{error}</p>
       {/if}
       {#if selection}
         <h2 class="text-lg font-bold">IP Location Info</h2>

@@ -79,7 +79,7 @@
       <IpAddrInput bind:error disabled={loading} onSearch={runTrace} />
 
       {#if error}
-        <p class="text-error w-full text-center text-sm font-bold italic">
+        <p class="w-full text-center text-sm font-bold italic text-error">
           {error}
         </p>
       {/if}
@@ -88,7 +88,7 @@
       {/if}
 
       {#if hops.length != 0}
-        <div class="rounded-box bg-base-100 p-2 space-y-3">
+        <div class="space-y-3 rounded-box bg-base-100 p-2">
           <h2 class="text-lg font-semibold">Hops</h2>
 
           {#each hops as hop}

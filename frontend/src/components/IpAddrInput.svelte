@@ -32,21 +32,24 @@
   };
 </script>
 
-<div class="w-full join join-horizontal">
+<form
+  class="join join-horizontal w-full"
+  on:submit|preventDefault={() => {
+    if (ip && onSearch) onSearch(ip);
+  }}
+>
   <input
-    class="input input-sm input-bordered join-item"
+    class="input input-sm join-item input-bordered w-full"
     class:border-error={error}
     placeholder="IP or DNS Address"
     spellcheck="false"
     {disabled}
     bind:value={buff}
-    on:submit={() => console.log("submit event")}
+    on:submit={(v) => console.log(v)}
   />
   <button
-    class="btn btn-primary btn-sm join-item"
-    disabled={error != null || !ip || disabled}
-    on:click={() => {
-      if (onSearch && ip) onSearch(ip);
-    }}>Search</button
+    type="submit"
+    class="btn btn-primary join-item input-bordered btn-sm"
+    disabled={error != null || !ip || disabled}>Search</button
   >
-</div>
+</form>

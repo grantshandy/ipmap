@@ -61,12 +61,12 @@
               <div class="flex grow items-center justify-center">
                 {#if platform == "win32"}
                   <h1 class="text-lg font-semibold">
-                    Run as Administrator to enable this mode.
+                    Run in Administrator mode to enable this feature.
                   </h1>
                 {:else}
                   <h1 class="text-lg font-semibold">
                     <span class="code">CAP_NET_RAW</span> or root privileges required
-                    for this mode
+                    for this mode.
                   </h1>
                 {/if}
               </div>

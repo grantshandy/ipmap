@@ -53,7 +53,7 @@
 {#if $database.ipv4dbs.length != 0}
   <div class="join join-horizontal">
     <button
-      class="btn join-item btn-sm"
+      class="btn join-item select-bordered btn-sm"
       disabled={$database.ipv4 == null}
       on:click={() => dbInfo("IPv4")}>Info</button
     >
@@ -72,7 +72,7 @@
 {#if $database.ipv6dbs.length != 0}
   <div class="join join-horizontal">
     <button
-      class="btn join-item btn-sm"
+      class="btn join-item select-bordered btn-sm"
       disabled={$database.ipv6 == null}
       on:click={() => dbInfo("IPv6")}>Info</button
     >
