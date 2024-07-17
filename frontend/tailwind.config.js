@@ -3,7 +3,7 @@ import { lightTheme, darkTheme } from "./src/themes.json";
 
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: ["./src/**/*.{svelte,ts}", "index.html"],
+  content: ["./src/**/*.{svelte,ts}", "*.html"],
   theme: {
     extend: {},
   },

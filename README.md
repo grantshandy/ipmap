@@ -48,4 +48,7 @@ Variables for building:
  - [ ] identify internet access points in traceroute (?)
  - [ ] load `.csv.gz` and `.csv.7z` compressed databases
  - [ ] show paris/dublin-traceroute alternate flows
+ - [x] info window
  - [ ] add settings for traceroute query
+ - [ ] improve error handling messages in the interface
+ - [ ] consistient (tly-good) map-sidebar design

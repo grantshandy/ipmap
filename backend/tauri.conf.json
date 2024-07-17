@@ -31,6 +31,13 @@
       },
       "os": {
         "all": true
+      },
+      "window": {
+        "show": true,
+        "hide": true
+      },
+      "process": {
+        "exit": true
       }
     },
     "bundle": {
@@ -76,6 +83,7 @@
     },
     "windows": [
       {
+        "label": "main",
         "title": "Ipmap",
         "url": "index.html",
         "tabbingIdentifier": "Main",
@@ -85,6 +93,20 @@
         "height": 600,
         "minWidth": 800,
         "minHeight": 400
+      },
+      {
+        "label": "info",
+        "title": "Info",
+        "url": "info.html",
+        "maximizable": false,
+        "minimizable": false,
+        "resizable": false,
+        "width": 460,
+        "height": 400,
+        "center": true,
+        "focus": true,
+        "alwaysOnTop": true,
+        "visible": false
       }
     ]
   }

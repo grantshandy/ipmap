@@ -51,7 +51,7 @@ trippy-privilege.workspace = true
 [dependencies.tauri]
 version = "1.6.2"
 default-features = false
-features = [
+features = [ "process-exit", "window-hide", "window-show",
     "os-all",
     "shell-open",
     "dialog-confirm",

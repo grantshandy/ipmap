@@ -5,6 +5,8 @@
   import { database } from "./utils/database";
   import { open } from "@tauri-apps/api/shell";
   import { platform } from "@tauri-apps/api/os";
+  import { appWindow } from "@tauri-apps/api/window";
+  import { process } from "@tauri-apps/api";
 
   import Search from "./modes/Search.svelte";
   import Capture from "./modes/Capture.svelte";
@@ -13,9 +15,12 @@
 
   import ThemeSwitcher from "./components/ThemeSwitcher.svelte";
   import DatabaseSelector from "./components/DatabaseSelector.svelte";
+  import InfoWindowButton from "./components/InfoWindowButton.svelte";
+
+  appWindow.onCloseRequested((_) => process.exit(0));
 
   let view: "search" | "capture" | "reverse" | "traceroute" =
-    localStorage.view ?? "capture";
+    localStorage.view ?? "search";
   $: localStorage.view = view;
 
   database.startLoading("Internal Databases");
@@ -35,7 +40,8 @@
           <option value="capture">Capture</option>
           <option value="traceroute">Traceroute</option>
         </select>
-        <ThemeSwitcher size={"1.5rem"} />
+        <ThemeSwitcher />
+        <InfoWindowButton />
         <div class="flex grow items-center justify-end space-x-3">
           <DatabaseSelector />
         </div>
@@ -80,8 +86,9 @@
       transition:fade={{ duration: 100 }}
       class="page flex items-center justify-center"
     >
-      <div class="absolute left-5 top-5">
-        <ThemeSwitcher size={"1.25rem"} />
+      <div class="absolute left-5 top-5 flex space-x-3">
+        <ThemeSwitcher />
+        <InfoWindowButton />
       </div>
       <div class="select-none space-y-9 text-center">
         {#if !$database.loading}

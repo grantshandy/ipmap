@@ -66,7 +66,7 @@ fn main() {
             geoip::dns_lookup_host,
             geoip::validate_ip,
             traceroute::traceroute,
-            traceroute::is_privileged
+            traceroute::is_privileged,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

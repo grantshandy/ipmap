@@ -1,7 +1,5 @@
 <script lang="ts">
   import { theme } from "../utils/theme";
-
-  export let size: string;
 </script>
 
 <label class="btn btn-circle btn-primary swap swap-rotate btn-sm">
@@ -14,10 +12,9 @@
 
   <!-- sun icon -->
   <svg
-    class="fill-current"
+    class="h-5 w-5 fill-current"
     class:swap-off={theme.isLight()}
     class:swap-on={!theme.isLight()}
-    style={`height: ${size}; width: ${size}`}
     xmlns="http://www.w3.org/2000/svg"
     viewBox="0 0 24 24"
   >
@@ -28,10 +25,9 @@
 
   <!-- moon icon -->
   <svg
-    class="fill-current"
+    class="h-5 w-5 fill-current"
     class:swap-off={!theme.isLight()}
     class:swap-on={theme.isLight()}
-    style={`height: ${size}; width: ${size}`}
     xmlns="http://www.w3.org/2000/svg"
     viewBox="0 0 24 24"
   >
