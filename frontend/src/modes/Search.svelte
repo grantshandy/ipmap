@@ -18,10 +18,8 @@
     marker: Marker;
   } | null = null;
 
-  let searchTimeout: number;
   const validateAndSearch = async (ip: string) => {
     if (!map) return;
-    clearTimeout(searchTimeout);
 
     const coord = await geoip.lookupIp(ip);
     if (!coord) {
@@ -31,7 +29,7 @@
     }
 
     error = null;
-    searchTimeout = setTimeout(() => setSearchIp(ip, coord), 300);
+    setSearchIp(ip, coord), 300;
   };
 
   const setSearchIp = (ip: string | null, coord?: Coordinate) => {

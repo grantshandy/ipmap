@@ -4,7 +4,7 @@
   import "leaflet-edgebuffer";
 
   import { darkTheme, theme } from "../utils/theme";
-  import { Map, map as mkMap, tileLayer } from "leaflet";
+  import { LatLngBounds, Map, map as mkMap, tileLayer } from "leaflet";
   import { DEFAULT_POS, DEFAULT_ZOOM } from "../map";
 
   export let map: Map;
@@ -15,8 +15,10 @@
       minZoom: 2,
       maxZoom: 13,
       zoomControl: false,
-    });
+      edgeBufferTiles: 1,
+    } as any);
     map.setView(DEFAULT_POS, DEFAULT_ZOOM);
+    map.setMaxBounds(new LatLngBounds([-90, -200], [90, 200]));
     tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: "&copy; OSM Contributors",
       noWrap: true,
@@ -31,9 +33,9 @@
 
 <svelte:window on:resize={() => map.invalidateSize()} />
 
-<div class="overflow-none relative grow select-none rounded-box">
+<div class="overflow-none rounded-box relative grow select-none">
   {#if map}
-    <div class="join join-vertical absolute left-2 top-2 z-30">
+    <div class="join join-vertical btn-outline absolute left-2 top-2 z-30">
       <button
         on:click={() => map.zoomIn()}
         class="btn join-item btn-sm text-xl font-bold">+</button
@@ -47,7 +49,7 @@
   <slot />
   <div
     use:mapAction
-    class="z-20 h-full w-full rounded-box"
+    class="rounded-box z-20 h-full w-full"
     class:map-dark={$theme == darkTheme}
   ></div>
 </div>

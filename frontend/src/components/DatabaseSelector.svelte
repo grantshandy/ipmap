@@ -44,7 +44,9 @@
 </script>
 
 {#if $database.loading}
-  <div class="flex items-center space-x-3">
+  <div
+    class="rounded-r-box bg-base-100/[0.8] absolute bottom-8 left-0 z-[999] flex items-center space-x-3 px-4 py-2"
+  >
     <span class="text-sm italic">Loading {$database.loading}...</span>
     <span class="loading loading-spinner loading-sm"></span>
   </div>

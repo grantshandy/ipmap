@@ -46,7 +46,6 @@
           <DatabaseSelector />
         </div>
       </div>
-      <hr />
       {#if view == "search"}
         <Search />
       {:else if view == "reverse"}
