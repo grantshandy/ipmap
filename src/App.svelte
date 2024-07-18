@@ -23,7 +23,10 @@
   database.updateListings();
 </script>
 
-<div class="relative h-screen w-screen overflow-hidden" data-theme={$theme}>
+<div
+  class="relative h-screen w-screen overflow-hidden"
+  data-theme={$theme.isLight ? $theme.light : $theme.dark}
+>
   {#if $database.ipv4dbs.length != 0 || $database.ipv6dbs.length != 0}
     <main
       transition:fade={{ duration: 100 }}

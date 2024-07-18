@@ -144,7 +144,7 @@ impl Connection {
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "../../frontend/src/bindings/")]
+#[ts(export, export_to = "../../src/bindings/")]
 pub struct ConnectionInfo {
     ip: IpAddr,
     size: usize, // # of bytes in all packets in our history
@@ -153,7 +153,7 @@ pub struct ConnectionInfo {
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "../../frontend/src/bindings/")]
+#[ts(export, export_to = "../../src/bindings/")]
 pub enum ConnectionDirection {
     Incoming = 0,
     Mixed = 1,

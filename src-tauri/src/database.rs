@@ -345,7 +345,7 @@ pub struct CompactLocationInfo {
 
 /// A generalized lat/lon coordinate type which seeps all the way up the stack to leaflet's `LatLngExpression`.
 #[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "../../frontend/src/bindings/")]
+#[ts(export, export_to = "../../src/bindings/")]
 pub struct GenCoordinate<C> {
     pub lat: C,
     pub lng: C,
@@ -462,7 +462,7 @@ impl Display for CountryCode {
 
 /// A location and its associated IpRanges
 #[derive(Clone, Debug, PartialEq, Serialize, Default, TS)]
-#[ts(export, export_to = "../../frontend/src/bindings/")]
+#[ts(export, export_to = "../../src/bindings/")]
 pub struct LocationBlock {
     pub location: LocationInfo,
     pub blocks: Vec<IpRange>,
@@ -470,7 +470,7 @@ pub struct LocationBlock {
 
 /// A simplified RangeInclusive<Ipv4Addr/u32> for our TS api.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "../../frontend/src/bindings/")]
+#[ts(export, export_to = "../../src/bindings/")]
 pub struct IpRange {
     pub lower: IpAddr,
     pub upper: IpAddr,
@@ -496,7 +496,7 @@ impl From<RangeInclusive<Ipv6Bytes>> for IpRange {
 
 /// Associated metadata for a certain coordinate in the database.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Default, TS)]
-#[ts(export, export_to = "../../frontend/src/bindings/")]
+#[ts(export, export_to = "../../src/bindings/")]
 pub struct LocationInfo {
     pub city: Option<String>,
     pub country_code: String,
@@ -505,7 +505,7 @@ pub struct LocationInfo {
 
 /// The associated metadata for a given Database
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, TS)]
-#[ts(export, export_to = "../../frontend/src/bindings/")]
+#[ts(export, export_to = "../../src/bindings/")]
 pub struct DatabaseInfo {
     pub name: String,
     pub kind: IpType,
@@ -517,21 +517,21 @@ pub struct DatabaseInfo {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, TS)]
-#[ts(export, export_to = "../../frontend/src/bindings/")]
+#[ts(export, export_to = "../../src/bindings/")]
 pub enum IpType {
     IPv4,
     IPv6,
 }
 
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "../../frontend/src/bindings/")]
+#[ts(export, export_to = "../../src/bindings/")]
 pub enum DatabaseType {
     Loaded(PathBuf),
     Internal,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "../../frontend/src/bindings/")]
+#[ts(export, export_to = "../../src/bindings/")]
 pub struct DatabaseQuery {
     pub ipv4: Option<DatabaseType>,
     pub ipv6: Option<DatabaseType>,

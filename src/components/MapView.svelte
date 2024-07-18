@@ -3,7 +3,7 @@
   import "leaflet";
   import "leaflet-edgebuffer";
 
-  import { darkTheme, theme } from "../utils/theme";
+  import { theme } from "../utils/theme";
   import { LatLngBounds, Map, map as mkMap, tileLayer } from "leaflet";
   import { DEFAULT_POS, DEFAULT_ZOOM } from "../map";
 
@@ -33,9 +33,11 @@
 
 <svelte:window on:resize={() => map.invalidateSize()} />
 
-<div class="overflow-none rounded-box relative grow select-none">
+<div class="overflow-none relative grow select-none rounded-box">
   {#if map}
-    <div class="join join-vertical absolute left-2 top-2 z-30 border select-bordered">
+    <div
+      class="join select-bordered join-vertical absolute left-2 top-2 z-30 border"
+    >
       <button
         on:click={() => map.zoomIn()}
         class="btn join-item btn-sm text-xl font-bold">+</button
@@ -49,7 +51,7 @@
   <slot />
   <div
     use:mapAction
-    class="rounded-box z-20 h-full w-full"
-    class:map-dark={$theme == darkTheme}
+    class="z-20 h-full w-full rounded-box"
+    class:map-dark={!$theme.isLight}
   ></div>
 </div>

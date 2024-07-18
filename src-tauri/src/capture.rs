@@ -13,7 +13,7 @@ use uuid::Uuid;
 use crate::capture_state::{CaptureState, ConnectionInfo, DirectedPacket, PacketDirection};
 
 #[derive(serde::Serialize, Clone, PartialEq, TS)]
-#[ts(export, export_to = "../../frontend/src/bindings/")]
+#[ts(export, export_to = "../../src/bindings/")]
 pub struct Device {
     name: String,
     desc: Option<String>,

@@ -13,6 +13,7 @@ import { type LocationInfo } from "./LocationInfo";
 import { type IpType } from "./IpType";
 import { type DatabaseQuery } from "./DatabaseQuery";
 import { type DatabaseType } from "./DatabaseType";
+import { type ThemeState } from "./ThemeState";
 
 type Coordinate = GenCoordinate<number>;
 type ThreadID = string;
@@ -20,7 +21,7 @@ type ThreadID = string;
 const errorDialog = (msg: string): Promise<void> =>
   message(`Error: ${msg}`, { title: "Error", kind: "error" });
 
-const openInfoWindow = (theme: string): Promise<void> => core.invoke("info_window", { theme });
+const openInfoWindow = (theme: ThemeState): Promise<void> => core.invoke("info_window", { theme });
 
 /** Corresponding definitions in /backend/src/capture.rs */
 const capture = {
@@ -36,7 +37,8 @@ const capture = {
     core.invoke("stop_capturing", { threadId }),
 
   /** A list of all connections over the length of the session */
-  allConnections: (): Promise<ConnectionInfo[]> => core.invoke("all_connections"),
+  allConnections: (): Promise<ConnectionInfo[]> =>
+    core.invoke("all_connections"),
 
   /** A list of connections currently happening in the session */
   currentConnections: (): Promise<ConnectionInfo[]> =>
@@ -93,7 +95,8 @@ const geoip = {
     core.invoke("dns_lookup_host", { host }),
 
   /** Validate if a string is a global IPv4 address */
-  validateIp: (ip: string): Promise<boolean> => core.invoke("validate_ip", { ip }),
+  validateIp: (ip: string): Promise<boolean> =>
+    core.invoke("validate_ip", { ip }),
 };
 
 const traceroute = {
@@ -114,6 +117,7 @@ export {
   type IpType,
   type DatabaseQuery,
   type DatabaseType,
+  type ThemeState,
   errorDialog,
   openInfoWindow,
   capture,

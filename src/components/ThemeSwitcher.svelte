@@ -1,20 +1,22 @@
 <script lang="ts">
   import { theme } from "../utils/theme";
+
+  let lightInit = $theme.isLight;
 </script>
 
 <label class="btn btn-circle btn-primary swap swap-rotate btn-sm">
   <input
     type="checkbox"
     class="theme-controller"
-    value={$theme}
+    value={$theme.isLight}
     on:click={theme.toggle}
   />
 
   <!-- sun icon -->
   <svg
     class="h-5 w-5 fill-current"
-    class:swap-off={theme.isLight()}
-    class:swap-on={!theme.isLight()}
+    class:swap-off={lightInit}
+    class:swap-on={!lightInit}
     xmlns="http://www.w3.org/2000/svg"
     viewBox="0 0 24 24"
   >
@@ -26,8 +28,8 @@
   <!-- moon icon -->
   <svg
     class="h-5 w-5 fill-current"
-    class:swap-off={!theme.isLight()}
-    class:swap-on={theme.isLight()}
+    class:swap-off={!lightInit}
+    class:swap-on={lightInit}
     xmlns="http://www.w3.org/2000/svg"
     viewBox="0 0 24 24"
   >

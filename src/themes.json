@@ -1,4 +1,40 @@
 {
-  "lightTheme": "pastel",
-  "darkTheme": "business"
+  "defaultLightTheme": "pastel",
+  "defaultDarkTheme": "business",
+  "darkThemes": [
+    "dark",
+    "synthwave",
+    "halloween",
+    "forest",
+    "aqua",
+    "black",
+    "luxury",
+    "dracula",
+    "business",
+    "night",
+    "coffee",
+    "dim",
+    "sunset"
+  ],
+  "lightThemes": [
+    "light",
+    "cupcake",
+    "bumblebee",
+    "emerald",
+    "corporate",
+    "retro",
+    "cyberpunk",
+    "valentine",
+    "garden",
+    "lofi",
+    "pastel",
+    "fantasy",
+    "wireframe",
+    "cmyk",
+    "autumn",
+    "acid",
+    "lemonade",
+    "winter",
+    "nord"
+  ]
 }
