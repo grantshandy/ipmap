@@ -2,6 +2,7 @@ import { core, event } from "@tauri-apps/api";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { message } from "@tauri-apps/plugin-dialog";
 import { database } from "../utils/database";
+import { theme } from "../utils/theme";
 
 import { type ConnectionDirection } from "./ConnectionDirection";
 import { type ConnectionInfo } from "./ConnectionInfo";
@@ -21,7 +22,10 @@ type ThreadID = string;
 const errorDialog = (msg: string): Promise<void> =>
   message(`Error: ${msg}`, { title: "Error", kind: "error" });
 
-const openInfoWindow = (theme: ThemeState): Promise<void> => core.invoke("info_window", { theme });
+const openAboutWindow = () => theme.update((theme) => {
+  core.invoke("about_window", { theme });
+  return theme;
+});
 
 /** Corresponding definitions in /backend/src/capture.rs */
 const capture = {
@@ -119,7 +123,7 @@ export {
   type DatabaseType,
   type ThemeState,
   errorDialog,
-  openInfoWindow,
+  openAboutWindow,
   capture,
   geoip,
   traceroute,

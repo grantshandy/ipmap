@@ -71,7 +71,7 @@ fn main() {
             geoip::validate_ip,
             traceroute::traceroute,
             traceroute::is_privileged,
-            info_window,
+            about_window,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -140,12 +140,16 @@ struct DatabaseResult {
 }
 
 #[tauri::command]
-async fn info_window<R: Runtime>(handle: AppHandle<R>, theme: ThemeState) {
+async fn about_window<R: Runtime>(handle: AppHandle<R>, theme: ThemeState) {
     if let Some(window) = handle.get_webview_window("about") {
         window.set_focus().expect("bring about window to focus");
 
         return;
     }
+
+    let Some(main) = handle.get_webview_window("main") else {
+        return;
+    };
 
     WebviewWindowBuilder::new(&handle, "about", WebviewUrl::App("about.html".into()))
         .minimizable(false)
@@ -158,6 +162,8 @@ async fn info_window<R: Runtime>(handle: AppHandle<R>, theme: ThemeState) {
             "window.initialTheme = {};",
             serde_json::to_string(&theme).unwrap_or_default()
         ))
+        .parent(&main)
+        .expect("set about parent window")
         .build()
         .expect("failed to build window");
 }

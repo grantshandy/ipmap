@@ -55,11 +55,11 @@ fn embed_database(out_dir: &String, kind: IpType) -> String {
             .expect("serialize db");
 
             #[cfg(windows)]
-            let db_path = format!("{out_dir}/encoded_db_v4")
+            let db_path = format!("{out_dir}/{db_var}")
                 .replace(r"/", r"\")
                 .replace(r"\", r"\\");
             #[cfg(not(windows))]
-            let db_path = format!("{out_dir}/encoded_db_v4");
+            let db_path = format!("{out_dir}/{db_var}");
 
             fs::write(
                 &db_path,
@@ -76,21 +76,22 @@ fn embed_database(out_dir: &String, kind: IpType) -> String {
             };
 
             format!(
-                r#"Some(
-                    Arc::new(
-                        bincode::deserialize::<CompactDatabase<{written_type}>>(
-                            &miniz_oxide::inflate::decompress_to_vec(
+                r#"{{
+                    tracing::info!("loading {written_type} database");
+                    let r = bincode::deserialize::<CompactDatabase<{written_type}>>(
                                 &miniz_oxide::inflate::decompress_to_vec(
-                                    include_bytes!("{db_path}").as_slice()
+                                    &miniz_oxide::inflate::decompress_to_vec(
+                                        include_bytes!("{db_path}").as_slice()
+                                    )
+                                    .expect("decompress database 1")
                                 )
-                                .expect("decompress database 1")
+                                .expect("decompress database 2")
                             )
-                            .expect("decompress database 2")
-                        )
-                        .expect("deserialize database")
-                        .into()
-                    )
-                )"#
+                            .expect("deserialize database")
+                            .into();
+                    tracing::info!("loaded {written_type} database");
+                    Some(Arc::new(r))
+                }}"#
             )
         }
         Err(_) => "None".to_string(),

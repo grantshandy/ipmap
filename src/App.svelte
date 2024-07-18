@@ -1,5 +1,6 @@
 <script lang="ts">
   import { fade } from "svelte/transition";
+  import { onMount } from "svelte";
   import { traceroute } from "./bindings";
   import { theme } from "./utils/theme";
   import { database } from "./utils/database";
@@ -19,8 +20,10 @@
     localStorage.view ?? "search";
   $: localStorage.view = view;
 
-  database.startLoading("Internal Databases");
-  database.updateListings();
+  onMount(() => {
+    database.startLoading("Internal Databases");
+    database.updateListings();
+  });
 </script>
 
 <div

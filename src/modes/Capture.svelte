@@ -226,9 +226,8 @@
     <button
       on:click={toggleCapturing}
       disabled={!device}
-      class="btn btn-sm"
-      class:btn-primary={!capturing}
-      class:btn-error={capturing}
+      class="btn btn-sm btn-primary"
+      class:btn-active={capturing}
     >
       {capturing ? "Stop" : "Start"} Capturing
     </button>
