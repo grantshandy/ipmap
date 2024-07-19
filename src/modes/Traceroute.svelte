@@ -7,7 +7,7 @@
   import { database } from "../utils/database";
   import { mkIcon } from "../map";
   import { GeodesicLine } from "leaflet.geodesic";
-  import LocationName from "../components/LocationName.svelte";
+  import IpView from "../components/IpView.svelte";
 
   let map: Map;
 
@@ -70,7 +70,10 @@
     }
   };
 
-  $: console.log(hops);
+  $: if (error || loading) {
+    hops = [];
+    traceLayer.eachLayer((l) => l.remove());
+  }
 </script>
 
 <div class="flex grow space-x-2">
@@ -87,29 +90,9 @@
         <p class="w-full text-center text-sm font-bold italic">Loading...</p>
       {/if}
 
-      {#if hops.length != 0}
-        <div class="space-y-3 rounded-box bg-base-100 p-2">
-          <h2 class="text-lg font-semibold">Hops</h2>
-
-          {#each hops as hop}
-            <hr />
-            <p>{hop.ip}</p>
-            <p>
-              {#if hop.coord}
-                {#await geoip.locationInfo(hop.coord) then info}
-                  {#if info}
-                    <LocationName {info} />
-                  {:else}
-                    No location info found
-                  {/if}
-                {/await}
-              {:else}
-                No location found in database
-              {/if}
-            </p>
-          {/each}
-        </div>
-      {/if}
+      {#each hops as hop}
+        <IpView ip={hop.ip} />
+      {/each}
     </div>
   </MapView>
 </div>

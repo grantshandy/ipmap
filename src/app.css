@@ -83,14 +83,10 @@ path.Mixed {
   filter: var(--leaflet-tile-filter, none);
 }
 
-.leaflet-control-attribution {
-  @apply rounded-tl-md bg-base-100 text-neutral-content !important;
-}
-
 .leaflet-container {
   @apply bg-base-200 !important;
 }
 
 .map-info-panel {
-  @apply absolute bottom-0 right-0 top-0 z-30 w-72 space-y-3 bg-base-200/[0.8] p-2;
+  @apply absolute bottom-0 right-0 top-0 z-30 w-72 space-y-3 bg-base-100/[0.6] p-2;
 }

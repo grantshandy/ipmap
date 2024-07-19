@@ -56,4 +56,4 @@ Variables for building:
 - [x] info window
 - [ ] add settings for traceroute query
 - [ ] improve error handling messages in the interface
-- [ ] consistient (tly-good) map-sidebar design
+- [x] consistient (tly-good) map-sidebar design

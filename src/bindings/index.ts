@@ -22,10 +22,11 @@ type ThreadID = string;
 const errorDialog = (msg: string): Promise<void> =>
   message(`Error: ${msg}`, { title: "Error", kind: "error" });
 
-const openAboutWindow = () => theme.update((theme) => {
-  core.invoke("about_window", { theme });
-  return theme;
-});
+const openAboutWindow = () =>
+  theme.update((theme) => {
+    core.invoke("about_window", { theme });
+    return theme;
+  });
 
 /** Corresponding definitions in /backend/src/capture.rs */
 const capture = {

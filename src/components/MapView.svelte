@@ -18,9 +18,9 @@
       edgeBufferTiles: 1,
     } as any);
     map.setView(DEFAULT_POS, DEFAULT_ZOOM);
+    map.attributionControl.remove();
     map.setMaxBounds(new LatLngBounds([-90, -200], [90, 200]));
     tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: "&copy; OSM Contributors",
       noWrap: true,
       edgeBufferTiles: 5,
     } as any).addTo(map);

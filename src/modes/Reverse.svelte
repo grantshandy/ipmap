@@ -1,12 +1,13 @@
 <script lang="ts">
   import MapView from "../components/MapView.svelte";
-  import LocationName from "../components/LocationName.svelte";
+  import LocationName from "../components/LocationInfoView.svelte";
 
   import { GeodesicLine } from "leaflet.geodesic";
   import { Map, marker, type LeafletMouseEvent, type Marker } from "leaflet";
 
   import { geoip, type Coordinate } from "../bindings";
   import { mkIcon } from "../map";
+  import LocationInfoView from "../components/LocationInfoView.svelte";
 
   const MAX_RANGES = 200;
 
@@ -49,14 +50,7 @@
       <h1 class="rounded-box bg-base-200 p-2 font-semibold">
         Nearest IP Location Blocks
       </h1>
-      {#await geoip.locationInfo(result) then info}
-        {#if info}
-          <p class="rounded-box bg-base-200 p-2">
-            <LocationName {info} />
-          </p>
-        {/if}
-      {/await}
-      <hr />
+      <LocationInfoView coord={result} />
       <div class="overflow-y-auto rounded-box bg-base-200 p-2">
         {#await geoip.lookupIpBlocks(result) then ranges}
           {#if ranges.length > MAX_RANGES}

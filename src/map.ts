@@ -12,7 +12,7 @@ export const mkIcon = (count: number | null, active?: boolean): DivIcon =>
     iconAnchor: active ? [15, 15] : [10, 10],
   });
 
-export type CaptureLocation = {
+export type IpLocation = {
   coord: Coordinate;
   marker: Marker;
   ips: Set<string>;

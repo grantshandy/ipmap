@@ -19,7 +19,7 @@
       (info.attribution_text ? `Attribution: ${info.attribution_text}\n` : "") +
       `Type: ${info.kind}\n` +
       (info.query != "Internal" ? `Path: ${info.query.Loaded}\n` : "") +
-      `Build Time: ${info.build_time}\n` +
+      `Build Time: ${info.build_time.replace("+00:00:00", "").split(".", 2)[0]}\n` +
       `Locations: ${info.unique_locations.toLocaleString()}\n` +
       `Unique Strings: ${info.strings.toLocaleString()}`;
 

@@ -1,22 +1,17 @@
 <script lang="ts">
-  import LocationName from "../components/LocationName.svelte";
   import MapView from "../components/MapView.svelte";
   import IpAddrInput from "../components/IpAddrInput.svelte";
+  import IpLocationView from "../components/IpView.svelte";
 
-  import { open } from "@tauri-apps/plugin-shell";
-  import { Marker, marker, Map } from "leaflet";
+  import { marker, Map } from "leaflet";
 
   import { geoip, type Coordinate } from "../bindings";
-  import { mkIcon } from "../map";
-
-  let error: string | null = null;
+  import { mkIcon, type IpLocation } from "../map";
+  import LocationName from "../components/LocationInfoView.svelte";
 
   let map: Map;
-  let selection: {
-    ip: string;
-    coord: Coordinate;
-    marker: Marker;
-  } | null = null;
+  let error: string | null = null;
+  let selection: IpLocation | null = null;
 
   const validateAndSearch = async (ip: string) => {
     if (!map) return;
@@ -41,7 +36,7 @@
     if (!coord || !map || !ip) return;
 
     selection = {
-      ip,
+      ips: new Set([ip]),
       coord,
       marker: marker(coord, { icon: mkIcon(null, true) }).addTo(map),
     };
@@ -51,6 +46,11 @@
     } else {
       map.flyTo(coord, 7);
     }
+  };
+
+  $: if (error && selection) {
+    selection?.marker.remove();
+    selection = null;
   };
 </script>
 
@@ -62,36 +62,10 @@
         <p class="grow p-2 text-sm font-bold italic text-error">{error}</p>
       {/if}
       {#if selection}
-        <h2 class="text-lg font-bold">IP Location Info</h2>
-        {#await geoip.locationInfo(selection.coord) then info}
-          {#if info}
-            <p>Location: <LocationName {info} /></p>
-          {/if}
-        {/await}
-        <button
-          class="link text-sm italic"
-          on:click={() =>
-            open(
-              `https://openstreetmap.org/#map=12/${selection?.coord.lat}/${selection?.coord.lng}`,
-            )}
-          >View in OpenStreetMap
-        </button>
-        <hr />
-        {#await geoip.lookupDns(selection.ip) then dns}
-          {#if dns}
-            <p>Domain: <span class="code">{dns}</span></p>
-          {/if}
-        {/await}
-        {#await geoip.lookupIpRange(selection.ip) then range}
-          {#if range}
-            <p>
-              Block
-              <span class="code break-words">{range.lower}</span>
-              to
-              <span class="code">{range.upper}</span>
-            </p>
-          {/if}
-        {/await}
+        <LocationName coord={selection.coord} />
+        {#each selection.ips as ip}
+          <IpLocationView {ip} />
+        {/each}
       {/if}
     </div>
   </MapView>

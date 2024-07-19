@@ -1,6 +1,6 @@
 <script lang="ts">
   import MapView from "../components/MapView.svelte";
-  import CaptureLocationView from "../components/CaptureLocationView.svelte";
+  import IpLocationView from "../components/IpView.svelte";
 
   import { onDestroy } from "svelte";
   import type { UnlistenFn } from "@tauri-apps/api/event";
@@ -8,7 +8,7 @@
   import { GeodesicLine } from "leaflet.geodesic";
 
   import { database } from "../utils/database";
-  import { mkIcon, type CaptureLocation } from "../map";
+  import { mkIcon, type IpLocation } from "../map";
   import {
     type ConnectionInfo,
     type Coordinate,
@@ -17,6 +17,8 @@
     capture,
     geoip,
   } from "../bindings";
+  import LocationInfoView from "../components/LocationInfoView.svelte";
+  import IpView from "../components/IpView.svelte";
 
   const POLL_MS = 250;
 
@@ -43,6 +45,7 @@
     if (!device) return;
 
     if (capturing) {
+      setArcState([]);
       await capture.stopCapturing(capturing.id);
       capturing = null;
     } else {
@@ -143,9 +146,9 @@
   type LocationKey = string;
   const locationKey = (c: Coordinate): LocationKey => `${c.lat}${c.lng}`;
 
-  let selection: CaptureLocation | null = null;
+  let selection: IpLocation | null = null;
   let locations: {
-    [id: LocationKey]: CaptureLocation;
+    [id: LocationKey]: IpLocation;
   } = {};
   let ips: Set<string> = new Set();
 
@@ -226,7 +229,7 @@
     <button
       on:click={toggleCapturing}
       disabled={!device}
-      class="btn btn-sm btn-primary"
+      class="btn btn-primary btn-sm"
       class:btn-active={capturing}
     >
       {capturing ? "Stop" : "Start"} Capturing
@@ -243,10 +246,10 @@
 
           markerLayerVisible = !markerLayerVisible;
         }}
-        class="btn btn-sm"
+        class="btn btn-circle btn-ghost btn-sm p-2"
         class:btn-active={markerLayerVisible}
       >
-        Markers
+        <div class="marker-icon drop-shadow-none"></div>
       </button>
       <button
         on:click={() => {
@@ -258,10 +261,12 @@
 
           arcLayerVisible = !arcLayerVisible;
         }}
-        class="btn btn-sm"
+        class="btn btn-circle btn-ghost btn-sm p-2"
         class:btn-active={arcLayerVisible}
       >
-        Arcs
+        <div
+          class="h-full w-full rounded-full border-[0.15rem] border-dotted border-warning"
+        />
       </button>
     </div>
   </div>
@@ -269,7 +274,7 @@
   <div class="flex grow space-x-3">
     <MapView bind:map>
       <div
-        class="absolute bottom-0 left-0 z-30 flex items-center rounded-tr-md bg-base-100 pr-1 pt-0.5 text-xs"
+        class="absolute bottom-0 left-0 z-30 flex items-center rounded-tr-box bg-base-100 pr-1 text-xs"
       >
         <div class="color-indicator bg-success" />
         <span>Incoming</span>
@@ -278,9 +283,13 @@
         <div class="color-indicator bg-warning" />
         <span>Mixed</span>
       </div>
+
       {#if selection}
-        <div class="map-info-panel">
-          <CaptureLocationView bind:selection />
+        <div class="map-info-panel overflow-y-auto">
+          <LocationInfoView coord={selection.coord} />
+          {#each selection.ips as ip}
+            <IpView {ip} />
+          {/each}
         </div>
       {/if}
     </MapView>
