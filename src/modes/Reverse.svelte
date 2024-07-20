@@ -1,6 +1,5 @@
 <script lang="ts">
   import MapView from "../components/MapView.svelte";
-  import LocationName from "../components/LocationInfoView.svelte";
 
   import { GeodesicLine } from "leaflet.geodesic";
   import { Map, marker, type LeafletMouseEvent, type Marker } from "leaflet";
@@ -47,11 +46,19 @@
 <div class="flex grow space-x-2">
   <MapView bind:map>
     <div class="map-info-panel overflow-y-auto">
-      <h1 class="rounded-box bg-base-200 p-2 font-semibold">
+      <h1
+        class="select-none rounded-box border border-base-300 bg-base-100 px-3 py-2 font-semibold"
+      >
         Nearest IP Location Blocks
       </h1>
-      <LocationInfoView coord={result} />
-      <div class="overflow-y-auto rounded-box bg-base-200 p-2">
+      <div
+        class="space-y-3 rounded-box border border-base-300 bg-base-100 px-3 py-2"
+      >
+        <LocationInfoView coord={result} />
+      </div>
+      <div
+        class="overflow-y-auto rounded-box border border-base-300 bg-base-100 px-3 py-2"
+      >
         {#await geoip.lookupIpBlocks(result) then ranges}
           {#if ranges.length > MAX_RANGES}
             <p class="text-sm italic">More ranges not shown...</p>

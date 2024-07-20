@@ -1,33 +1,89 @@
 use std::net::IpAddr;
 
-use trippy_core::{Builder, State};
+use serde::{Deserialize, Serialize};
+use tauri::State;
+use trippy_core::Builder;
 use trippy_privilege::Privilege;
+use ts_rs::TS;
+
+use crate::{
+    geoip::{
+        database::{Coordinate, DatabaseQuery},
+        lookup_ip, my_location,
+    },
+    GlobalDatabases, PublicIpAddress,
+};
 
 #[tauri::command]
-pub async fn traceroute(ip: IpAddr) -> Result<Vec<IpAddr>, String> {
+pub async fn traceroute(
+    loaded_databases: State<'_, GlobalDatabases>,
+    public_ip: State<'_, PublicIpAddress>,
+    ip: IpAddr,
+    options: TracerouteOptions,
+    database: DatabaseQuery,
+) -> Result<Vec<Hop>, String> {
     if !ip_rfc::global(&ip) {
         return Err(format!("{ip} not global"));
     }
 
     let tracer = Builder::new(ip)
-        .max_ttl(64)
+        .max_ttl(options.max_ttl)
         .max_flows(1)
-        .max_rounds(Some(2))
+        .max_rounds(Some(options.max_rounds))
         .build()
-        .map_err(|e| format!("init tracer: {e}"))?;
+        .map_err(|e| format!("failed to init tracer: {e}"))?;
 
-    tracing::info!("running traceroute");
-    tracer.run().map_err(|e| format!("run tracer: {e}"))?;
-    tracing::info!("done.");
+    tracer
+        .run()
+        .map_err(|e| format!("failed to run tracer: {e}"))?;
 
-    let mut ips = Vec::new();
+    let my_location = my_location(
+        loaded_databases.clone(),
+        public_ip.clone(),
+        database.clone(),
+    )
+    .await?;
 
-    // todo: how to flatten iterator?
-    for hop in tracer.snapshot().hops(State::default_flow_id()) {
-        ips.extend(hop.addrs().filter(|ip| ip_rfc::global(ip)));
+    let snapshot = tracer.snapshot();
+    let mut flow = Vec::new();
+
+    flow.push(Hop {
+        ip: Some(*public_ip.clone()),
+        coord: Some(my_location),
+    });
+
+    for hop in snapshot.hops(trippy_core::State::default_flow_id()) {
+        if let Some(ip) = hop.addrs().nth(0) {
+            if !ip_rfc::global(&ip) {
+                continue;
+            }
+
+            flow.push(Hop {
+                ip: Some(*ip),
+                coord: lookup_ip(loaded_databases.clone(), database.clone(), *ip)
+                    .await
+                    .ok()
+                    .flatten(),
+            });
+        } else {
+            flow.push(Hop {
+                ip: None,
+                coord: None,
+            });
+        }
     }
 
-    Ok(ips)
+    if !flow.last().is_some_and(|hop| hop.ip == Some(ip)) {
+        flow.push(Hop {
+            ip: Some(ip),
+            coord: lookup_ip(loaded_databases.clone(), database.clone(), ip)
+                .await
+                .ok()
+                .flatten(),
+        });
+    }
+
+    Ok(flow)
 }
 
 #[tauri::command]
@@ -35,4 +91,20 @@ pub async fn is_privileged() -> bool {
     Privilege::acquire_privileges()
         .ok()
         .is_some_and(|p| p.has_privileges())
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../src/bindings/")]
+#[serde(rename_all = "camelCase")]
+pub struct TracerouteOptions {
+    max_rounds: usize,
+    max_ttl: u8,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../src/bindings/")]
+#[serde(rename_all = "camelCase")]
+pub struct Hop {
+    ip: Option<IpAddr>,
+    coord: Option<Coordinate>,
 }

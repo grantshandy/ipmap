@@ -2,7 +2,6 @@ import { core, event } from "@tauri-apps/api";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { message } from "@tauri-apps/plugin-dialog";
 import { database } from "../utils/database";
-import { theme } from "../utils/theme";
 
 import { type ConnectionDirection } from "./ConnectionDirection";
 import { type ConnectionInfo } from "./ConnectionInfo";
@@ -14,6 +13,8 @@ import { type LocationInfo } from "./LocationInfo";
 import { type IpType } from "./IpType";
 import { type DatabaseQuery } from "./DatabaseQuery";
 import { type DatabaseType } from "./DatabaseType";
+import { type TracerouteOptions } from "./TracerouteOptions";
+import { type Hop } from "./Hop";
 
 type Coordinate = GenCoordinate<number>;
 type ThreadID = string;
@@ -21,11 +22,8 @@ type ThreadID = string;
 const errorDialog = (msg: string): Promise<void> =>
   message(`Error: ${msg}`, { title: "Error", kind: "error" });
 
-const openAboutWindow = () =>
-  theme.update((themeName) => {
-    core.invoke("about_window", { themeName });
-    return themeName;
-  });
+const openAboutWindow = (theme: string) =>
+  core.invoke("about_window", { theme });
 
 /** Corresponding definitions in /backend/src/capture.rs */
 const capture = {
@@ -104,7 +102,13 @@ const geoip = {
 };
 
 const traceroute = {
-  trace: (ip: string): Promise<string[]> => core.invoke("traceroute", { ip }),
+  defaultOptions: (): TracerouteOptions => ({
+    maxRounds: 2,
+    maxTtl: 64,
+  }),
+
+  trace: (ip: string, options: TracerouteOptions): Promise<Hop[]> =>
+    core.invoke("traceroute", { ip, options, database: database.query() }),
 
   isPrivileged: (): Promise<boolean> => core.invoke("is_privileged"),
 };
@@ -121,6 +125,7 @@ export {
   type IpType,
   type DatabaseQuery,
   type DatabaseType,
+  type TracerouteOptions,
   errorDialog,
   openAboutWindow,
   capture,

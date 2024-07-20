@@ -274,7 +274,7 @@
   <div class="flex grow space-x-3">
     <MapView bind:map>
       <div
-        class="absolute bottom-0 left-0 z-30 flex items-center rounded-tr-box bg-base-100 pr-1 text-xs"
+        class="absolute bottom-0 left-0 z-30 flex select-none items-center rounded-tr-box bg-base-100 pr-1 text-xs"
       >
         <div class="color-indicator bg-success" />
         <span>Incoming</span>
@@ -286,9 +286,21 @@
 
       {#if selection}
         <div class="map-info-panel overflow-y-auto">
-          <LocationInfoView coord={selection.coord} />
-          {#each selection.ips as ip}
-            <IpView {ip} />
+          <div
+            class="space-y-3 rounded-box border border-base-300 bg-base-100 px-3 py-2"
+          >
+            <h2 class="font-semibold select-none">Location Information</h2>
+            <LocationInfoView coord={selection.coord} />
+          </div>
+          {#each selection.ips as ip, i}
+            <div
+              class="space-y-3 rounded-box border border-base-300 bg-base-100 px-3 py-2"
+            >
+              <h3 class="font-semibold">
+                {i + 1}: <span class="italic">{ip}</span>
+              </h3>
+              <IpView {ip} />
+            </div>
           {/each}
         </div>
       {/if}

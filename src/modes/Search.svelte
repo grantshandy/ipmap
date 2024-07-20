@@ -59,13 +59,15 @@
     <div class="map-info-panel">
       <IpAddrInput bind:error onSearch={validateAndSearch} />
       {#if error}
-        <p class="grow p-2 text-sm font-bold italic text-error">{error}</p>
+        <p class="grow p-2 text-sm font-bold italic text-error select-none">{error}</p>
       {/if}
       {#if selection}
-        <LocationName coord={selection.coord} />
-        {#each selection.ips as ip}
-          <IpLocationView {ip} />
-        {/each}
+        <div class="space-y-3 rounded-box bg-base-100 px-3 py-2 border border-base-300r">
+          <LocationName coord={selection.coord} />
+          {#each selection.ips as ip}
+            <IpLocationView {ip} />
+          {/each}
+        </div>
       {/if}
     </div>
   </MapView>

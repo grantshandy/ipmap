@@ -138,7 +138,7 @@ struct DatabaseResult {
 }
 
 #[tauri::command]
-async fn about_window<R: Runtime>(handle: AppHandle<R>, theme_name: String) {
+async fn about_window<R: Runtime>(handle: AppHandle<R>, theme: String) {
     if let Some(window) = handle.get_webview_window("about") {
         window.set_focus().expect("bring about window to focus");
 
@@ -156,7 +156,7 @@ async fn about_window<R: Runtime>(handle: AppHandle<R>, theme_name: String) {
         .inner_size(500.0, 450.0)
         .title("About")
         .center()
-        .initialization_script(&format!(r#"window.theme = "{theme_name}";"#))
+        .initialization_script(&format!(r#"window.theme = "{theme}";"#))
         .parent(&main)
         .expect("set about parent window")
         .build()

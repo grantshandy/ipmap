@@ -37,8 +37,11 @@
           <option value="capture">Capture</option>
           <option value="traceroute">Traceroute</option>
         </select>
-        <button on:click={() => openAboutWindow()} class="info-window-btn">
-          Info
+        <button
+          on:click={() => openAboutWindow($theme)}
+          class="btn btn-primary btn-sm font-bold"
+        >
+          ?
         </button>
         <div class="flex grow items-center justify-end space-x-3">
           <DatabaseSelector />
@@ -84,8 +87,11 @@
       class="page flex items-center justify-center"
     >
       <div class="absolute right-5 top-5">
-        <button on:click={() => openAboutWindow()} class="info-window-btn">
-          About
+        <button
+          on:click={() => openAboutWindow($theme)}
+          class="btn btn-primary btn-sm font-bold"
+        >
+          ?
         </button>
       </div>
       <div class="select-none space-y-9 text-center">
@@ -112,9 +118,3 @@
     </main>
   {/if}
 </div>
-
-<style>
-  .info-window-btn {
-    @apply btn btn-primary btn-sm;
-  }
-</style>

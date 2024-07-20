@@ -7,27 +7,25 @@
   export let coord: Coordinate;
 </script>
 
-<div class="space-y-3 rounded-box bg-base-200 px-3 py-2">
-  <h2 class="grow text-lg font-semibold">IP Location Information</h2>
-
-  {#await geoip.locationInfo(coord) then info}
+{#await geoip.locationInfo(coord) then info}
+  <p>
     {#if info}
-      <p>
-        {#if info.city}
-          {info.city},
-        {/if}
-        {#if info.state}
-          {info.state},
-        {/if}
-        {countryNames.of(info.country_code)}
-      </p>
+      {#if info.city}
+        {info.city},
+      {/if}
+      {#if info.state}
+        {info.state},
+      {/if}
+      {countryNames.of(info.country_code)}
+    {:else}
+      No Location Data Found
     {/if}
-  {/await}
 
-  <button
-    class="link text-sm italic"
-    on:click={() =>
-      open(`https://openstreetmap.org/#map=12/${coord.lat}/${coord.lng}`)}
-    >View in OpenStreetMap
-  </button>
-</div>
+    <button
+      class="link text-xs italic select-none"
+      on:click={() =>
+        open(`https://openstreetmap.org/#map=12/${coord.lat}/${coord.lng}`)}
+      >(View in OSM)
+    </button>
+  </p>
+{/await}

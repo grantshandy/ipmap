@@ -1,13 +1,21 @@
 <script lang="ts">
   import MapView from "../components/MapView.svelte";
   import IpAddrInput from "../components/IpAddrInput.svelte";
+  import LocationInfoView from "../components/LocationInfoView.svelte";
+  import IpView from "../components/IpView.svelte";
 
   import { layerGroup, marker, type Map } from "leaflet";
-  import { geoip, traceroute, type Coordinate } from "../bindings";
+  import {
+    geoip,
+    traceroute,
+    type Coordinate,
+    type TracerouteOptions,
+  } from "../bindings";
   import { database } from "../utils/database";
   import { mkIcon } from "../map";
   import { GeodesicLine } from "leaflet.geodesic";
-  import IpView from "../components/IpView.svelte";
+  import { fly } from "svelte/transition";
+  import type { Hop } from "../bindings/Hop";
 
   let map: Map;
 
@@ -21,40 +29,31 @@
   let error: string | null = null;
   let loading: boolean = false;
 
-  let hops: { coord: Coordinate | null; ip: string }[] = [];
+  let options: TracerouteOptions = localStorage.tracerouteOptions
+    ? JSON.parse(localStorage.tracerouteOptions)
+    : traceroute.defaultOptions();
+  $: localStorage.tracerouteOptions = JSON.stringify(options);
+
+  let hops: Hop[] = [];
 
   const runTrace = async (ip: string) => {
-    // reset arcs
+    loading = true;
+    hops = [];
+    hops = await traceroute.trace(ip, options);
+    loading = false;
+    viewFlow();
+  };
+
+  const viewFlow = () => {
     traceLayer.eachLayer((l) => l.remove());
 
-    // load in trace
-    loading = true;
-    const hopsRecv = await traceroute.trace(ip);
-    loading = false;
+    const locations: Coordinate[] = hops
+      .filter((hop) => hop.coord != null)
+      .map((hop) => hop.coord as Coordinate);
 
-    let coords: Coordinate[] = [];
-    coords[0] = myLocation.getLatLng();
-
-    hops = [];
-    for (let i = 0; i < hopsRecv.length; i++) {
-      const loc = await geoip.lookupIp(hopsRecv[i]);
-
-      hops[i] = {
-        ip: hopsRecv[i],
-        coord: loc,
-      };
-
-      if (!loc) {
-        console.warn("no location found for", loc);
-        return;
-      }
-
-      coords.push(loc);
-    }
-
-    for (let i = 1; i < coords.length; i++) {
-      const prev = coords[i - 1];
-      const curr = coords[i];
+    for (let i = 1; i < locations.length; i++) {
+      const prev = locations[i - 1];
+      const curr = locations[i];
 
       // don't place markers on the same location
       if (prev.lat == curr.lat && prev.lng == curr.lng) continue;
@@ -81,18 +80,90 @@
     <div class="map-info-panel overflow-y-auto">
       <IpAddrInput bind:error disabled={loading} onSearch={runTrace} />
 
+      <div class="space-y-1">
+        <div
+          class="flex items-center rounded-box border border-base-300 bg-base-100 px-2 py-1 text-xs"
+        >
+          <p class="grow select-none">Max Rounds</p>
+          <input
+            bind:value={options.maxRounds}
+            class="input input-xs input-bordered"
+            type="number"
+            min="1"
+            max="255"
+          />
+        </div>
+        <div
+          class="flex items-center rounded-box border border-base-300 bg-base-100 px-2 py-1 text-xs"
+        >
+          <p class="grow select-none">Max Time to Live</p>
+          <input
+            bind:value={options.maxTtl}
+            class="input input-xs input-bordered"
+            type="number"
+            min="1"
+            max="255"
+          />
+        </div>
+      </div>
+
       {#if error}
-        <p class="w-full text-center text-sm font-bold italic text-error">
+        <p
+          class="w-full select-none text-center text-sm font-bold italic text-error"
+        >
           {error}
         </p>
       {/if}
+
       {#if loading}
-        <p class="w-full text-center text-sm font-bold italic">Loading...</p>
+        <p class="w-full select-none text-center text-sm font-bold italic">
+          Loading...
+        </p>
       {/if}
 
-      {#each hops as hop}
-        <IpView ip={hop.ip} />
-      {/each}
+      {#if hops.length > 0}
+        <hr class="bg-base-100 text-base-100" />
+
+        <h2
+          class="rounded-box border border-base-300 bg-base-100 px-3 py-2 text-lg font-bold select-none"
+        >
+          {hops.length} Hops:
+        </h2>
+
+        {#each hops as hop, i}
+          <div
+            class="space-y-3 rounded-box border border-base-300 bg-base-100 px-3 py-2"
+          >
+            <h3 class="font-semibold">
+              {i + 1}:
+              {#if hop.ip}
+                {#if hop.coord}
+                  <button
+                    class="link"
+                    on:click={() => map.flyTo(hop.coord ?? [0, 0], 6)}
+                  >
+                    {hop.ip}
+                  </button>
+                {:else}
+                  {hop.ip}
+                {/if}
+              {:else}
+                <span class="text-sm font-normal italic"
+                  >(No address found for hop)</span
+                >
+              {/if}
+            </h3>
+
+            {#if hop.coord}
+              <LocationInfoView coord={hop.coord} />
+            {/if}
+
+            {#if hop.ip}
+              <IpView ip={hop.ip} />
+            {/if}
+          </div>
+        {/each}
+      {/if}
     </div>
   </MapView>
 </div>

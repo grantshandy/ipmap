@@ -20,7 +20,7 @@
     } as any);
     map.setView(DEFAULT_POS, DEFAULT_ZOOM);
     map.attributionControl.remove();
-    map.setMaxBounds(new LatLngBounds([-90, -200], [90, 200]));
+    map.setMaxBounds(new LatLngBounds([-150, -300], [150, 400]));
     tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
       noWrap: true,
       edgeBufferTiles: 5,
@@ -34,7 +34,7 @@
 
 <svelte:window on:resize={() => map.invalidateSize()} />
 
-<div class="overflow-none relative grow select-none rounded-box">
+<div class="overflow-none relative grow rounded-box">
   {#if map}
     <div
       class="join select-bordered join-vertical absolute left-2 top-2 z-30 border"
@@ -52,7 +52,7 @@
   <slot />
   <div
     use:mapAction
-    class="z-20 h-full w-full rounded-box"
+    class="z-20 h-full w-full rounded-box select-none"
     class:map-dark={darkThemes.includes($theme)}
   ></div>
 </div>
