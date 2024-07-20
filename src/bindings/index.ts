@@ -14,7 +14,6 @@ import { type LocationInfo } from "./LocationInfo";
 import { type IpType } from "./IpType";
 import { type DatabaseQuery } from "./DatabaseQuery";
 import { type DatabaseType } from "./DatabaseType";
-import { type ThemeState } from "./ThemeState";
 
 type Coordinate = GenCoordinate<number>;
 type ThreadID = string;
@@ -23,9 +22,9 @@ const errorDialog = (msg: string): Promise<void> =>
   message(`Error: ${msg}`, { title: "Error", kind: "error" });
 
 const openAboutWindow = () =>
-  theme.update((theme) => {
-    core.invoke("about_window", { theme });
-    return theme;
+  theme.update((themeName) => {
+    core.invoke("about_window", { themeName });
+    return themeName;
   });
 
 /** Corresponding definitions in /backend/src/capture.rs */
@@ -122,7 +121,6 @@ export {
   type IpType,
   type DatabaseQuery,
   type DatabaseType,
-  type ThemeState,
   errorDialog,
   openAboutWindow,
   capture,

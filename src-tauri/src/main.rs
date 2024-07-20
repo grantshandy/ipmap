@@ -7,10 +7,8 @@ use dashmap::DashMap;
 use geoip::database::{
     self, Database, DatabaseInfo, DatabaseQuery, DatabaseType, Ipv4Bytes, Ipv6Bytes,
 };
-use serde::{Deserialize, Serialize};
 use tauri::{async_runtime, AppHandle, Manager, Runtime, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_dialog::{DialogExt, MessageDialogBuilder, MessageDialogKind};
-use ts_rs::TS;
 
 mod capture;
 mod capture_state;
@@ -140,7 +138,7 @@ struct DatabaseResult {
 }
 
 #[tauri::command]
-async fn about_window<R: Runtime>(handle: AppHandle<R>, theme: ThemeState) {
+async fn about_window<R: Runtime>(handle: AppHandle<R>, theme_name: String) {
     if let Some(window) = handle.get_webview_window("about") {
         window.set_focus().expect("bring about window to focus");
 
@@ -158,21 +156,9 @@ async fn about_window<R: Runtime>(handle: AppHandle<R>, theme: ThemeState) {
         .inner_size(500.0, 450.0)
         .title("About")
         .center()
-        .initialization_script(&format!(
-            "window.initialTheme = {};",
-            serde_json::to_string(&theme).unwrap_or_default()
-        ))
+        .initialization_script(&format!(r#"window.theme = "{theme_name}";"#))
         .parent(&main)
         .expect("set about parent window")
         .build()
         .expect("failed to build window");
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "../../src/bindings/")]
-#[serde(rename_all = "camelCase")]
-struct ThemeState {
-    is_light: bool,
-    dark: String,
-    light: String,
 }

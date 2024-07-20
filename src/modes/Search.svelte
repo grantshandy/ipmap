@@ -51,7 +51,7 @@
   $: if (error && selection) {
     selection?.marker.remove();
     selection = null;
-  };
+  }
 </script>
 
 <div class="flex grow space-x-2">

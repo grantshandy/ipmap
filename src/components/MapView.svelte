@@ -4,6 +4,7 @@
   import "leaflet-edgebuffer";
 
   import { theme } from "../utils/theme";
+  import { darkThemes } from "../themes.json";
   import { LatLngBounds, Map, map as mkMap, tileLayer } from "leaflet";
   import { DEFAULT_POS, DEFAULT_ZOOM } from "../map";
 
@@ -52,6 +53,6 @@
   <div
     use:mapAction
     class="z-20 h-full w-full rounded-box"
-    class:map-dark={!$theme.isLight}
+    class:map-dark={darkThemes.includes($theme)}
   ></div>
 </div>

@@ -57,3 +57,4 @@ Variables for building:
 - [ ] add settings for traceroute query
 - [ ] improve error handling messages in the interface
 - [x] consistient (tly-good) map-sidebar design
+- [ ] add "search" and "traceroute" buttons

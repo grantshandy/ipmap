@@ -1,139 +1,28 @@
 <!doctype html>
 <html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>about ipmap</title>
+  </head>
 
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="stylesheet" type="text/css" href="src/app.css" />
-</head>
-<script type="module">
-  import { app, event } from "@tauri-apps/api";
-  import { open } from "@tauri-apps/plugin-shell";
-  import { lightThemes, darkThemes } from "./src/themes.json";
+  <body>
+    <script type="module">
+      import "./src/app.css";
+      import About from "./src/About.svelte";
 
-  window.openLink = open;
-  const initialTheme = window.initialTheme;
+      document.addEventListener("contextmenu", (event) =>
+        event.preventDefault(),
+      );
 
-  console.log(initialTheme);
+      const app = new About({
+        target: document.body,
+        props: {
+          theme: window.theme,
+        },
+      });
 
-  const lightThemeSelector = document.getElementById("light-theme-selector");
-  const darkThemeSelector = document.getElementById("dark-theme-selector");
-  const versionSpan = document.getElementById("version");
-
-  const setTheme = (theme) =>
-    document.body.setAttribute(
-      "data-theme",
-      theme.isLight ? theme.light : theme.dark,
-    );
-
-  window.onload = async () => {
-    setTheme(initialTheme);
-    versionSpan.innerText = await app.getVersion();
-
-    event.listen("theme-change", (ev) => {
-      const theme = ev.payload;
-      lightThemeSelector.value = theme.light;
-      darkThemeSelector.value = theme.dark;
-      setTheme(theme);
-    });
-
-    lightThemeSelector.innerHTML = lightThemes
-      .map((t) => `<option value="${t}">${t}</option>`)
-      .join(" ");
-    lightThemeSelector.value = initialTheme.light;
-    lightThemeSelector.onchange = () =>
-      event.emit("set-light-theme", lightThemeSelector.value);
-
-    darkThemeSelector.innerHTML = darkThemes
-      .map((t) => `<option value="${t}">${t}</option>`)
-      .join(" ");
-    darkThemeSelector.value = initialTheme.dark;
-    darkThemeSelector.onchange = () =>
-      event.emit("set-dark-theme", darkThemeSelector.value);
-  };
-</script>
-
-<body class="flex h-screen w-screen select-none flex-col space-y-3 bg-base-100 py-10 px-16 text-center">
-  <h1 class="text-2xl font-bold pb-4">Ipmap v<span id="version"></span></h1>
-
-  <table class="table table-xs border border-base-200">
-    <tbody>
-      <tr>
-        <th>Source Code</th>
-        <td>
-          <button onClick="openLink('https://github.com/grantshandy/ipmap')" class="link">
-            Github Repository
-          </button>
-        </td>
-      </tr>
-      <tr>
-        <th>Issue Tracker</th>
-        <td>
-          <button onClick="openLink('https://github.com/grantshandy/ipmap/issues')" class="link">
-            Submit an Issue
-          </button>
-        </td>
-      </tr>
-      <tr>
-        <th>Copyright</th>
-        <td>
-          &copy; 2024
-          <button onClick="openLink('https://github.com/grantshandy')" class="link">
-            Grant Handy
-          </button>
-        </td>
-      </tr>
-      <tr>
-        <th>License</th>
-        <td>
-          <button onClick="openLink('https://github.com/grantshandy/ipmap/blob/main/LICENSE')" class="link">
-            GNU General Public License v3.0
-          </button>
-        </td>
-      </tr>
-      <tr>
-        <th>Special Thanks</th>
-        <td>
-          <button onClick="openLink('https://tauri.app')" class="link">
-            Tauri</button>,
-          <button onClick="openLink('https://svelte.dev')" class="link">
-            Svelte</button>,
-          <button onClick="openLink('https://www.tcpdump.org')" class="link">
-            Libpcap</button>,
-          <button onClick="openLink('https://npcap.com')" class="link">
-            Npcap</button>,
-          <button onClick="openLink('https://daisyui.com')" class="link">
-            DaisyUI</button>,
-          <button onClick="openLink('https://leafletjs.com')" class="link">
-            LeafletJS
-          </button>
-        </td>
-      </tr>
-    </tbody>
-  </table>
-
-  <table class="table table-xs border border-base-200">
-    <tbody>
-      <tr>
-        <th>Light Theme</th>
-        <td>
-          <select class="select select-xs w-full" id="light-theme-selector"></select>
-        </td>
-      </tr>
-      <tr>
-        <th>Dark Theme</th>
-        <td>
-          <select class="select select-xs w-full" id="dark-theme-selector"></select>
-        </td>
-      </tr>
-    </tbody>
-  </table>
-
-  <div class="flex grow flex-col-reverse">
-    <button onClick="openLink('https://buymeacoffee.com/granthandy')" class="link italic">
-      Donate to help support the project!
-    </button>
-  </div>
-</body>
-
+      export default app;
+    </script>
+  </body>
 </html>

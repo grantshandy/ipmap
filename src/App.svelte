@@ -1,7 +1,7 @@
 <script lang="ts">
   import { fade } from "svelte/transition";
   import { onMount } from "svelte";
-  import { traceroute } from "./bindings";
+  import { openAboutWindow, traceroute } from "./bindings";
   import { theme } from "./utils/theme";
   import { database } from "./utils/database";
   import { open } from "@tauri-apps/plugin-shell";
@@ -12,9 +12,7 @@
   import Reverse from "./modes/Reverse.svelte";
   import Traceroute from "./modes/Traceroute.svelte";
 
-  import ThemeSwitcher from "./components/ThemeSwitcher.svelte";
   import DatabaseSelector from "./components/DatabaseSelector.svelte";
-  import InfoWindowButton from "./components/AboutWindowButton.svelte";
 
   let view: "search" | "capture" | "reverse" | "traceroute" =
     localStorage.view ?? "search";
@@ -26,10 +24,7 @@
   });
 </script>
 
-<div
-  class="relative h-screen w-screen overflow-hidden"
-  data-theme={$theme.isLight ? $theme.light : $theme.dark}
->
+<div class="relative h-screen w-screen overflow-hidden" data-theme={$theme}>
   {#if $database.ipv4dbs.length != 0 || $database.ipv6dbs.length != 0}
     <main
       transition:fade={{ duration: 100 }}
@@ -42,8 +37,9 @@
           <option value="capture">Capture</option>
           <option value="traceroute">Traceroute</option>
         </select>
-        <ThemeSwitcher />
-        <InfoWindowButton />
+        <button on:click={() => openAboutWindow()} class="info-window-btn">
+          Info
+        </button>
         <div class="flex grow items-center justify-end space-x-3">
           <DatabaseSelector />
         </div>
@@ -87,9 +83,10 @@
       transition:fade={{ duration: 100 }}
       class="page flex items-center justify-center"
     >
-      <div class="absolute left-5 top-5 flex space-x-3">
-        <ThemeSwitcher />
-        <InfoWindowButton />
+      <div class="absolute right-5 top-5">
+        <button on:click={() => openAboutWindow()} class="info-window-btn">
+          About
+        </button>
       </div>
       <div class="select-none space-y-9 text-center">
         {#if !$database.loading}
@@ -115,3 +112,9 @@
     </main>
   {/if}
 </div>
+
+<style>
+  .info-window-btn {
+    @apply btn btn-primary btn-sm;
+  }
+</style>
