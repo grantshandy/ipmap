@@ -1,5 +1,6 @@
 use std::net::IpAddr;
 
+use ipdb_city::{Coordinate, DatabaseQuery};
 use serde::{Deserialize, Serialize};
 use tauri::State;
 use trippy_core::Builder;
@@ -7,10 +8,7 @@ use trippy_privilege::Privilege;
 use ts_rs::TS;
 
 use crate::{
-    geoip::{
-        database::{Coordinate, DatabaseQuery},
-        lookup_ip, my_location,
-    },
+    geoip::{lookup_ip, my_location},
     GlobalDatabases, PublicIpAddress,
 };
 

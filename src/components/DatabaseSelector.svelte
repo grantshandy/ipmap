@@ -45,7 +45,7 @@
 
 {#if $database.loading}
   <div
-    class="absolute bottom-8 left-0 z-[999] flex items-center space-x-3 rounded-r-box bg-base-100/[0.8] px-4 py-2"
+    class="absolute bottom-8 left-2 z-[999] flex items-center space-x-3 rounded-r-box border-y border-r border-base-300 bg-base-100/[0.8] px-4 py-2"
   >
     <span class="text-sm italic">Loading {$database.loading}...</span>
     <span class="loading loading-spinner loading-sm"></span>
@@ -91,7 +91,14 @@
 {/if}
 
 <button
-  class="btn btn-primary btn-sm"
+  class="btn btn-square btn-primary btn-sm"
   disabled={$database.loading != null}
-  on:click={database.importDatabase}>Load Database</button
+  on:click={database.importDatabase}
 >
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    class="h-5 w-5 fill-current stroke-current stroke-0"
+    ><path d="M9,16V10H5L12,3L19,10H15V16H9M5,20V18H19V20H5Z" /></svg
+  >
+</button>

@@ -4,9 +4,8 @@ use std::{net::IpAddr, path::PathBuf, process, sync::Arc};
 
 use capture_state::CaptureState;
 use dashmap::DashMap;
-use geoip::database::{
-    self, Database, DatabaseInfo, DatabaseQuery, DatabaseType, Ipv4Bytes, Ipv6Bytes,
-};
+use geoip::database;
+use ipdb_city::{Database, DatabaseInfo, DatabaseQuery, DatabaseType, Ipv4Bytes, Ipv6Bytes};
 use tauri::{async_runtime, AppHandle, Manager, Runtime, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_dialog::{DialogExt, MessageDialogBuilder, MessageDialogKind};
 

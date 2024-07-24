@@ -52,7 +52,7 @@
   <slot />
   <div
     use:mapAction
-    class="z-20 h-full w-full rounded-box select-none"
+    class="z-20 h-full w-full select-none rounded-box"
     class:map-dark={darkThemes.includes($theme)}
   ></div>
 </div>

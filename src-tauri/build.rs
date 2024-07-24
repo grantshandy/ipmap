@@ -1,9 +1,6 @@
 use std::{env, fs};
 
-#[path = "src/database.rs"]
-mod database;
-
-use database::{CompactDatabase, IpType, Ipv4Bytes, Ipv6Bytes};
+use ipdb_city::{CompactDatabase, IpType, Ipv4Bytes, Ipv6Bytes};
 
 fn main() {
     tauri_build::build();
@@ -15,7 +12,7 @@ fn main() {
         format!(
             r#"
                 use std::sync::Arc;
-                include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/database.rs"));
+                use ipdb_city::*;
                 lazy_static::lazy_static! {{
                     pub static ref IPV4_DATABASE: Option<Arc<Database<Ipv4Bytes>>> = {};
                     pub static ref IPV6_DATABASE: Option<Arc<Database<Ipv6Bytes>>> = {};

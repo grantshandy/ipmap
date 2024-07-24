@@ -2,7 +2,7 @@
 
 use std::{cmp::Ordering, net::IpAddr, path::PathBuf};
 
-use database::{Coordinate, Database, DatabaseInfo, IpRange, Ipv4Bytes, Ipv6Bytes, LocationInfo};
+use ipdb_city::{Coordinate, Database, DatabaseInfo, IpRange, Ipv4Bytes, Ipv6Bytes, LocationInfo};
 use rstar::PointDistance;
 use tauri::State;
 

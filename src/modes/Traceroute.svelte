@@ -125,7 +125,7 @@
         <hr class="bg-base-100 text-base-100" />
 
         <h2
-          class="rounded-box border border-base-300 bg-base-100 px-3 py-2 text-lg font-bold select-none"
+          class="select-none rounded-box border border-base-300 bg-base-100 px-3 py-2 text-lg font-bold"
         >
           {hops.length} Hops:
         </h2>

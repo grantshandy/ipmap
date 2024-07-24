@@ -22,7 +22,7 @@
     {/if}
 
     <button
-      class="link text-xs italic select-none"
+      class="link select-none text-xs italic"
       on:click={() =>
         open(`https://openstreetmap.org/#map=12/${coord.lat}/${coord.lng}`)}
       >(View in OSM)

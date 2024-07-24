@@ -2045,6 +2045,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6b8a253fc120dd6c624b7beb0a82330fc0135e0a9cec685bf039a07ba032af1e"
 
 [[package]]
+name = "ipdb-city"
+version = "0.1.0"
+dependencies = [
+ "compact_str",
+ "csv",
+ "eyre",
+ "half",
+ "heck 0.5.0",
+ "indexmap 2.2.6",
+ "rangemap",
+ "rstar",
+ "rustc-hash",
+ "serde",
+ "time",
+ "tracing",
+ "ts-rs",
+]
+
+[[package]]
 name = "ipmap"
 version = "3.1.0"
 dependencies = [
@@ -2060,6 +2079,7 @@ dependencies = [
  "heck 0.5.0",
  "indexmap 2.2.6",
  "ip_rfc",
+ "ipdb-city",
  "lazy_static",
  "miniz_oxide",
  "pcap",

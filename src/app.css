@@ -7,11 +7,11 @@
 }
 
 .marker-icon {
-  @apply h-full w-full rounded-full border bg-secondary text-center align-sub font-bold text-secondary-content drop-shadow-lg;
+  @apply h-full w-full rounded-full border bg-primary text-center align-sub font-bold text-primary-content drop-shadow-lg;
 }
 
 .marker-icon-active {
-  @apply marker-icon bg-primary text-lg text-primary-content !important;
+  @apply marker-icon border-2 text-lg !important;
 }
 
 .code {

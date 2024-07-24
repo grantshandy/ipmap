@@ -210,21 +210,26 @@
 
 <div class="flex grow flex-col space-y-3">
   <div class="flex select-none space-x-3">
-    <select
-      bind:value={device}
-      disabled={capturing != null}
-      class="select select-bordered select-sm w-1/3"
-    >
-      <option disabled selected value={null}>Select Network Device</option>
-      {#await capture.listDevices() then devices}
-        {#each devices as device}
-          <option value={device}>
-            {device.desc ?? `${device.name} (No Description)`}
-            {device.prefered ? " (Default)" : ""}
-          </option>
-        {/each}
-      {/await}
-    </select>
+    <div class="indicator w-1/3">
+      {#if device == null}
+        <span class="badge indicator-item badge-primary badge-sm"></span>
+      {/if}
+      <select
+        bind:value={device}
+        disabled={capturing != null}
+        class="select select-bordered select-sm w-full"
+      >
+        <option disabled selected value={null}>Select Network Device</option>
+        {#await capture.listDevices() then devices}
+          {#each devices as device}
+            <option value={device}>
+              {device.desc ?? `${device.name} (No Description)`}
+              {device.prefered ? " (Default)" : ""}
+            </option>
+          {/each}
+        {/await}
+      </select>
+    </div>
 
     <button
       on:click={toggleCapturing}
@@ -235,46 +240,44 @@
       {capturing ? "Stop" : "Start"} Capturing
     </button>
 
-    <div class="flex grow items-center justify-end space-x-3">
-      <button
-        on:click={() => {
-          if (markerLayerVisible) {
-            markerLayer.remove();
-          } else {
-            markerLayer.addTo(map);
-          }
+    <button
+      on:click={() => {
+        if (markerLayerVisible) {
+          markerLayer.remove();
+        } else {
+          markerLayer.addTo(map);
+        }
 
-          markerLayerVisible = !markerLayerVisible;
-        }}
-        class="btn btn-circle btn-ghost btn-sm p-2"
-        class:btn-active={markerLayerVisible}
-      >
-        <div class="marker-icon drop-shadow-none"></div>
-      </button>
-      <button
-        on:click={() => {
-          if (arcLayerVisible) {
-            arcLayer.remove();
-          } else {
-            arcLayer.addTo(map);
-          }
+        markerLayerVisible = !markerLayerVisible;
+      }}
+      class="btn btn-square btn-ghost btn-sm p-2"
+      class:btn-active={markerLayerVisible}
+    >
+      <div class="marker-icon drop-shadow-none"></div>
+    </button>
+    <button
+      on:click={() => {
+        if (arcLayerVisible) {
+          arcLayer.remove();
+        } else {
+          arcLayer.addTo(map);
+        }
 
-          arcLayerVisible = !arcLayerVisible;
-        }}
-        class="btn btn-circle btn-ghost btn-sm p-2"
-        class:btn-active={arcLayerVisible}
-      >
-        <div
-          class="h-full w-full rounded-full border-[0.15rem] border-dotted border-warning"
-        />
-      </button>
-    </div>
+        arcLayerVisible = !arcLayerVisible;
+      }}
+      class="btn btn-square btn-ghost btn-sm p-2"
+      class:btn-active={arcLayerVisible}
+    >
+      <div
+        class="h-full w-full rounded-full border-[0.15rem] border-dotted border-warning"
+      />
+    </button>
   </div>
 
   <div class="flex grow space-x-3">
     <MapView bind:map>
       <div
-        class="absolute bottom-0 left-0 z-30 flex select-none items-center rounded-tr-box bg-base-100 pr-1 text-xs"
+        class="absolute bottom-0 left-0 z-30 flex select-none items-center rounded-tr-box bg-base-100 pr-1.5 pt-0.5 text-xs"
       >
         <div class="color-indicator bg-success" />
         <span>Incoming</span>
@@ -289,7 +292,7 @@
           <div
             class="space-y-3 rounded-box border border-base-300 bg-base-100 px-3 py-2"
           >
-            <h2 class="font-semibold select-none">Location Information</h2>
+            <h2 class="select-none font-semibold">Location Information</h2>
             <LocationInfoView coord={selection.coord} />
           </div>
           {#each selection.ips as ip, i}
