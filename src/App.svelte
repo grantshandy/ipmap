@@ -66,31 +66,29 @@
         <Reverse />
       {:else}
         {#await traceroute.isPrivileged() then privileged}
-          {#await platform() then platform}
-            <!-- capture needs privileges on non-win32 systems -->
-            {#if view == "capture" && ((platform != "windows" && privileged) || platform == "windows")}
-              <Capture />
+          <!-- capture needs privileges on non-win32 systems -->
+          {#if view == "capture" && ((platform() != "windows" && privileged) || platform() == "windows")}
+            <Capture />
 
-              <!-- traceroute needs privileges on all systems -->
-            {:else if view == "traceroute" && privileged}
-              <Traceroute />
+            <!-- traceroute needs privileges on all systems -->
+          {:else if view == "traceroute" && privileged}
+            <Traceroute />
 
-              <!-- don't have the required privileges for the current mode, tell the current user -->
-            {:else}
-              <div class="flex grow items-center justify-center">
-                {#if platform == "windows"}
-                  <h1 class="text-lg font-semibold">
-                    Run in Administrator mode to enable this feature.
-                  </h1>
-                {:else}
-                  <h1 class="text-lg font-semibold">
-                    <span class="code">CAP_NET_RAW</span> or root privileges required
-                    for this mode.
-                  </h1>
-                {/if}
-              </div>
-            {/if}
-          {/await}
+            <!-- don't have the required privileges for the current mode, tell the current user -->
+          {:else}
+            <div class="flex grow items-center justify-center">
+              {#if platform() == "windows"}
+                <h1 class="text-lg font-semibold">
+                  Run in Administrator mode to enable this feature.
+                </h1>
+              {:else}
+                <h1 class="text-lg font-semibold">
+                  <span class="code">CAP_NET_RAW</span> or root privileges required
+                  for this mode.
+                </h1>
+              {/if}
+            </div>
+          {/if}
         {/await}
       {/if}
     </main>

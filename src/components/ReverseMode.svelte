@@ -15,11 +15,20 @@
   let query: Coordinate = { lat: 0, lng: 0 };
   let result: Coordinate = query;
 
+  $: if (map)
+    map.on("click", (ev) => {
+      const latlng = (ev as LeafletMouseEvent).latlng;
+      query = latlng;
+      result = latlng;
+      queryMarker.setLatLng(latlng);
+    });
+
   const queryMarker: Marker = marker([0, 0], {
     draggable: true,
     autoPan: true,
     icon: mkIcon(null),
   }).on("move", (ev) => (query = (ev as LeafletMouseEvent).latlng));
+
   const line = new GeodesicLine([queryMarker.getLatLng(), [0, 0]], {
     className: "map-line",
   });
