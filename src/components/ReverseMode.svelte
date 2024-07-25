@@ -15,14 +15,6 @@
   let query: Coordinate = { lat: 0, lng: 0 };
   let result: Coordinate = query;
 
-  $: if (map)
-    map.on("click", (ev) => {
-      const latlng = (ev as LeafletMouseEvent).latlng;
-      query = latlng;
-      result = latlng;
-      queryMarker.setLatLng(latlng);
-    });
-
   const queryMarker: Marker = marker([0, 0], {
     draggable: true,
     autoPan: true,
@@ -45,11 +37,17 @@
   $: line.setLatLngs([query, result]);
 
   // add marker and line to map when created
-  $: if (map) {
-    map.invalidateSize();
-    queryMarker.addTo(map);
-    line.addTo(map);
-  }
+  $: if (map)
+    map.on("click", (ev) => {
+      if (!map.hasLayer(queryMarker)) {
+        queryMarker.addTo(map);
+        line.addTo(map);
+      }
+
+      query = ev.latlng;
+      result = ev.latlng;
+      queryMarker.setLatLng(ev.latlng);
+    });
 </script>
 
 <div class="flex grow space-x-2">

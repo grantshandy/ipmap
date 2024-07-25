@@ -77,16 +77,14 @@
             <!-- don't have the required privileges for the current mode, tell the current user -->
           {:else}
             <div class="flex grow items-center justify-center">
-              {#if platform() == "windows"}
-                <h1 class="text-lg font-semibold">
+              <h1 class="text-lg font-semibold">
+                {#if platform() == "windows"}
                   Run in Administrator mode to enable this feature.
-                </h1>
-              {:else}
-                <h1 class="text-lg font-semibold">
+                {:else}
                   <span class="code">CAP_NET_RAW</span> or root privileges required
                   for this mode.
-                </h1>
-              {/if}
+                {/if}
+              </h1>
             </div>
           {/if}
         {/await}
