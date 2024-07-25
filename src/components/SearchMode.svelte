@@ -1,13 +1,13 @@
 <script lang="ts">
-  import MapView from "../components/MapView.svelte";
-  import IpAddrInput from "../components/IpAddrInput.svelte";
-  import IpLocationView from "../components/IpView.svelte";
+  import MapView from "./MapView.svelte";
+  import IpAddrInput from "./IpAddrInput.svelte";
+  import IpLocationView from "./IpView.svelte";
 
   import { marker, Map } from "leaflet";
 
   import { geoip, type Coordinate } from "../bindings";
   import { mkIcon, type IpLocation } from "../map";
-  import LocationName from "../components/LocationInfoView.svelte";
+  import LocationName from "./LocationInfoView.svelte";
 
   let map: Map;
   let error: string | null = null;
@@ -65,7 +65,7 @@
       {/if}
       {#if selection}
         <div
-          class="border-base-300r space-y-3 rounded-box border bg-base-100 px-3 py-2"
+          class="space-y-3 rounded-box border border-base-300 bg-base-100 px-3 py-2"
         >
           <LocationName coord={selection.coord} />
           {#each selection.ips as ip}

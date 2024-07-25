@@ -7,37 +7,39 @@ fn main() {
 
     let out_dir = env::var("OUT_DIR").unwrap();
 
+    // returns BuiltinDatabase<IpvXBytes> codegen str >:)
+    let ipv4_db = embed_database(&out_dir, IpType::IPv4);
+    let ipv6_db = embed_database(&out_dir, IpType::IPv6);
+
     fs::write(
         format!("{out_dir}/internal_database.rs"),
         format!(
             r#"
-                use std::sync::Arc;
+                use std::sync::{{Arc, LazyLock}};
                 use ipdb_city::*;
-                lazy_static::lazy_static! {{
-                    pub static ref IPV4_DATABASE: Option<Arc<Database<Ipv4Bytes>>> = {};
-                    pub static ref IPV6_DATABASE: Option<Arc<Database<Ipv6Bytes>>> = {};
-                }}
-            "#,
-            embed_database(&out_dir, IpType::IPv4),
-            embed_database(&out_dir, IpType::IPv6)
+
+                pub type BuiltinDatabase<B> = LazyLock<Option<Arc<Database<B>>>>;
+                pub static IPV4_DATABASE: BuiltinDatabase<Ipv4Bytes> = LazyLock::new(|| {ipv4_db});
+                pub static IPV6_DATABASE: BuiltinDatabase<Ipv6Bytes> = LazyLock::new(|| {ipv6_db});
+            "#
         ),
     )
-    .expect("open database file");
+    .expect("write database file");
 }
 
 // Returns Some(...) or None
 fn embed_database(out_dir: &String, kind: IpType) -> String {
     let db_var = match kind {
-        IpType::IPv4 => "IPV4NUM_DB",
-        IpType::IPv6 => "IPV6NUM_DB",
+        IpType::IPv4 => "IPGEO4_DB",
+        IpType::IPv6 => "IPGEO6_DB",
     };
 
     println!("cargo:rerun-if-env-changed={db_var}");
 
     match env::var(db_var) {
         Ok(ip_csv_path) => {
-            let attribution = env::var(format!("{db_var}_ATTRIBUTION"))
-                .expect("IPVX_DB_ATTRIBUTION must be set.");
+            let attribution =
+                env::var(format!("{db_var}_ATTR")).expect("IPVX_DB_ATTR must be set.");
 
             let db = match kind {
                 IpType::IPv4 => bincode::serialize(

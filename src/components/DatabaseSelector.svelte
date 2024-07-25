@@ -3,6 +3,8 @@
   import { database } from "../utils/database";
   import { confirm, message } from "@tauri-apps/plugin-dialog";
 
+  import UploadIcon from "../assets/upload-icon.svg?raw";
+
   const dbInfo = (db: IpType) => {
     let info: DatabaseInfo;
 
@@ -95,10 +97,5 @@
   disabled={$database.loading != null}
   on:click={database.importDatabase}
 >
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    viewBox="0 0 24 24"
-    class="h-5 w-5 fill-current stroke-current stroke-0"
-    ><path d="M9,16V10H5L12,3L19,10H15V16H9M5,20V18H19V20H5Z" /></svg
-  >
+  {@html UploadIcon}
 </button>

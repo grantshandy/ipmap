@@ -126,6 +126,7 @@ export {
   type DatabaseQuery,
   type DatabaseType,
   type TracerouteOptions,
+  type Hop,
   errorDialog,
   openAboutWindow,
   capture,

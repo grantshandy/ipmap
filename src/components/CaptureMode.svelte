@@ -1,6 +1,7 @@
 <script lang="ts">
-  import MapView from "../components/MapView.svelte";
-  import IpLocationView from "../components/IpView.svelte";
+  import MapView from "./MapView.svelte";
+  import LocationInfoView from "./LocationInfoView.svelte";
+  import IpView from "./IpView.svelte";
 
   import { onDestroy } from "svelte";
   import type { UnlistenFn } from "@tauri-apps/api/event";
@@ -17,8 +18,6 @@
     capture,
     geoip,
   } from "../bindings";
-  import LocationInfoView from "../components/LocationInfoView.svelte";
-  import IpView from "../components/IpView.svelte";
 
   const POLL_MS = 250;
 
@@ -209,69 +208,75 @@
 </script>
 
 <div class="flex grow flex-col space-y-3">
-  <div class="flex select-none space-x-3">
-    <div class="indicator w-1/3">
-      {#if device == null}
-        <span class="badge indicator-item badge-primary badge-sm"></span>
-      {/if}
-      <select
-        bind:value={device}
-        disabled={capturing != null}
-        class="select select-bordered select-sm w-full"
+  <hr class="select-bordered" />
+
+  <div class="flex select-none">
+    <div class="flex grow space-x-3">
+      <div class="indicator w-1/3">
+        {#if device == null}
+          <span class="badge indicator-item badge-primary badge-sm"></span>
+        {/if}
+        <select
+          bind:value={device}
+          disabled={capturing != null}
+          class="select select-bordered select-sm w-full"
+        >
+          <option disabled selected value={null}>Select Network Device</option>
+          {#await capture.listDevices() then devices}
+            {#each devices as device}
+              <option value={device}>
+                {device.desc ?? `${device.name} (No Description)`}
+                {device.prefered ? " (Default)" : ""}
+              </option>
+            {/each}
+          {/await}
+        </select>
+      </div>
+
+      <button
+        on:click={toggleCapturing}
+        disabled={!device}
+        class="btn btn-primary btn-sm"
+        class:btn-active={capturing}
       >
-        <option disabled selected value={null}>Select Network Device</option>
-        {#await capture.listDevices() then devices}
-          {#each devices as device}
-            <option value={device}>
-              {device.desc ?? `${device.name} (No Description)`}
-              {device.prefered ? " (Default)" : ""}
-            </option>
-          {/each}
-        {/await}
-      </select>
+        {capturing ? "Stop" : "Start"} Capturing
+      </button>
     </div>
 
-    <button
-      on:click={toggleCapturing}
-      disabled={!device}
-      class="btn btn-primary btn-sm"
-      class:btn-active={capturing}
-    >
-      {capturing ? "Stop" : "Start"} Capturing
-    </button>
+    <div class="flex space-x-3">
+      <button
+        on:click={() => {
+          if (markerLayerVisible) {
+            markerLayer.remove();
+          } else {
+            markerLayer.addTo(map);
+          }
 
-    <button
-      on:click={() => {
-        if (markerLayerVisible) {
-          markerLayer.remove();
-        } else {
-          markerLayer.addTo(map);
-        }
+          markerLayerVisible = !markerLayerVisible;
+        }}
+        class="btn btn-square btn-ghost btn-sm p-2"
+        class:btn-active={markerLayerVisible}
+      >
+        <div class="marker-icon drop-shadow-none"></div>
+      </button>
+      <button
+        on:click={() => {
+          if (arcLayerVisible) {
+            arcLayer.remove();
+          } else {
+            arcLayer.addTo(map);
+          }
 
-        markerLayerVisible = !markerLayerVisible;
-      }}
-      class="btn btn-square btn-ghost btn-sm p-2"
-      class:btn-active={markerLayerVisible}
-    >
-      <div class="marker-icon drop-shadow-none"></div>
-    </button>
-    <button
-      on:click={() => {
-        if (arcLayerVisible) {
-          arcLayer.remove();
-        } else {
-          arcLayer.addTo(map);
-        }
-
-        arcLayerVisible = !arcLayerVisible;
-      }}
-      class="btn btn-square btn-ghost btn-sm p-2"
-      class:btn-active={arcLayerVisible}
-    >
-      <div
-        class="h-full w-full rounded-full border-[0.15rem] border-dotted border-warning"
-      />
-    </button>
+          arcLayerVisible = !arcLayerVisible;
+        }}
+        class="btn btn-square btn-ghost btn-sm p-2"
+        class:btn-active={arcLayerVisible}
+      >
+        <div
+          class="h-full w-full rounded-full border-[0.15rem] border-dotted border-warning"
+        />
+      </button>
+    </div>
   </div>
 
   <div class="flex grow space-x-3">

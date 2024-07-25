@@ -4,7 +4,6 @@ use std::{net::IpAddr, path::PathBuf, process, sync::Arc};
 
 use capture_state::CaptureState;
 use dashmap::DashMap;
-use geoip::database;
 use ipdb_city::{Database, DatabaseInfo, DatabaseQuery, DatabaseType, Ipv4Bytes, Ipv6Bytes};
 use tauri::{async_runtime, AppHandle, Manager, Runtime, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_dialog::{DialogExt, MessageDialogBuilder, MessageDialogKind};
@@ -13,6 +12,10 @@ mod capture;
 mod capture_state;
 mod geoip;
 mod traceroute;
+
+mod internal_database {
+    include!(concat!(env!("OUT_DIR"), "/internal_database.rs"));
+}
 
 /// The cached result of public_ip::addr()
 type PublicIpAddress = IpAddr;
@@ -83,11 +86,11 @@ struct GlobalDatabases {
 impl GlobalDatabases {
     /// TODO: only load once
     pub fn init_internal(&self) {
-        if let Some(internal) = database::IPV4_DATABASE.as_ref() {
+        if let Some(internal) = internal_database::IPV4_DATABASE.as_ref() {
             self.ipv4.insert(DatabaseType::Internal, internal.clone());
         }
 
-        if let Some(internal) = database::IPV6_DATABASE.as_ref() {
+        if let Some(internal) = internal_database::IPV6_DATABASE.as_ref() {
             self.ipv6.insert(DatabaseType::Internal, internal.clone());
         }
     }

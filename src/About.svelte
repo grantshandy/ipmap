@@ -1,12 +1,14 @@
 <script lang="ts" type="module">
   import { app, event } from "@tauri-apps/api";
-  import { open } from "@tauri-apps/plugin-shell";
+  import { platform } from "@tauri-apps/plugin-os";
+
   import {
     lightThemes,
     darkThemes,
     defaultDarkTheme,
     defaultLightTheme,
   } from "./themes.json";
+  import Link from "./components/Link.svelte";
 
   export let theme: string;
   let isDark: boolean = darkThemes.includes(theme);
@@ -30,70 +32,49 @@
       <tr>
         <th>Source Code</th>
         <td>
-          <button
-            on:click={() => open("https://github.com/grantshandy/ipmap")}
-            class="link"
-          >
+          <Link href="https://github.com/grantshandy/ipmap">
             Github Repository
-          </button>
+          </Link>
         </td>
       </tr>
       <tr>
         <th>Issue Tracker</th>
         <td>
-          <button
-            on:click={() => open("https://github.com/grantshandy/ipmap/issues")}
-            class="link"
-          >
+          <Link href="https://github.com/grantshandy/ipmap/issues">
             Submit an Issue
-          </button>
+          </Link>
         </td>
       </tr>
       <tr>
         <th>Copyright</th>
         <td>
           &copy; 2024
-          <button
-            on:click={() => open("https://github.com/grantshandy/")}
-            class="link"
-          >
-            Grant Handy
-          </button>
+          <Link href="https://github.com/grantshandy">Grant Handy</Link>
         </td>
       </tr>
       <tr>
         <th>License</th>
         <td>
-          <button
-            on:click={() =>
-              open("https://github.com/grantshandy/ipmap/blob/main/LICENSE")}
-            class="link"
-          >
+          <Link href="https://github.com/grantshandy/ipmap/blob/main/LICENSE">
             GNU General Public License v3.0
-          </button>
+          </Link>
         </td>
       </tr>
       <tr>
         <th>Special Thanks</th>
         <td>
-          <button on:click={() => open("https://leafletjs.com")} class="link">
-            LeafletJS
-          </button>,
-          <button on:click={() => open("https://tauri.app")} class="link">
-            Tauri
-          </button>,
-          <button on:click={() => open("https://svelte.dev")} class="link">
-            Svelte
-          </button>,
-          <button on:click={() => open("https://www.tcpdump.org")} class="link">
-            Libpcap
-          </button>,
-          <button on:click={() => open("https://npcap.com")} class="link">
-            Npcap
-          </button>,
-          <button on:click={() => open("https://daisyui.com")} class="link">
-            DaisyUI
-          </button>
+          <Link href="https://leafletjs.com">LeafletJS</Link>,
+          <Link href="https://osm.org">OpenStreetMap Contributors</Link>,
+          <Link href="https://tauri.app">Tauri</Link>,
+          <Link href="https://svelte.dev">Svelte</Link>,
+
+          {#if platform() == "windows"}
+            <Link href="https://npcap.com">Npcap</Link>,
+          {:else}
+            <Link href="https://www.tcpdump.org">Libpcap</Link>,
+          {/if}
+
+          <Link href="https://daisyui.com">DaisyUI</Link>
         </td>
       </tr>
     </tbody>
@@ -124,11 +105,8 @@
   </table>
 
   <div class="flex grow flex-col-reverse">
-    <button
-      on:click={() => open("https://buymeacoffee.com/granthandy")}
-      class="link italic"
+    <Link href="https://buymeacoffee.com/granthandy" className="italic"
+      >Donate to help support the project!</Link
     >
-      Donate to help support the project!
-    </button>
   </div>
 </div>

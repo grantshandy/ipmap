@@ -3,14 +3,9 @@
 use std::{cmp::Ordering, net::IpAddr, path::PathBuf};
 
 use ipdb_city::{Coordinate, Database, DatabaseInfo, IpRange, Ipv4Bytes, Ipv6Bytes, LocationInfo};
-use rstar::PointDistance;
 use tauri::State;
 
 use crate::{DatabaseQuery, GlobalDatabases, PublicIpAddress};
-
-pub mod database {
-    include!(concat!(env!("OUT_DIR"), "/internal_database.rs"));
-}
 
 /// Load a database by its identifier (a path).
 /// No path (None) is for the database optionally compiled into the executable.
@@ -153,9 +148,8 @@ pub async fn nearest_location(
     ) {
         // closest in both
         (Some(v4_location), Some(v6_location)) => {
-            match coord
-                .distance_2(&v4_location)
-                .partial_cmp(&coord.distance_2(&v6_location))
+            match ipdb_city::coord_distance_2(&v4_location, &coord)
+                .partial_cmp(&ipdb_city::coord_distance_2(&v6_location, &coord))
             {
                 // v4 closer
                 Some(Ordering::Less) => Ok(v4_location),

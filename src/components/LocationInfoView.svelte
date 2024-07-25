@@ -1,6 +1,6 @@
 <script lang="ts">
   import { geoip, type Coordinate } from "../bindings";
-  import { open } from "@tauri-apps/plugin-shell";
+  import Link from "./Link.svelte";
 
   const countryNames = new Intl.DisplayNames("en", { type: "region" });
 
@@ -21,11 +21,10 @@
       No Location Data Found
     {/if}
 
-    <button
-      class="link select-none text-xs italic"
-      on:click={() =>
-        open(`https://openstreetmap.org/#map=12/${coord.lat}/${coord.lng}`)}
+    <Link
+      className="select-none text-xs italic"
+      href={`https://openstreetmap.org/#map=12/${coord.lat}/${coord.lng}`}
       >(View in OSM)
-    </button>
+    </Link>
   </p>
 {/await}

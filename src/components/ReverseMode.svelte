@@ -1,12 +1,12 @@
 <script lang="ts">
-  import MapView from "../components/MapView.svelte";
+  import MapView from "./MapView.svelte";
 
   import { GeodesicLine } from "leaflet.geodesic";
   import { Map, marker, type LeafletMouseEvent, type Marker } from "leaflet";
 
   import { geoip, type Coordinate } from "../bindings";
   import { mkIcon } from "../map";
-  import LocationInfoView from "../components/LocationInfoView.svelte";
+  import LocationInfoView from "./LocationInfoView.svelte";
 
   const MAX_RANGES = 200;
 

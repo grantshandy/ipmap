@@ -1,18 +1,19 @@
 <script lang="ts">
+  import Search from "./components/SearchMode.svelte";
+  import Capture from "./components/CaptureMode.svelte";
+  import Reverse from "./components/ReverseMode.svelte";
+  import Traceroute from "./components/TracerouteMode.svelte";
+  import DatabaseSelector from "./components/DatabaseSelector.svelte";
+
+  import InfoIcon from "./assets/info-icon.svg?raw";
+
   import { fade } from "svelte/transition";
   import { onMount } from "svelte";
   import { openAboutWindow, traceroute } from "./bindings";
   import { theme } from "./utils/theme";
   import { database } from "./utils/database";
-  import { open } from "@tauri-apps/plugin-shell";
   import { platform } from "@tauri-apps/plugin-os";
-
-  import Search from "./modes/Search.svelte";
-  import Capture from "./modes/Capture.svelte";
-  import Reverse from "./modes/Reverse.svelte";
-  import Traceroute from "./modes/Traceroute.svelte";
-
-  import DatabaseSelector from "./components/DatabaseSelector.svelte";
+  import Link from "./components/Link.svelte";
 
   let view: "search" | "capture" | "reverse" | "traceroute" =
     localStorage.view ?? "search";
@@ -31,26 +32,31 @@
       class="page flex flex-col space-y-3 p-2"
     >
       <div class="flex items-center space-x-3">
-        <select bind:value={view} class="select select-bordered select-sm">
-          <option value="search">Search</option>
-          <option value="reverse">Reverse Search</option>
-          <option value="capture">Capture</option>
-          <option value="traceroute">Traceroute</option>
-        </select>
+        <div
+          class="tooltip tooltip-right"
+          data-tip={((view) => {
+            if (view == "search") return "View an IP's location";
+            if (view == "reverse")
+              return "Find IP blocks nearest to the marker";
+            if (view == "capture") return "View connected peers in real time";
+            if (view == "traceroute")
+              return "View the path data takes to its destination";
+          })(view)}
+        >
+          <select bind:value={view} class="select select-bordered select-sm">
+            <option value="search">Search</option>
+            <option value="reverse">Reverse Search</option>
+            <option value="capture">Capture</option>
+            <option value="traceroute">Traceroute</option>
+          </select>
+        </div>
         <div class="flex grow items-center justify-end space-x-3">
           <DatabaseSelector />
           <button
             on:click={() => openAboutWindow($theme)}
             class="btn btn-square btn-primary btn-sm"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              class="h-5 w-5 fill-current stroke-current stroke-0"
-              ><path
-                d="M11,9H13V7H11M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M11,17H13V11H11V17Z"
-              /></svg
-            >
+            {@html InfoIcon}
           </button>
         </div>
       </div>
@@ -98,14 +104,7 @@
           on:click={() => openAboutWindow($theme)}
           class="btn btn-square btn-primary btn-sm"
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            class="h-5 w-5 fill-current stroke-current stroke-0"
-            ><path
-              d="M11,9H13V7H11M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M11,17H13V11H11V17Z"
-            /></svg
-          >
+          {@html InfoIcon}
         </button>
       </div>
       <div class="select-none space-y-9 text-center">
@@ -119,10 +118,9 @@
               >*-city-ipvX-num.csv</span
             >
             format, and can be found at the
-            <button
-              on:click={() => open("https://github.com/sapics/ip-location-db")}
-              class="text-success underline">ip-location-db</button
-            > repository.
+            <Link href="https://github.com/sapics/ip-location-db">
+              ip-location-db
+            </Link> repository.
           </p>
         {:else}
           <p class="text-xl italic">Loading {$database.loading}...</p>

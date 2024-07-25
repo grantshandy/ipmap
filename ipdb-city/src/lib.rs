@@ -13,9 +13,8 @@ use half::f16;
 use heck::ToTitleCase;
 use indexmap::IndexSet;
 use rangemap::{RangeInclusiveMap, StepLite};
-use rstar::RTree;
-use rustc_hash::FxHashMap;
-use rustc_hash::FxHasher;
+use rstar::{PointDistance, RTree};
+use rustc_hash::{FxHashMap, FxHasher};
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use ts_rs::TS;
@@ -535,4 +534,8 @@ pub enum DatabaseType {
 pub struct DatabaseQuery {
     pub ipv4: Option<DatabaseType>,
     pub ipv6: Option<DatabaseType>,
+}
+
+pub fn coord_distance_2(from: &Coordinate, to: &Coordinate) -> f32 {
+    from.distance_2(to)
 }

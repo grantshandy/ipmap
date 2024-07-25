@@ -1,8 +1,8 @@
 <script lang="ts">
-  import MapView from "../components/MapView.svelte";
-  import IpAddrInput from "../components/IpAddrInput.svelte";
-  import LocationInfoView from "../components/LocationInfoView.svelte";
-  import IpView from "../components/IpView.svelte";
+  import MapView from "./MapView.svelte";
+  import IpAddrInput from "./IpAddrInput.svelte";
+  import LocationInfoView from "./LocationInfoView.svelte";
+  import IpView from "./IpView.svelte";
 
   import { layerGroup, marker, type Map } from "leaflet";
   import {
@@ -10,12 +10,11 @@
     traceroute,
     type Coordinate,
     type TracerouteOptions,
+    type Hop,
   } from "../bindings";
   import { database } from "../utils/database";
   import { mkIcon } from "../map";
   import { GeodesicLine } from "leaflet.geodesic";
-  import { fly } from "svelte/transition";
-  import type { Hop } from "../bindings/Hop";
 
   let map: Map;
 
