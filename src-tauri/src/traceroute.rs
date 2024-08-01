@@ -50,7 +50,7 @@ pub async fn traceroute(
         coord: Some(my_location),
     });
 
-    for hop in snapshot.hops(trippy_core::State::default_flow_id()) {
+    for hop in snapshot.hops() {
         if let Some(ip) = hop.addrs().nth(0) {
             if !ip_rfc::global(&ip) {
                 continue;

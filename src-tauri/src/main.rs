@@ -42,7 +42,7 @@ fn main() {
                 .kind(MessageDialogKind::Error)
                 .blocking_show();
 
-                process::exit(1);
+                process::exit(1)
             };
 
             tracing::info!("got ip");

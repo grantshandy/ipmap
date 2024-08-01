@@ -4,10 +4,7 @@
     utils.url = "github:numtide/flake-utils";
     rust = {
       url = "github:oxalica/rust-overlay";
-      inputs = {
-        nixpkgs.follows = "nixpkgs";
-        flake-utils.follows = "utils";
-      };
+      inputs.nixpkgs.follows = "nixpkgs";
     };
   };
 
@@ -21,7 +18,18 @@
       in
       {
         devShells.default = pkgs.mkShell {
-          buildInputs = with pkgs; [ rust-bin.stable.latest.default nodejs_latest cargo-tauri webkitgtk pkg-config libpcap ];
+          buildInputs = with pkgs; [
+            rust-bin.stable.latest.default
+            nodejs
+            webkitgtk_4_1
+            pkg-config
+            openssl
+            libpcap
+            wget
+            libappimage
+            appimagekit
+            appimage-run
+          ];
         };
 
         formatter = pkgs.nixpkgs-fmt;

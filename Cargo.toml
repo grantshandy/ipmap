@@ -1,5 +1,5 @@
 [workspace]
-members = [ "ipdb-city","src-tauri"]
+members = [ "ipdb-city","src-tauri" ]
 resolver = "2"
 
 # lean and mean
@@ -13,5 +13,5 @@ strip = true
 serde = { version = "1.0", features = ["derive"] }
 tracing = "0.1.40"
 time = { version = "0.3.36", features = ["serde"] }
-ts-rs = { version = "8.1.0", features = ["uuid-impl"] }
-rustc-hash = "1.1.0"
+ts-rs = { version = "9.0.1", features = ["uuid-impl"] }
+rustc-hash = "2.0.0"

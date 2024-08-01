@@ -16,8 +16,8 @@ Variables for building:
 (Example)
 
 ```shell
- $ IPV4NUM_DB="/path/to/dbip-city-ipv4-num.csv"
- $ IPV4NUM_DB_ATTRIBUTION="IP Geolocation by DB-IP"
+ $ IPGEO4_DB="/path/to/dbip-city-ipv4-num.csv"
+ $ IPGEO4_DB_ATTR="IP Geolocation by DB-IP"
 ```
 
 # Dependencies

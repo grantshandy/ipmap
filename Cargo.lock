@@ -3,12 +3,6 @@
 version = 3
 
 [[package]]
-name = "Inflector"
-version = "0.11.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe438c63458706e03479442743baae6c88256498e6431708f6dfc520a26515d3"
-
-[[package]]
 name = "addr2line"
 version = "0.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -833,11 +827,12 @@ dependencies = [
 
 [[package]]
 name = "dashmap"
-version = "5.5.3"
+version = "6.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "978747c1d849a7d2ee5e8adc0159961c48fb7e5db2f06af6723b80123bb53856"
+checksum = "804c8821570c3f8b70230c2ba75ffa5c0f9a4189b9a432b6656c536712acae28"
 dependencies = [
  "cfg-if",
+ "crossbeam-utils",
  "hashbrown 0.14.5",
  "lock_api",
  "once_cell",
@@ -3488,9 +3483,9 @@ checksum = "719b953e2095829ee67db738b3bfa9fa368c94900df327b3f07fe6e794d2fe1f"
 
 [[package]]
 name = "rustc-hash"
-version = "1.1.0"
+version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "08d43f7aa6b08d49f382cde6a7982047c3426db949b1424bc4b7ec9ae12c6ce2"
+checksum = "583034fd73374156e66797ed8e5b0d5690409c9226b22d87cb7f19821c05d152"
 
 [[package]]
 name = "rustc_version"
@@ -4691,7 +4686,7 @@ dependencies = [
 [[package]]
 name = "trippy-core"
 version = "0.11.0-dev"
-source = "git+https://github.com/fujiapple852/trippy#16e2589ba8a24ffecda17261b694ec58876a1e1e"
+source = "git+https://github.com/fujiapple852/trippy#d6d92651ece851099743006492e40eb01a6657be"
 dependencies = [
  "arrayvec",
  "bitflags 2.6.0",
@@ -4713,7 +4708,7 @@ dependencies = [
 [[package]]
 name = "trippy-packet"
 version = "0.11.0-dev"
-source = "git+https://github.com/fujiapple852/trippy#16e2589ba8a24ffecda17261b694ec58876a1e1e"
+source = "git+https://github.com/fujiapple852/trippy#d6d92651ece851099743006492e40eb01a6657be"
 dependencies = [
  "itertools",
  "thiserror",
@@ -4722,7 +4717,7 @@ dependencies = [
 [[package]]
 name = "trippy-privilege"
 version = "0.11.0-dev"
-source = "git+https://github.com/fujiapple852/trippy#16e2589ba8a24ffecda17261b694ec58876a1e1e"
+source = "git+https://github.com/fujiapple852/trippy#d6d92651ece851099743006492e40eb01a6657be"
 dependencies = [
  "caps",
  "nix 0.29.0",
@@ -4784,9 +4779,9 @@ checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
 name = "ts-rs"
-version = "8.1.0"
+version = "9.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "09d3fa4606cdab1e9b668cc65ce2545941d01f52bc27536a195c66c55b91cb84"
+checksum = "b44017f9f875786e543595076374b9ef7d13465a518dd93d6ccdbf5b432dde8c"
 dependencies = [
  "thiserror",
  "ts-rs-macros",
@@ -4795,11 +4790,10 @@ dependencies = [
 
 [[package]]
 name = "ts-rs-macros"
-version = "8.1.0"
+version = "9.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f86ae36cbb2d58b86677ad413054feeb0712e382e822131cf9a4a1e580c419b5"
+checksum = "c88cc88fd23b5a04528f3a8436024f20010a16ec18eb23c164b1242f65860130"
 dependencies = [
- "Inflector",
  "proc-macro2",
  "quote",
  "syn 2.0.71",
