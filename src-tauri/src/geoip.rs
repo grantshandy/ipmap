@@ -5,7 +5,7 @@ use std::{cmp::Ordering, net::IpAddr, path::PathBuf};
 use ipdb_city::{Coordinate, Database, DatabaseInfo, IpRange, Ipv4Bytes, Ipv6Bytes, LocationInfo};
 use tauri::State;
 
-use crate::{DatabaseQuery, GlobalDatabases, PublicIpAddress};
+use crate::{DatabaseQuery, GlobalDatabases, PUBLIC_IP};
 
 /// Load a database by its identifier (a path).
 /// No path (None) is for the database optionally compiled into the executable.
@@ -188,15 +188,14 @@ pub fn location_info(
 #[tauri::command]
 pub async fn my_location(
     loaded_databases: State<'_, GlobalDatabases>,
-    ip: State<'_, PublicIpAddress>,
     database: DatabaseQuery,
 ) -> Result<Coordinate, String> {
-    lookup_ip(loaded_databases, database, *ip)
+    lookup_ip(loaded_databases, database, *PUBLIC_IP)
         .await
         .and_then(|loc| {
             loc.ok_or(format!(
                 "no location found for your public ip address {}",
-                *ip
+                *PUBLIC_IP
             ))
         })
 }

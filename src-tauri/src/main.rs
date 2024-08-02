@@ -1,12 +1,16 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::{net::IpAddr, path::PathBuf, process, sync::Arc};
+use std::{
+    net::IpAddr,
+    path::PathBuf,
+    process,
+    sync::{Arc, LazyLock},
+};
 
 use capture_state::CaptureState;
 use dashmap::DashMap;
 use ipdb_city::{Database, DatabaseInfo, DatabaseQuery, DatabaseType, Ipv4Bytes, Ipv6Bytes};
 use tauri::{async_runtime, AppHandle, Manager, Runtime, WebviewUrl, WebviewWindowBuilder};
-use tauri_plugin_dialog::{DialogExt, MessageDialogBuilder, MessageDialogKind};
 
 mod capture;
 mod capture_state;
@@ -17,8 +21,14 @@ mod internal_database {
     include!(concat!(env!("OUT_DIR"), "/internal_database.rs"));
 }
 
-/// The cached result of public_ip::addr()
-type PublicIpAddress = IpAddr;
+pub static PUBLIC_IP: LazyLock<IpAddr> =
+    LazyLock::new(|| match async_runtime::block_on(public_ip::addr()) {
+        Some(ip) => ip,
+        None => {
+            tracing::error!("unable to detect your ip address");
+            process::exit(1)
+        }
+    });
 
 fn main() {
     tracing_subscriber::fmt::init();
@@ -29,28 +39,6 @@ fn main() {
         .plugin(tauri_plugin_shell::init())
         .manage(GlobalDatabases::default())
         .manage(CaptureState::default())
-        .setup(|app| {
-            tracing::info!("getting ip");
-
-            // TODO: make optional and asynchronous in the background instead of blocking the main thread.
-            let Some(ip) = async_runtime::block_on(public_ip::addr()) else {
-                MessageDialogBuilder::new(
-                    app.dialog().clone(),
-                    "Ipmap Error",
-                    "unable to detect your public ip address.",
-                )
-                .kind(MessageDialogKind::Error)
-                .blocking_show();
-
-                process::exit(1)
-            };
-
-            tracing::info!("got ip");
-
-            app.manage(ip);
-
-            Ok(())
-        })
         .invoke_handler(tauri::generate_handler![
             capture::list_devices,
             capture::start_capturing,

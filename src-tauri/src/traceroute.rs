@@ -9,13 +9,12 @@ use ts_rs::TS;
 
 use crate::{
     geoip::{lookup_ip, my_location},
-    GlobalDatabases, PublicIpAddress,
+    GlobalDatabases, PUBLIC_IP,
 };
 
 #[tauri::command]
 pub async fn traceroute(
     loaded_databases: State<'_, GlobalDatabases>,
-    public_ip: State<'_, PublicIpAddress>,
     ip: IpAddr,
     options: TracerouteOptions,
     database: DatabaseQuery,
@@ -35,18 +34,13 @@ pub async fn traceroute(
         .run()
         .map_err(|e| format!("failed to run tracer: {e}"))?;
 
-    let my_location = my_location(
-        loaded_databases.clone(),
-        public_ip.clone(),
-        database.clone(),
-    )
-    .await?;
+    let my_location = my_location(loaded_databases.clone(), database.clone()).await?;
 
     let snapshot = tracer.snapshot();
     let mut flow = Vec::new();
 
     flow.push(Hop {
-        ip: Some(*public_ip.clone()),
+        ip: Some(*PUBLIC_IP),
         coord: Some(my_location),
     });
 
