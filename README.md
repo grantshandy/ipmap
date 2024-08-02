@@ -2,7 +2,7 @@
 
 A map that displays connected IP addresses
 
-![demo](./resources/demo.gif)
+![demo](./res/demo.gif)
 
 Variables for building:
 
@@ -25,11 +25,12 @@ Variables for building:
 - [Rust](https://rust-lang.org)
 - [NodeJS](https://nodejs.org)
 
-- Windows [npcap](https://npcap.org)
+- Windows: [Npcap](https://npcap.org)
 - Linux: Webkit2GTK, `libpcap`
 
 # Building
 
 ```shell
+ $ npm install
  $ npx tauri build
 ```
