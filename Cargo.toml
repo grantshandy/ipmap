@@ -1,3 +1,9 @@
 [workspace]
 resolver = "2"
-members = ["crates/ipgeo"]
+members = ["crates/ipgeo", "crates/desktop"]
+
+[profile.release]
+opt-level = "z"
+codegen-units = 1
+lto = true
+strip = true

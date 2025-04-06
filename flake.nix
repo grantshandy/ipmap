@@ -21,7 +21,15 @@
           buildInputs = with pkgs; [
             rust-bin.stable.latest.default
             rust-analyzer
-            hyperfine
+            cargo-expand
+
+            pnpm
+            nodejs-slim
+
+            webkitgtk_4_1
+            pkg-config
+            openssl
+            xdg-utils
           ];
         };
 
