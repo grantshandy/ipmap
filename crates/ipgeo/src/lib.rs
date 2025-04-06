@@ -5,7 +5,6 @@ use std::{
     fmt,
     io::{Read, Seek, SeekFrom},
     net::{IpAddr, Ipv4Addr, Ipv6Addr},
-    ops::RangeInclusive,
 };
 
 use compact_str::CompactString;
@@ -63,9 +62,15 @@ impl GeoDatabase {
             .ok_or(Error::NoRecords)?;
 
         let parsed_ip = test_ip.parse::<IpAddr>();
+
+        if parsed_ip.is_err() && test_ip.parse::<u128>().is_err() {
+            return Err(Error::InvalidFormat);
+        }
+
         let is_num = parsed_ip.is_err();
 
         let is_ipv6 = if is_num {
+            // *most* IPv6 addresses are not valid u32s (?), so we can use that to check for ipv6-num format??
             test_ip.parse::<u32>().is_err()
         } else {
             parsed_ip.is_ok_and(|ip| ip.is_ipv6())
@@ -185,16 +190,27 @@ where
             .byte_records()
         {
             let record = record.map_err(Error::ReadCsv)?;
-            let coord = PackedCoordinate::try_from(&record)?;
+            let coord = PackedCoordinate::from_byte_record(&record).ok_or(Error::InvalidFormat)?;
 
-            db.map.insert(
-                RangeInclusive::new(
-                    P::parse(&record[IP_RANGE_START_IDX]).ok_or(Error::InvalidFormat)?,
-                    P::parse(&record[IP_RANGE_END_IDX]).ok_or(Error::InvalidFormat)?,
-                ),
-                coord,
-            );
-            db.insert_location(coord, &record)?;
+            let start = P::parse(&record[IP_RANGE_START_IDX]).ok_or(Error::InvalidFormat)?;
+            let end = P::parse(&record[IP_RANGE_END_IDX]).ok_or(Error::InvalidFormat)?;
+
+            db.map.insert(start..=end, coord);
+
+            if !db.locations.contains_key(&coord) {
+                let city = db.add_string(&record[CITY_IDX])?;
+                let region = db.add_string(&record[STATE_IDX])?;
+                let country_code = CountryCode::from(&record[COUNTRY_CODE_IDX]);
+
+                db.locations.insert(
+                    coord,
+                    LocationIndices {
+                        city,
+                        region,
+                        country_code,
+                    },
+                );
+            }
         }
 
         Ok(db)
@@ -218,35 +234,10 @@ where
         Some((coord.into(), location))
     }
 
-    /// Inserts a location into the database if it doesn't already exist.
-    fn insert_location(
-        &mut self,
-        coord: PackedCoordinate,
-        record: &ByteRecord,
-    ) -> Result<(), Error> {
-        if self.locations.contains_key(&coord) {
-            return Ok(());
-        }
-
-        let city = self.add_string(&record[CITY_IDX])?;
-        let region = self.add_string(&record[STATE_IDX])?;
-        let country_code = CountryCode::from(&record[COUNTRY_CODE_IDX]);
-
-        self.locations.insert(
-            coord,
-            LocationIndices {
-                city,
-                region,
-                country_code,
-            },
-        );
-
-        Ok(())
-    }
-
     /// Adds a string to the string database and returns its index.
     fn add_string(&mut self, item: &[u8]) -> Result<StringDictKey, Error> {
         if item.is_empty() {
+            // empty strings are represented as 0 - not Option<StringDictKey> - to save memory
             return Ok(0);
         }
 
@@ -355,22 +346,19 @@ struct PackedCoordinate {
     lng: f32,
 }
 
-impl TryFrom<&ByteRecord> for PackedCoordinate {
-    type Error = Error;
+impl PackedCoordinate {
+    pub fn from_byte_record(record: &ByteRecord) -> Option<Self> {
+        let lat = record
+            .get(LATITUDE_IDX)
+            .map(CompactString::from_utf8_lossy)
+            .and_then(|s| s.parse::<f32>().ok())?;
 
-    fn try_from(record: &ByteRecord) -> Result<Self, Error> {
-        Ok(Self {
-            lat: record
-                .get(LATITUDE_IDX)
-                .map(CompactString::from_utf8_lossy)
-                .and_then(|s| s.parse::<f32>().ok())
-                .ok_or(Error::InvalidFormat)?,
-            lng: record
-                .get(LONGITUDE_IDX)
-                .map(CompactString::from_utf8_lossy)
-                .and_then(|s| s.parse::<f32>().ok())
-                .ok_or(Error::InvalidFormat)?,
-        })
+        let lng = record
+            .get(LONGITUDE_IDX)
+            .map(CompactString::from_utf8_lossy)
+            .and_then(|s| s.parse::<f32>().ok())?;
+
+        Some(Self { lat, lng })
     }
 }
 
