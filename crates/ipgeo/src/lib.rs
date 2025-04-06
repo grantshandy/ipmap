@@ -2,7 +2,7 @@
 
 use std::{
     collections::HashMap,
-    fmt::{self, Formatter},
+    fmt,
     io::{Read, Seek, SeekFrom},
     net::{IpAddr, Ipv4Addr, Ipv6Addr},
     ops::RangeInclusive,
@@ -30,8 +30,9 @@ const LATITUDE_IDX: usize = 7;
 const LONGITUDE_IDX: usize = 8;
 
 /// A database of IP address ranges and their corresponding coordinates and location metadata.
+#[derive(PartialEq)]
 pub struct GeoDatabase {
-    inner: GDBType,
+    inner: GdbType,
 }
 
 impl GeoDatabase {
@@ -43,8 +44,8 @@ impl GeoDatabase {
         source.seek(SeekFrom::Start(0)).map_err(Error::Io)?;
         let is_gzip = head == GZIP_MAGIC;
 
-        // Pull out 300 bytes and put it back for testing
-        let mut scratch_buff = [0u8; 300];
+        // Pull out the first IP to test the format
+        let mut scratch_buff = [0u8; 50];
         if is_gzip {
             let mut decoder = GzDecoder::new(source);
             decoder.read_exact(&mut scratch_buff).map_err(Error::Io)?;
@@ -55,42 +56,32 @@ impl GeoDatabase {
         source.seek(SeekFrom::Start(0)).map_err(Error::Io)?;
 
         // Read the first line and check for IP range formats.
-        // TODO: don't make any allocations and read directly from buffer bytes.
-        let Some(first_line) = String::from_utf8(scratch_buff.to_vec())
-            .ok()
-            .and_then(|s| s.lines().nth(0).map(|line| line.to_string()))
-        else {
-            return Err(Error::NoRecords);
-        };
+        let test_ip = scratch_buff
+            .split(|&b| b == b',')
+            .next()
+            .and_then(|line| CompactString::from_utf8(line).ok())
+            .ok_or(Error::NoRecords)?;
 
-        let first_record = first_line.split(",").collect::<Vec<_>>();
-        if first_record.get(LONGITUDE_IDX).is_none() {
-            return Err(Error::InvalidCoordinate);
-        }
-
-        // unwrap: IP_RANGE_END_IDX < LONGITUDE_IDX.
-        let test_field = first_record.get(IP_RANGE_END_IDX).unwrap();
-        let str_test_ip = test_field.parse::<IpAddr>();
-
-        let is_num = str_test_ip.is_err();
+        let parsed_ip = test_ip.parse::<IpAddr>();
+        let is_num = parsed_ip.is_err();
 
         let is_ipv6 = if is_num {
-            test_field.parse::<u32>().is_err()
+            test_ip.parse::<u32>().is_err()
         } else {
-            str_test_ip.is_ok_and(|ip| ip.is_ipv6())
+            parsed_ip.is_ok_and(|ip| ip.is_ipv6())
         };
 
-        // is this too monomorphized? Should this be better...?
+        // is this too monomorphized? Should this be better with dyn dispatch...?
         #[rustfmt::skip]
         let inner = match (is_gzip, is_num, is_ipv6) {
-            (false, false, false) => GDB::from_read::<StrParser>(source).map(GDBType::Ipv4)?,
-            (false, true, false) => GDB::from_read::<NumParser>(source).map(GDBType::Ipv4)?,
-            (false, false, true) => GDB::from_read::<StrParser>(source).map(GDBType::Ipv6)?,
-            (false, true, true) => GDB::from_read::<NumParser>(source).map(GDBType::Ipv6)?,
-            (true, false, false) => GDB::from_read::<StrParser>(GzDecoder::new(source)).map(GDBType::Ipv4)?,
-            (true, true, false) => GDB::from_read::<NumParser>(GzDecoder::new(source)).map(GDBType::Ipv4)?,
-            (true, false, true) => GDB::from_read::<StrParser>(GzDecoder::new(source)).map(GDBType::Ipv6)?,
-            (true, true, true) => GDB::from_read::<NumParser>(GzDecoder::new(source)).map(GDBType::Ipv6)?,
+            (false, false, false) => Gdb::from_read::<StrParser>(source).map(GdbType::Ipv4)?,
+            (false, true, false) => Gdb::from_read::<NumParser>(source).map(GdbType::Ipv4)?,
+            (false, false, true) => Gdb::from_read::<StrParser>(source).map(GdbType::Ipv6)?,
+            (false, true, true) => Gdb::from_read::<NumParser>(source).map(GdbType::Ipv6)?,
+            (true, false, false) => Gdb::from_read::<StrParser>(GzDecoder::new(source)).map(GdbType::Ipv4)?,
+            (true, true, false) => Gdb::from_read::<NumParser>(GzDecoder::new(source)).map(GdbType::Ipv4)?,
+            (true, false, true) => Gdb::from_read::<StrParser>(GzDecoder::new(source)).map(GdbType::Ipv6)?,
+            (true, true, true) => Gdb::from_read::<NumParser>(GzDecoder::new(source)).map(GdbType::Ipv6)?,
         };
 
         Ok(Self { inner })
@@ -99,8 +90,8 @@ impl GeoDatabase {
     /// Returns the coordinate in the database for a given IP address.
     pub fn get_coordinate(&self, ip: IpAddr) -> Option<Coordinate> {
         match (&self.inner, ip) {
-            (GDBType::Ipv4(db), IpAddr::V4(ip)) => db.get_coordinate(ip),
-            (GDBType::Ipv6(db), IpAddr::V6(ip)) => db.get_coordinate(ip),
+            (GdbType::Ipv4(db), IpAddr::V4(ip)) => db.get_coordinate(ip),
+            (GdbType::Ipv6(db), IpAddr::V6(ip)) => db.get_coordinate(ip),
             _ => None,
         }
     }
@@ -108,18 +99,18 @@ impl GeoDatabase {
     /// Returns the coordinate and location metadata for a given IP address.
     pub fn get(&self, ip: IpAddr) -> Option<(Coordinate, Location)> {
         match (&self.inner, ip) {
-            (GDBType::Ipv4(db), IpAddr::V4(ip)) => db.get(ip),
-            (GDBType::Ipv6(db), IpAddr::V6(ip)) => db.get(ip),
+            (GdbType::Ipv4(db), IpAddr::V4(ip)) => db.get(ip),
+            (GdbType::Ipv6(db), IpAddr::V6(ip)) => db.get(ip),
             _ => None,
         }
     }
 
     pub fn is_ipv4(&self) -> bool {
-        matches!(self.inner, GDBType::Ipv4(_))
+        matches!(self.inner, GdbType::Ipv4(_))
     }
 
     pub fn is_ipv6(&self) -> bool {
-        matches!(self.inner, GDBType::Ipv6(_))
+        matches!(self.inner, GdbType::Ipv6(_))
     }
 }
 
@@ -145,31 +136,32 @@ pub enum Error {
     ReadCsv(#[from] csv::Error),
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
-    #[error("error parsing IP range")]
-    InvalidIpRange,
-    #[error("error parsing coordinates")]
-    InvalidCoordinate,
+    /// TODO: add line/column number to this error.
+    #[error("error parsing CSV contents")]
+    InvalidFormat,
     /// Indexes into the string database are stored in u32s to save space.
     /// I've never found a database where there aren't more than u32::MAX strings, If they're being generated, please contact me and I'll change this to u64.
-    #[error("database has more than u32::MAX strings, which is not supported")]
+    #[error("database has more than u32::MAX unique strings, which is not supported")]
     DatabaseMetadataOverflow,
     #[error("no records found")]
     NoRecords,
 }
 
-enum GDBType {
-    Ipv4(GDB<Ipv4Addr>),
-    Ipv6(GDB<Ipv6Addr>),
+#[derive(PartialEq)]
+enum GdbType {
+    Ipv4(Gdb<Ipv4Addr>),
+    Ipv6(Gdb<Ipv6Addr>),
 }
 
 /// IpAddr -(map)-> PackedCoordinate -(locations)-> LocationIndices -(strings)-> Location
-struct GDB<B> {
+#[derive(PartialEq)]
+struct Gdb<B> {
     map: RangeInclusiveMap<SteppedIp<B>, PackedCoordinate>,
     locations: HashMap<PackedCoordinate, LocationIndices>,
     strings: IndexSet<CompactString>,
 }
 
-impl<B> GDB<B>
+impl<B> Gdb<B>
 where
     B: Ord + Clone,
     SteppedIp<B>: StepLite,
@@ -197,8 +189,8 @@ where
 
             db.map.insert(
                 RangeInclusive::new(
-                    P::parse(&record[IP_RANGE_START_IDX]).ok_or(Error::InvalidIpRange)?,
-                    P::parse(&record[IP_RANGE_END_IDX]).ok_or(Error::InvalidIpRange)?,
+                    P::parse(&record[IP_RANGE_START_IDX]).ok_or(Error::InvalidFormat)?,
+                    P::parse(&record[IP_RANGE_END_IDX]).ok_or(Error::InvalidFormat)?,
                 ),
                 coord,
             );
@@ -215,19 +207,13 @@ where
 
     /// Returns the coordinate and location metadata for a given IP address.
     fn get(&self, ip: B) -> Option<(Coordinate, Location)> {
-        let Some(coord) = self.map.get(&SteppedIp::<B>(ip)).copied() else {
-            return None;
-        };
+        let coord = self.map.get(&SteppedIp::<B>(ip)).copied()?;
 
-        let location = self
-            .locations
-            .get(&coord)
-            .map(|loc| Location {
-                city: self.get_string(loc.city),
-                region: self.get_string(loc.region),
-                country_code: loc.country_code.to_string(),
-            })
-            .unwrap();
+        let location = self.locations.get(&coord).map(|loc| Location {
+            city: self.get_string(loc.city),
+            region: self.get_string(loc.region),
+            country_code: loc.country_code.to_string(),
+        })?;
 
         Some((coord.into(), location))
     }
@@ -266,7 +252,7 @@ where
 
         let (idx, _) = self
             .strings
-            .insert_full(CompactString::from_utf8_lossy(&item).to_lowercase());
+            .insert_full(CompactString::from_utf8_lossy(item).to_lowercase());
 
         if idx > StringDictKey::MAX as usize {
             return Err(Error::DatabaseMetadataOverflow);
@@ -372,23 +358,19 @@ struct PackedCoordinate {
 impl TryFrom<&ByteRecord> for PackedCoordinate {
     type Error = Error;
 
-    fn try_from(record: &ByteRecord) -> Result<Self, Self::Error> {
-        if record.get(LATITUDE_IDX).is_none() || record.get(LONGITUDE_IDX).is_none() {
-            return Err(Error::InvalidCoordinate);
-        }
-
-        let lat = CompactString::from_utf8(record[LATITUDE_IDX].to_vec())
-            .ok()
-            .and_then(|s| s.parse::<f32>().ok());
-
-        let lng = CompactString::from_utf8(record[LONGITUDE_IDX].to_vec())
-            .ok()
-            .and_then(|s| s.parse::<f32>().ok());
-
-        match (lat, lng) {
-            (Some(lat), Some(lng)) => Ok(Self { lat, lng }),
-            _ => Err(Error::InvalidCoordinate),
-        }
+    fn try_from(record: &ByteRecord) -> Result<Self, Error> {
+        Ok(Self {
+            lat: record
+                .get(LATITUDE_IDX)
+                .map(CompactString::from_utf8_lossy)
+                .and_then(|s| s.parse::<f32>().ok())
+                .ok_or(Error::InvalidFormat)?,
+            lng: record
+                .get(LONGITUDE_IDX)
+                .map(CompactString::from_utf8_lossy)
+                .and_then(|s| s.parse::<f32>().ok())
+                .ok_or(Error::InvalidFormat)?,
+        })
     }
 }
 
@@ -407,11 +389,11 @@ impl std::hash::Hash for PackedCoordinate {
     }
 }
 
-impl Into<Coordinate> for PackedCoordinate {
-    fn into(self) -> Coordinate {
-        Coordinate {
-            lat: self.lat,
-            lng: self.lng,
+impl From<PackedCoordinate> for Coordinate {
+    fn from(coord: PackedCoordinate) -> Self {
+        Self {
+            lat: coord.lat,
+            lng: coord.lng,
         }
     }
 }
@@ -444,7 +426,7 @@ impl<A: AsRef<[u8]>> From<A> for CountryCode {
 }
 
 impl fmt::Display for CountryCode {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.0 {
             [0, 0] => "??".fmt(f),
             [a, b] => unsafe {
