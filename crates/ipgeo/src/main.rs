@@ -1,23 +1,32 @@
-use std::{env, fs::File, net::IpAddr};
+use std::{env, error::Error, fs::File, net::IpAddr};
 
 use ipmap::GeoDatabase;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let file = File::open(env::args().nth(1).expect("pass in the db"))?;
-
-    let db = GeoDatabase::from_read(&file)?;
-
-    let ip = env::args()
-        .nth(2)
-        .expect("pass in the IP")
-        .parse::<IpAddr>()?;
-
-    let Some((coord, loc)) = db.get(ip) else {
-        eprintln!("No location found for {ip}");
+fn main() -> Result<(), Box<dyn Error>> {
+    let args = env::args().collect::<Vec<_>>();
+    let [_, db, ip, ..] = args.as_slice() else {
+        eprintln!("Usage: ipgeo <db> <ip>");
         return Ok(());
     };
 
-    println!("{ip}:\n{coord:?}\n{loc:?}");
+    let Ok(ip) = ip.parse::<IpAddr>() else {
+        eprintln!("Invalid IP address: {ip}");
+        return Ok(());
+    };
+
+    let db = GeoDatabase::from_read(&File::open(db)?)?;
+
+    if db.is_ipv4() {
+        println!("IPv4 database detected");
+    } else {
+        println!("IPv6 database detected");
+    }
+
+    if let Some((coord, loc)) = db.get(ip) {
+        println!("{ip}:\n{coord:?}\n{loc:?}");
+    } else {
+        eprintln!("No location found for {ip}");
+    };
 
     Ok(())
 }

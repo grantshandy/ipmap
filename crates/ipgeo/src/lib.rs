@@ -8,7 +8,6 @@ use std::{
     ops::RangeInclusive,
 };
 
-use bincode::{Decode, Encode};
 use compact_str::CompactString;
 use csv::{ByteRecord, ReaderBuilder};
 use flate2::read::GzDecoder;
@@ -55,7 +54,8 @@ impl GeoDatabase {
         }
         source.seek(SeekFrom::Start(0)).map_err(Error::Io)?;
 
-        // Read the first line and check for
+        // Read the first line and check for IP range formats.
+        // TODO: don't make any allocations and read directly from buffer bytes.
         let Some(first_line) = String::from_utf8(scratch_buff.to_vec())
             .ok()
             .and_then(|s| s.lines().nth(0).map(|line| line.to_string()))
@@ -80,16 +80,17 @@ impl GeoDatabase {
             str_test_ip.is_ok_and(|ip| ip.is_ipv6())
         };
 
+        // is this too monomorphized? Should this be better...?
         #[rustfmt::skip]
         let inner = match (is_gzip, is_num, is_ipv6) {
-            (false, false, false) => GDB::from_read(source, SteppedIp::from_str_record).map(GDBType::Ipv4)?,
-            (false, true, false) => GDB::from_read(source, SteppedIp::from_num_record).map(GDBType::Ipv4)?,
-            (false, false, true) => GDB::from_read(source, SteppedIp::from_str_record).map(GDBType::Ipv6)?,
-            (false, true, true) => GDB::from_read(source, SteppedIp::from_num_record).map(GDBType::Ipv6)?,
-            (true, false, false) => GDB::from_read(GzDecoder::new(source), SteppedIp::from_str_record).map(GDBType::Ipv4)?,
-            (true, true, false) => GDB::from_read(GzDecoder::new(source), SteppedIp::from_num_record).map(GDBType::Ipv4)?,
-            (true, false, true) => GDB::from_read(GzDecoder::new(source), SteppedIp::from_str_record).map(GDBType::Ipv6)?,
-            (true, true, true) => GDB::from_read(GzDecoder::new(source), SteppedIp::from_num_record).map(GDBType::Ipv6)?,
+            (false, false, false) => GDB::from_read::<StrParser>(source).map(GDBType::Ipv4)?,
+            (false, true, false) => GDB::from_read::<NumParser>(source).map(GDBType::Ipv4)?,
+            (false, false, true) => GDB::from_read::<StrParser>(source).map(GDBType::Ipv6)?,
+            (false, true, true) => GDB::from_read::<NumParser>(source).map(GDBType::Ipv6)?,
+            (true, false, false) => GDB::from_read::<StrParser>(GzDecoder::new(source)).map(GDBType::Ipv4)?,
+            (true, true, false) => GDB::from_read::<NumParser>(GzDecoder::new(source)).map(GDBType::Ipv4)?,
+            (true, false, true) => GDB::from_read::<StrParser>(GzDecoder::new(source)).map(GDBType::Ipv6)?,
+            (true, true, true) => GDB::from_read::<NumParser>(GzDecoder::new(source)).map(GDBType::Ipv6)?,
         };
 
         Ok(Self { inner })
@@ -174,10 +175,7 @@ where
     SteppedIp<B>: StepLite,
 {
     /// Internal generic implementation.
-    fn from_read(
-        file: impl Read,
-        parse_ip: fn(&[u8]) -> Result<SteppedIp<B>, Error>,
-    ) -> Result<Self, Error> {
+    fn from_read<P: IpParser<B>>(file: impl Read) -> Result<Self, Error> {
         let mut db = Self {
             map: RangeInclusiveMap::new(),
             locations: HashMap::new(),
@@ -199,8 +197,8 @@ where
 
             db.map.insert(
                 RangeInclusive::new(
-                    parse_ip(&record[IP_RANGE_START_IDX])?,
-                    parse_ip(&record[IP_RANGE_END_IDX])?,
+                    P::parse(&record[IP_RANGE_START_IDX]).ok_or(Error::InvalidIpRange)?,
+                    P::parse(&record[IP_RANGE_END_IDX]).ok_or(Error::InvalidIpRange)?,
                 ),
                 coord,
             );
@@ -290,7 +288,7 @@ where
 }
 
 /// A wrapper around Ipv4Addr and Ipv6Addr to allow for a StepLite implementation.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Ord, PartialOrd)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd)]
 #[repr(transparent)]
 struct SteppedIp<B>(pub B);
 
@@ -314,53 +312,51 @@ impl rangemap::StepLite for SteppedIp<Ipv6Addr> {
     }
 }
 
-trait FromNumRecord: Sized {
-    fn from_num_record(record: &[u8]) -> Result<Self, Error>;
+trait IpParser<B> {
+    fn parse(record: &[u8]) -> Option<SteppedIp<B>>;
 }
 
-impl FromNumRecord for SteppedIp<Ipv4Addr> {
-    fn from_num_record(record: &[u8]) -> Result<Self, Error> {
-        String::from_utf8(record.to_vec())
+/// Parses IP addresses from strings in their typical form.
+struct StrParser;
+
+impl IpParser<Ipv4Addr> for StrParser {
+    fn parse(record: &[u8]) -> Option<SteppedIp<Ipv4Addr>> {
+        CompactString::from_utf8(record)
+            .ok()
+            .and_then(|s| s.parse::<Ipv4Addr>().ok())
+            .map(SteppedIp)
+    }
+}
+
+impl IpParser<Ipv6Addr> for StrParser {
+    fn parse(record: &[u8]) -> Option<SteppedIp<Ipv6Addr>> {
+        CompactString::from_utf8(record)
+            .ok()
+            .and_then(|s| s.parse::<Ipv6Addr>().ok())
+            .map(SteppedIp)
+    }
+}
+
+/// Parses IP addresses from strings where IPs are converted to u32 to u128 integers.
+struct NumParser;
+
+impl IpParser<Ipv4Addr> for NumParser {
+    fn parse(record: &[u8]) -> Option<SteppedIp<Ipv4Addr>> {
+        CompactString::from_utf8(record)
             .ok()
             .and_then(|s| s.parse::<u32>().ok())
             .map(Ipv4Addr::from_bits)
-            .map(Self)
-            .ok_or(Error::InvalidIpRange)
+            .map(SteppedIp)
     }
 }
 
-impl FromNumRecord for SteppedIp<Ipv6Addr> {
-    fn from_num_record(record: &[u8]) -> Result<Self, Error> {
-        String::from_utf8(record.to_vec())
+impl IpParser<Ipv6Addr> for NumParser {
+    fn parse(record: &[u8]) -> Option<SteppedIp<Ipv6Addr>> {
+        CompactString::from_utf8(record)
             .ok()
             .and_then(|s| s.parse::<u128>().ok())
             .map(Ipv6Addr::from_bits)
-            .map(Self)
-            .ok_or(Error::InvalidIpRange)
-    }
-}
-
-trait FromStrRecord: Sized {
-    fn from_str_record(record: &[u8]) -> Result<Self, Error>;
-}
-
-impl FromStrRecord for SteppedIp<Ipv4Addr> {
-    fn from_str_record(record: &[u8]) -> Result<Self, Error> {
-        String::from_utf8(record.to_vec())
-            .ok()
-            .and_then(|s| s.parse::<Ipv4Addr>().ok())
-            .map(Self)
-            .ok_or(Error::InvalidIpRange)
-    }
-}
-
-impl FromStrRecord for SteppedIp<Ipv6Addr> {
-    fn from_str_record(record: &[u8]) -> Result<Self, Error> {
-        String::from_utf8(record.to_vec())
-            .ok()
-            .and_then(|s| s.parse::<Ipv6Addr>().ok())
-            .map(Self)
-            .ok_or(Error::InvalidIpRange)
+            .map(SteppedIp)
     }
 }
 
@@ -425,7 +421,7 @@ type StringDictKey = u32;
 
 /// The city and region are stored as indexes into a string database.
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Encode, Decode)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 struct LocationIndices {
     city: StringDictKey,
     region: StringDictKey,
@@ -434,7 +430,7 @@ struct LocationIndices {
 
 /// An ISO 3166 2-digit ASCII country code.
 // Takes advantage of their compact representation.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Encode, Decode)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(transparent)]
 struct CountryCode([u8; 2]);
 
