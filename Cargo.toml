@@ -1,9 +1,13 @@
 [workspace]
 resolver = "2"
-members = ["crates/ipgeo", "crates/desktop"]
+members = ["crates/ipgeo", "crates/desktop", "crates/pcap-dyn"]
+
+[workspace.dependencies]
+thiserror = "2.0.12"
 
 [profile.release]
 opt-level = "z"
 codegen-units = 1
 lto = true
 strip = true
+

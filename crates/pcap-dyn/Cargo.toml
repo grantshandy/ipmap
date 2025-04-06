@@ -1,0 +1,11 @@
+[package]
+name = "pcap-dyn"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+etherparse = "0.17.0"
+ip_rfc = "0.1.0"
+libc = "0.2.171"
+libloading = "0.8.6"
+thiserror.workspace = true

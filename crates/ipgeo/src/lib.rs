@@ -197,6 +197,7 @@ where
 
             db.map.insert(start..=end, coord);
 
+            #[allow(clippy::map_entry)] // need mutable access to db in that time
             if !db.locations.contains_key(&coord) {
                 let city = db.add_string(&record[CITY_IDX])?;
                 let region = db.add_string(&record[STATE_IDX])?;

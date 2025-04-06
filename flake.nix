@@ -18,6 +18,9 @@
       in
       {
         devShells.default = pkgs.mkShell {
+
+          LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath [ pkgs.libpcap ]}:$LD_LIBRARY_PATH";
+
           buildInputs = with pkgs; [
             rust-bin.stable.latest.default
             rust-analyzer
@@ -29,6 +32,7 @@
             webkitgtk_4_1
             pkg-config
             openssl
+            libpcap
             xdg-utils
           ];
         };
