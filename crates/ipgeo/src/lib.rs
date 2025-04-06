@@ -1,6 +1,4 @@
-//! Datasets can be downloaded at [sapics/ip-location](https://github.com/sapics/ip-location-db?tab=readme-ov-file#city) under the "City" section.
-//!
-//! They are labeled `(ipdb/geolite2)-city-ipv(4/6)[-num].csv[.gz]` depending on the format. The "ipv4/6-num" ones are smaller/faster to parse, but not human-readable.
+#![doc = include_str!("../README.md")]
 
 use std::{
     collections::HashMap,
@@ -163,6 +161,7 @@ enum GDBType {
     Ipv6(GDB<Ipv6Addr>),
 }
 
+/// IpAddr -(map)-> PackedCoordinate -(locations)-> LocationIndices -(strings)-> Location
 struct GDB<B> {
     map: RangeInclusiveMap<SteppedIp<B>, PackedCoordinate>,
     locations: HashMap<PackedCoordinate, LocationIndices>,
@@ -365,15 +364,13 @@ impl FromStrRecord for SteppedIp<Ipv6Addr> {
     }
 }
 
-use half::f16;
-
 /// A memory-packed representation of a lat/lng coordinate.
 ///
 /// TODO: take advantage of info density of lat/lng to make this smaller in memory?
 #[derive(Debug, Clone, Copy)]
 struct PackedCoordinate {
-    lat: f16,
-    lng: f16,
+    lat: f32,
+    lng: f32,
 }
 
 impl TryFrom<&ByteRecord> for PackedCoordinate {
@@ -386,11 +383,11 @@ impl TryFrom<&ByteRecord> for PackedCoordinate {
 
         let lat = CompactString::from_utf8(record[LATITUDE_IDX].to_vec())
             .ok()
-            .and_then(|s| s.parse::<f16>().ok());
+            .and_then(|s| s.parse::<f32>().ok());
 
         let lng = CompactString::from_utf8(record[LONGITUDE_IDX].to_vec())
             .ok()
-            .and_then(|s| s.parse::<f16>().ok());
+            .and_then(|s| s.parse::<f32>().ok());
 
         match (lat, lng) {
             (Some(lat), Some(lng)) => Ok(Self { lat, lng }),
@@ -417,8 +414,8 @@ impl std::hash::Hash for PackedCoordinate {
 impl Into<Coordinate> for PackedCoordinate {
     fn into(self) -> Coordinate {
         Coordinate {
-            lat: self.lat.into(),
-            lng: self.lng.into(),
+            lat: self.lat,
+            lng: self.lng,
         }
     }
 }
