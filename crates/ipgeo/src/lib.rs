@@ -13,6 +13,8 @@ use flate2::read::GzDecoder;
 use heck::ToTitleCase;
 use indexmap::IndexSet;
 use rangemap::{RangeInclusiveMap, StepLite};
+use specta::Type;
+use serde::{Serialize, Deserialize};
 
 const GZIP_MAGIC: [u8; 2] = [0x1f, 0x8b];
 
@@ -120,14 +122,14 @@ impl GeoDatabase {
 }
 
 /// A latitude/longitude coordinate.
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Type, Serialize, Deserialize)]
 pub struct Coordinate {
     pub lat: f32,
     pub lng: f32,
 }
 
 /// Location metadata.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Type, Serialize, Deserialize)]
 pub struct Location {
     pub city: Option<String>,
     pub region: Option<String>,
