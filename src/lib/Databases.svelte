@@ -1,20 +1,19 @@
 <script lang="ts">
+    import { openUrl } from "@tauri-apps/plugin-opener";
     import {
         commands,
         events,
         type AppStateInfo,
-        type DatabaseInfo,
         type DatabaseStateInfo,
     } from "../bindings";
     import { open } from "@tauri-apps/plugin-dialog";
 
+    const DB_DOWNLOAD_URL =
+        "https://github.com/sapics/ip-location-db?tab=readme-ov-file#city";
+
     let { appState = $bindable() }: { appState: AppStateInfo } = $props();
 
-    $inspect(appState);
-
     const updateAppState = (state: AppStateInfo) => {
-        console.log("updating...");
-
         appState.loading = state.loading;
 
         appState.ipv4.loaded = state.ipv4.loaded;
@@ -63,16 +62,16 @@
 </script>
 
 {#snippet databaseSelector(dbs: DatabaseStateInfo, ipv6: boolean)}
-    <div class="flex space-x-4 items-center">
+    <div class="flex space-x-4 items-center grow">
         <span>IPv{ipv6 ? "6" : "4"}: </span>
-        <div class="join join-horizontal">
+        <div class="join join-horizontal grow flex">
             <select
-                class="select join-item"
+                class="select join-item grow"
                 disabled={dbs.loaded.length < 2}
                 onchange={(ev) => changeDatabase(ev, dbs)}
             >
                 {#if dbs.loaded?.length == 0}
-                    <option disabled selected>No Database Loaded</option>
+                    <option disabled selected>None Loaded</option>
                 {/if}
 
                 {#each dbs.loaded as db}
@@ -81,7 +80,6 @@
                     >
                 {/each}
             </select>
-
             <button
                 disabled={dbs.selected == null}
                 onclick={() => {
@@ -93,17 +91,35 @@
     </div>
 {/snippet}
 
-<div class="flex space-x-4 items-center">
-    <button
-        onclick={openDatabase}
-        class="btn btn-primary join-item"
-        disabled={appState.loading != null}>Load</button
-    >
-    {#if appState.loading}
-        <span class="loading loading-spinner"></span>
-        <span class="italic text-sm">Loading {appState.loading}...</span>
+<div
+    class="flex flex-col space-y-2 w-100 select-none bg-base-200 border border-box border-base-300 rounded-box p-2"
+>
+    <div class="flex items-center space-x-4">
+        <h2 class="font-semibold text-2xl">Databases</h2>
+        <span class="grow"></span>
+        <button
+            class="link float-right"
+            onclick={() => openUrl(DB_DOWNLOAD_URL)}>Download</button
+        >
+        <button
+            onclick={openDatabase}
+            class="btn btn-primary float-right"
+            disabled={appState.loading != null}
+        >
+            {#if appState.loading}
+                <span class="loading loading-spinner loading-xs"></span>
+                Loading...
+            {:else}
+                Load
+            {/if}
+        </button>
+    </div>
+
+    {#if appState.ipv4.loaded.length > 0}
+        {@render databaseSelector(appState.ipv4, false)}
+    {/if}
+
+    {#if appState.ipv6.loaded.length > 0}
+        {@render databaseSelector(appState.ipv6, true)}
     {/if}
 </div>
-
-{@render databaseSelector(appState.ipv4, false)}
-{@render databaseSelector(appState.ipv6, true)}

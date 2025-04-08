@@ -61,14 +61,14 @@ where
 
         self.loaded.remove(info);
 
-        let selected = &mut self.selected.write().expect("open selected");
+        let mut selected = self.selected.write().expect("open selected");
 
         if selected.as_ref().is_some_and(|(loaded, _)| loaded == info) {
-
-            println!("{:?} strong references before taking", selected.as_ref().map(|(_, db)| Arc::strong_count(db)));
-            println!("{:?} weak references before taking", selected.as_ref().map(|(_, db)| Arc::weak_count(db)));
-
-            selected.take();
+            *selected = self
+                .loaded
+                .iter()
+                .map(|kv| (kv.key().clone(), kv.value().clone()))
+                .next();
         }
     }
 

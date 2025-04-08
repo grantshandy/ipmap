@@ -79,9 +79,7 @@ struct DatabaseStateChange(AppStateInfo);
 
 impl DatabaseStateChange {
     pub fn emit(app: &AppHandle, state: &AppState) {
-        let info = state.info();
-        println!("{info:?}");
-        let _ = Self(info).emit(app);
+        let _ = Self(state.info()).emit(app);
     }
 }
 

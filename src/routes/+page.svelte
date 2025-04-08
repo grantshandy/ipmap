@@ -14,19 +14,22 @@
   });
 
   let ip = $state("");
-  let location: [Coordinate, Location] | null = $state(null);
+
+  let info: {
+    ip: string;
+    coord: Coordinate | null;
+    loc: Location | null;
+  } | null = $state(null);
 
   const search = async (ev: Event) => {
     ev.preventDefault();
 
     const resp = await commands.lookupIp(ip);
-    console.log(resp);
+    info = { ip, coord: resp ? resp[0] : null, loc: resp ? resp[1] : null };
   };
 </script>
 
-<main class="w-full min-h-screen p-3 space-y-3">
-  <h1 class="text-3xl font-bold select-none">Ipmap</h1>
-
+<main class="min-h-screen p-3 space-y-3">
   <Databases bind:appState />
 
   {#if appState.ipv4.selected || appState.ipv6.selected}
@@ -35,10 +38,18 @@
       <button class="btn btn-primary">Search</button>
     </form>
 
-    {#if location}
+    {#if info}
       <div class="flex flex-col gap-2">
-        <h2 class="text-2xl font-bold">Location Info</h2>
-        <pre>{JSON.stringify(location, null, 2)}</pre>
+        <h2 class="text-2xl font-bold">Info</h2>
+        {#if info.coord}
+          <p>({info.coord.lat},{info.coord.lng})</p>
+        {/if}
+        {#if info.loc}
+          <p>{info.loc.city}, {info.loc.region}, {info.loc.country_code}</p>
+        {/if}
+        {#if !info.loc && !info.coord}
+          <p class="text-red-500">No location found</p>
+        {/if}
       </div>
     {/if}
   {/if}
