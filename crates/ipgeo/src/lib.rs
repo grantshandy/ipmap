@@ -12,9 +12,12 @@ use csv::{ByteRecord, ReaderBuilder};
 use flate2::read::GzDecoder;
 use heck::ToTitleCase;
 use indexmap::IndexSet;
-use rangemap::{RangeInclusiveMap, StepLite};
+use rangemap::RangeInclusiveMap;
+use serde::{Deserialize, Serialize};
 use specta::Type;
-use serde::{Serialize, Deserialize};
+
+#[doc(hidden)]
+pub use rangemap::StepLite;
 
 const GZIP_MAGIC: [u8; 2] = [0x1f, 0x8b];
 
@@ -30,95 +33,61 @@ const CITY_IDX: usize = 5;
 const LATITUDE_IDX: usize = 7;
 const LONGITUDE_IDX: usize = 8;
 
-/// A database of IP address ranges and their corresponding coordinates and location metadata.
-#[derive(PartialEq)]
-pub struct GeoDatabase {
-    inner: GdbType,
-}
+/// Automatically detects the format of the GeoDatabase and parses it.
+pub fn from_read(mut source: impl Read + Seek) -> Result<GenericDatabase, Error> {
+    // Check for GZIP magic numbers
+    let mut head = [0; 2];
+    source.read_exact(&mut head).map_err(Error::Io)?;
+    source.seek(SeekFrom::Start(0)).map_err(Error::Io)?;
+    let is_gzip = head == GZIP_MAGIC;
 
-impl GeoDatabase {
-    /// Automatically detects the format of the GeoDatabase and parses it.
-    pub fn from_read(mut source: impl Read + Seek) -> Result<Self, Error> {
-        // Check for GZIP magic numbers
-        let mut head = [0; 2];
-        source.read_exact(&mut head).map_err(Error::Io)?;
-        source.seek(SeekFrom::Start(0)).map_err(Error::Io)?;
-        let is_gzip = head == GZIP_MAGIC;
+    // Pull out the first IP to test the format
+    let mut scratch_buff = [0u8; 50];
+    if is_gzip {
+        let mut decoder = GzDecoder::new(source);
+        decoder.read_exact(&mut scratch_buff).map_err(Error::Io)?;
+        source = decoder.into_inner();
+    } else {
+        source.read_exact(&mut scratch_buff).map_err(Error::Io)?;
+    }
+    source.seek(SeekFrom::Start(0)).map_err(Error::Io)?;
 
-        // Pull out the first IP to test the format
-        let mut scratch_buff = [0u8; 50];
-        if is_gzip {
-            let mut decoder = GzDecoder::new(source);
-            decoder.read_exact(&mut scratch_buff).map_err(Error::Io)?;
-            source = decoder.into_inner();
-        } else {
-            source.read_exact(&mut scratch_buff).map_err(Error::Io)?;
-        }
-        source.seek(SeekFrom::Start(0)).map_err(Error::Io)?;
+    // Read the first line and check for IP range formats.
+    let test_ip = scratch_buff
+        .split(|&b| b == b',')
+        .next()
+        .and_then(|line| CompactString::from_utf8(line).ok())
+        .ok_or(Error::NoRecords)?;
 
-        // Read the first line and check for IP range formats.
-        let test_ip = scratch_buff
-            .split(|&b| b == b',')
-            .next()
-            .and_then(|line| CompactString::from_utf8(line).ok())
-            .ok_or(Error::NoRecords)?;
+    let parsed_ip = test_ip.parse::<IpAddr>();
 
-        let parsed_ip = test_ip.parse::<IpAddr>();
+    if parsed_ip.is_err() && test_ip.parse::<u128>().is_err() {
+        return Err(Error::InvalidFormat);
+    }
 
-        if parsed_ip.is_err() && test_ip.parse::<u128>().is_err() {
-            return Err(Error::InvalidFormat);
-        }
+    let is_num = parsed_ip.is_err();
 
-        let is_num = parsed_ip.is_err();
+    let is_ipv6 = if is_num {
+        // *most* IPv6 addresses are not valid u32s (?), so we can use that to check for ipv6-num format??
+        test_ip.parse::<u32>().is_err()
+    } else {
+        parsed_ip.is_ok_and(|ip| ip.is_ipv6())
+    };
 
-        let is_ipv6 = if is_num {
-            // *most* IPv6 addresses are not valid u32s (?), so we can use that to check for ipv6-num format??
-            test_ip.parse::<u32>().is_err()
-        } else {
-            parsed_ip.is_ok_and(|ip| ip.is_ipv6())
+    // is this too monomorphized? Should this be better with dyn dispatch...?
+    #[rustfmt::skip]
+        let parsed = match (is_gzip, is_num, is_ipv6) {
+            (false, false, false) => Database::from_read::<StrParser>(source).map(GenericDatabase::Ipv4),
+            (false, true, false) => Database::from_read::<NumParser>(source).map(GenericDatabase::Ipv4),
+            (false, false, true) => Database::from_read::<StrParser>(source).map(GenericDatabase::Ipv6),
+            (false, true, true) => Database::from_read::<NumParser>(source).map(GenericDatabase::Ipv6),
+            (true, false, false) => Database::from_read::<StrParser>(GzDecoder::new(source)).map(GenericDatabase::Ipv4),
+            (true, true, false) => Database::from_read::<NumParser>(GzDecoder::new(source)).map(GenericDatabase::Ipv4),
+            (true, false, true) => Database::from_read::<StrParser>(GzDecoder::new(source)).map(GenericDatabase::Ipv6),
+            (true, true, true) => Database::from_read::<NumParser>(GzDecoder::new(source)).map(GenericDatabase::Ipv6),
         };
 
-        // is this too monomorphized? Should this be better with dyn dispatch...?
-        #[rustfmt::skip]
-        let inner = match (is_gzip, is_num, is_ipv6) {
-            (false, false, false) => Gdb::from_read::<StrParser>(source).map(GdbType::Ipv4)?,
-            (false, true, false) => Gdb::from_read::<NumParser>(source).map(GdbType::Ipv4)?,
-            (false, false, true) => Gdb::from_read::<StrParser>(source).map(GdbType::Ipv6)?,
-            (false, true, true) => Gdb::from_read::<NumParser>(source).map(GdbType::Ipv6)?,
-            (true, false, false) => Gdb::from_read::<StrParser>(GzDecoder::new(source)).map(GdbType::Ipv4)?,
-            (true, true, false) => Gdb::from_read::<NumParser>(GzDecoder::new(source)).map(GdbType::Ipv4)?,
-            (true, false, true) => Gdb::from_read::<StrParser>(GzDecoder::new(source)).map(GdbType::Ipv6)?,
-            (true, true, true) => Gdb::from_read::<NumParser>(GzDecoder::new(source)).map(GdbType::Ipv6)?,
-        };
-
-        Ok(Self { inner })
-    }
-
-    /// Returns the coordinate in the database for a given IP address.
-    pub fn get_coordinate(&self, ip: IpAddr) -> Option<Coordinate> {
-        match (&self.inner, ip) {
-            (GdbType::Ipv4(db), IpAddr::V4(ip)) => db.get_coordinate(ip),
-            (GdbType::Ipv6(db), IpAddr::V6(ip)) => db.get_coordinate(ip),
-            _ => None,
-        }
-    }
-
-    /// Returns the coordinate and location metadata for a given IP address.
-    pub fn get(&self, ip: IpAddr) -> Option<(Coordinate, Location)> {
-        match (&self.inner, ip) {
-            (GdbType::Ipv4(db), IpAddr::V4(ip)) => db.get(ip),
-            (GdbType::Ipv6(db), IpAddr::V6(ip)) => db.get(ip),
-            _ => None,
-        }
-    }
-
-    pub fn is_ipv4(&self) -> bool {
-        matches!(self.inner, GdbType::Ipv4(_))
-    }
-
-    pub fn is_ipv6(&self) -> bool {
-        matches!(self.inner, GdbType::Ipv6(_))
-    }
+    parsed
 }
 
 /// A latitude/longitude coordinate.
@@ -155,20 +124,30 @@ pub enum Error {
 }
 
 #[derive(PartialEq)]
-enum GdbType {
-    Ipv4(Gdb<Ipv4Addr>),
-    Ipv6(Gdb<Ipv6Addr>),
+pub enum GenericDatabase {
+    Ipv4(Database<Ipv4Addr>),
+    Ipv6(Database<Ipv6Addr>),
+}
+
+impl GenericDatabase {
+    pub fn is_ipv4(&self) -> bool {
+        matches!(self, Self::Ipv4(_))
+    }
+
+    pub fn is_ipv6(&self) -> bool {
+        matches!(self, Self::Ipv6(_))
+    }
 }
 
 /// IpAddr -(map)-> PackedCoordinate -(locations)-> LocationIndices -(strings)-> Location
 #[derive(PartialEq)]
-struct Gdb<B> {
+pub struct Database<B> {
     map: RangeInclusiveMap<SteppedIp<B>, PackedCoordinate>,
     locations: HashMap<PackedCoordinate, LocationIndices>,
     strings: IndexSet<CompactString>,
 }
 
-impl<B> Gdb<B>
+impl<B> Database<B>
 where
     B: Ord + Clone,
     SteppedIp<B>: StepLite,
@@ -220,12 +199,12 @@ where
     }
 
     /// Returns the coordinate in the database for a given IP address.
-    fn get_coordinate(&self, ip: B) -> Option<Coordinate> {
+    pub fn get_coordinate(&self, ip: B) -> Option<Coordinate> {
         self.map.get(&SteppedIp::<B>(ip)).copied().map(Into::into)
     }
 
     /// Returns the coordinate and location metadata for a given IP address.
-    fn get(&self, ip: B) -> Option<(Coordinate, Location)> {
+    pub fn get(&self, ip: B) -> Option<(Coordinate, Location)> {
         let coord = self.map.get(&SteppedIp::<B>(ip)).copied()?;
 
         let location = self.locations.get(&coord).map(|loc| Location {
@@ -270,7 +249,8 @@ where
 /// A wrapper around Ipv4Addr and Ipv6Addr to allow for a StepLite implementation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd)]
 #[repr(transparent)]
-struct SteppedIp<B>(pub B);
+#[doc(hidden)]
+pub struct SteppedIp<B>(pub B);
 
 impl rangemap::StepLite for SteppedIp<Ipv4Addr> {
     fn add_one(&self) -> Self {

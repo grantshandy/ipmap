@@ -13,16 +13,22 @@ async loadDatabase(path: string) : Promise<Result<DatabaseInfo, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async listDatabases() : Promise<UpdateDatabases> {
-    return await TAURI_INVOKE("list_databases");
-},
-async lookupIp(db: DatabaseInfo, ip: string) : Promise<Result<[Coordinate, Location] | null, string>> {
+async unloadDatabase(db: DatabaseInfo) : Promise<Result<null, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("lookup_ip", { db, ip }) };
+    return { status: "ok", data: await TAURI_INVOKE("unload_database", { db }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async databaseState() : Promise<AppStateInfo> {
+    return await TAURI_INVOKE("database_state");
+},
+async setSelectedDatabase(db: DatabaseInfo) : Promise<void> {
+    await TAURI_INVOKE("set_selected_database", { db });
+},
+async lookupIp(ip: string) : Promise<[Coordinate, Location] | null> {
+    return await TAURI_INVOKE("lookup_ip", { ip });
 }
 }
 
@@ -30,9 +36,9 @@ async lookupIp(db: DatabaseInfo, ip: string) : Promise<Result<[Coordinate, Locat
 
 
 export const events = __makeEvents__<{
-updateDatabases: UpdateDatabases
+databaseStateChange: DatabaseStateChange
 }>({
-updateDatabases: "update-databases"
+databaseStateChange: "database-state-change"
 })
 
 /** user-defined constants **/
@@ -41,16 +47,18 @@ updateDatabases: "update-databases"
 
 /** user-defined types **/
 
+export type AppStateInfo = { ipv4: DatabaseStateInfo; ipv6: DatabaseStateInfo; loading: string | null }
 /**
  * A latitude/longitude coordinate.
  */
 export type Coordinate = { lat: number; lng: number }
-export type DatabaseInfo = { path: string; ipv6: boolean }
+export type DatabaseInfo = { name: string; path: string }
+export type DatabaseStateChange = AppStateInfo
+export type DatabaseStateInfo = { selected: DatabaseInfo | null; loaded: DatabaseInfo[] }
 /**
  * Location metadata.
  */
 export type Location = { city: string | null; region: string | null; country_code: string }
-export type UpdateDatabases = DatabaseInfo[]
 
 /** tauri-specta globals **/
 

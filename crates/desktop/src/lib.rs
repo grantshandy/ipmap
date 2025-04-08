@@ -1,25 +1,39 @@
-use std::{fs::File, path::PathBuf, net::IpAddr};
+use std::{
+    fs::File,
+    net::{IpAddr, Ipv4Addr, Ipv6Addr},
+    path::PathBuf,
+    sync::RwLock,
+};
 
-use dashmap::DashMap;
-use ipgeo::{Coordinate, GeoDatabase, Location};
+use ipgeo::{Coordinate, GenericDatabase, Location};
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use specta_typescript::Typescript;
 use tauri::{AppHandle, Manager, State};
 use tauri_specta::{Builder, Event, collect_commands, collect_events};
+
+mod db_state;
+
+use db_state::{DatabaseInfo, DatabaseState, DatabaseStateInfo};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = Builder::<tauri::Wry>::new()
-        .events(collect_events![UpdateDatabases])
-        .commands(collect_commands![load_database, list_databases, lookup_ip]);
+        .events(collect_events![DatabaseStateChange])
+        .commands(collect_commands![
+            load_database,
+            unload_database,
+            database_state,
+            set_selected_database,
+            lookup_ip
+        ]);
 
     #[cfg(debug_assertions)]
     builder
-        .export(Typescript::default(), "../../src/bindings.ts")
+        .export(specta_typescript::Typescript::default(), "../../src/bindings.ts")
         .expect("Failed to export typescript bindings");
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_log::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(builder.invoke_handler())
@@ -34,7 +48,41 @@ pub fn run() {
 
 #[derive(Default)]
 struct AppState {
-    databases: DashMap<DatabaseInfo, GeoDatabase>,
+    ipv4_db: DatabaseState<Ipv4Addr>,
+    ipv6_db: DatabaseState<Ipv6Addr>,
+    loading_db: RwLock<Option<String>>,
+}
+
+impl AppState {
+    fn info(&self) -> AppStateInfo {
+        AppStateInfo {
+            ipv4: self.ipv4_db.info(),
+            ipv6: self.ipv6_db.info(),
+            loading: self
+                .loading_db
+                .read()
+                .map(|s| s.clone())
+                .unwrap_or_default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Type)]
+pub struct AppStateInfo {
+    pub ipv4: DatabaseStateInfo,
+    pub ipv6: DatabaseStateInfo,
+    pub loading: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Type, Event)]
+struct DatabaseStateChange(AppStateInfo);
+
+impl DatabaseStateChange {
+    pub fn emit(app: &AppHandle, state: &AppState) {
+        let info = state.info();
+        println!("{info:?}");
+        let _ = Self(info).emit(app);
+    }
 }
 
 #[tauri::command]
@@ -44,69 +92,75 @@ async fn load_database(
     state: State<'_, AppState>,
     path: PathBuf,
 ) -> Result<DatabaseInfo, String> {
-    // TODO:
-    // if let Some(kv) = state.databases.get(&path) {
-    //     println!("already exists!");
-    //     return Ok(kv.value().1.clone());
-    // }
+    if let Some(exists) = state.ipv4_db.db_exists(&path) {
+        return Ok(exists);
+    }
 
-    println!("loading...");
+    if let Some(exists) = state.ipv6_db.db_exists(&path) {
+        return Ok(exists);
+    }
+
+    if state.loading_db.read().expect("read loading").is_some() {
+        return Err("Database is already loading".to_string());
+    }
+
+    tracing::info!("loading database from {path:?}");
+
+    state.loading_db.write().expect("write loading").replace(
+        path.file_name()
+            .map(|s| s.to_string_lossy().to_string())
+            .unwrap_or_else(|| "unknown".to_string()),
+    );
+    DatabaseStateChange::emit(&app, &state);
+
+
     let file = File::open(&path).map_err(|e| e.to_string())?;
-    let db = GeoDatabase::from_read(file).map_err(|e| e.to_string())?;
-    println!("loaded");
+    let db = ipgeo::from_read(file).map_err(|e| e.to_string())?;
 
-    let info = DatabaseInfo::new(path.clone(), &db);
-    state.databases.insert(info.clone(), db);
+    let info = match db {
+        GenericDatabase::Ipv4(db) => state.ipv4_db.insert(path, db),
+        GenericDatabase::Ipv6(db) => state.ipv6_db.insert(path, db),
+    };
 
-    UpdateDatabases::from_state(&state)
-        .emit(&app)
-        .map_err(|e| e.to_string())?;
+    tracing::info!("finished loading database {:?}", info.name);
+
+    state.loading_db.write().expect("write loading").take();
+    DatabaseStateChange::emit(&app, &state);
 
     Ok(info)
 }
 
 #[tauri::command]
 #[specta::specta]
-fn list_databases(state: State<'_, AppState>) -> UpdateDatabases {
-    UpdateDatabases::from_state(&state)
+async fn unload_database(app: AppHandle, state: State<'_, AppState>, db: DatabaseInfo) -> Result<(), String> {
+    state.ipv4_db.remove(&db);
+    state.ipv6_db.remove(&db);
+
+    DatabaseStateChange::emit(&app, &state);
+
+    Ok(())
 }
 
 #[tauri::command]
 #[specta::specta]
-fn lookup_ip(state: State<'_, AppState>, db: DatabaseInfo, ip: IpAddr) -> Result<Option<(Coordinate, Location)>, String> {
-    state
-        .databases
-        .get(&db)
-        .ok_or(format!("no database found for {db:?}"))
-        .map(|db| db.value().get(ip))
+fn set_selected_database(app: AppHandle, state: State<'_, AppState>, db: DatabaseInfo) {
+    state.ipv4_db.set_selected(&db);
+    state.ipv6_db.set_selected(&db);
+
+    DatabaseStateChange::emit(&app, &state);
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Type)]
-struct DatabaseInfo {
-    path: PathBuf,
-    ipv6: bool,
+#[tauri::command]
+#[specta::specta]
+fn database_state(state: State<'_, AppState>) -> AppStateInfo {
+    state.info()
 }
 
-impl DatabaseInfo {
-    pub fn new(path: PathBuf, db: &GeoDatabase) -> Self {
-        Self {
-            path,
-            ipv6: db.is_ipv6(),
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, Type, Event)]
-pub struct UpdateDatabases(Vec<DatabaseInfo>);
-
-impl UpdateDatabases {
-    fn from_state(state: &State<'_, AppState>) -> Self {
-        Self(
-            state
-                .databases
-                .iter()
-                .map(|kv| kv.key().clone())
-                .collect(),
-        )
+#[tauri::command]
+#[specta::specta]
+fn lookup_ip(state: State<'_, AppState>, ip: IpAddr) -> Option<(Coordinate, Location)> {
+    match ip {
+        IpAddr::V4(ip) => state.ipv4_db.get(ip),
+        IpAddr::V6(ip) => state.ipv6_db.get(ip),
     }
 }
