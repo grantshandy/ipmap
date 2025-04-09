@@ -39,7 +39,16 @@ macro_rules! generate_bindings {
 
         impl<'t> $struct_name<'t> {
             pub unsafe fn init() -> Result<$struct_name<'t>, libloading::Error> {
-                let lib = unsafe { libloading::Library::new($file)? };
+                println!("{}", $file);
+
+                let lib = unsafe { libloading::Library::new($file) };
+
+                #[cfg(not(unix))]
+                let lib = lib?;
+
+                #[cfg(unix)]
+                let lib = lib
+                    .or_else(|err| crate::macros::try_pkg_config_path($file).unwrap_or(Err(err)))?;
 
                 Ok($struct_name {
                     $(
@@ -52,4 +61,23 @@ macro_rules! generate_bindings {
             }
         }
     };
+}
+
+/// Really bad practice, but it's a last-ditch effort if it can't find the library (e.g. on NixOS)
+#[cfg(unix)]
+pub(crate) fn try_pkg_config_path(
+    filename: &'static str,
+) -> Option<Result<libloading::Library, libloading::Error>> {
+    std::process::Command::new("sh")
+        .args([
+            "pkg-config",
+            "--variable=libdir",
+            filename.split(".").next().unwrap_or_default(),
+        ])
+        .output()
+        .ok()
+        .filter(|output| output.status.success())
+        .and_then(|output| String::from_utf8(output.stdout).ok())
+        .map(|lib_path| format!("{}/{}", lib_path.trim(), filename))
+        .map(|path| unsafe { libloading::Library::new(path) })
 }

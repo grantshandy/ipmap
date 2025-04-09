@@ -72,7 +72,7 @@ impl Pcap<'_> {
 }
 
 /// A network device that can be captured on
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type)]
 pub struct Device {
     pub name: String,
     pub description: Option<String>,
@@ -154,6 +154,7 @@ impl<'t> Capture<'t> {
 
 impl Drop for Capture<'_> {
     fn drop(&mut self) {
+        self.stop();
         (self.lib.pcap_close)(self.handle.0);
     }
 }
@@ -192,13 +193,13 @@ impl Handler {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type)]
 pub enum PacketDirection {
     Incoming,
     Outgoing,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type)]
 pub struct Packet {
     pub size: usize,
     pub ip: IpAddr,

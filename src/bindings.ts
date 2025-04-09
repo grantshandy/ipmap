@@ -5,6 +5,9 @@
 
 
 export const commands = {
+/**
+ * Load a IP-Geolocation database into the program from the filename.
+ */
 async loadDatabase(path: string) : Promise<Result<DatabaseInfo, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("load_database", { path }) };
@@ -13,6 +16,9 @@ async loadDatabase(path: string) : Promise<Result<DatabaseInfo, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+/**
+ * Unload the database, freeing up memory.
+ */
 async unloadDatabase(db: DatabaseInfo) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("unload_database", { db }) };
@@ -21,14 +27,43 @@ async unloadDatabase(db: DatabaseInfo) : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async databaseState() : Promise<AppStateInfo> {
+/**
+ * Retrieve the current state of the database.
+ * This info is given out in [`DatabaseStateChange`], but this is useful for getting it at page load, for example.
+ */
+async databaseState() : Promise<GlobalDatabaseStateInfo> {
     return await TAURI_INVOKE("database_state");
 },
+/**
+ * Set the given database as the selected database for lookups.
+ */
 async setSelectedDatabase(db: DatabaseInfo) : Promise<void> {
     await TAURI_INVOKE("set_selected_database", { db });
 },
+/**
+ * Lookup a given IP address in the currently selected database(s).
+ */
 async lookupIp(ip: string) : Promise<[Coordinate, Location] | null> {
     return await TAURI_INVOKE("lookup_ip", { ip });
+},
+async pcapState() : Promise<GlobalPcapStateInfo> {
+    return await TAURI_INVOKE("pcap_state");
+},
+async startCapture(device: Device) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("start_capture", { device }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async stopCapture() : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("stop_capture") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -36,9 +71,13 @@ async lookupIp(ip: string) : Promise<[Coordinate, Location] | null> {
 
 
 export const events = __makeEvents__<{
-databaseStateChange: DatabaseStateChange
+databaseStateChange: DatabaseStateChange,
+newPacket: NewPacket,
+pcapStateChange: PcapStateChange
 }>({
-databaseStateChange: "database-state-change"
+databaseStateChange: "database-state-change",
+newPacket: "new-packet",
+pcapStateChange: "pcap-state-change"
 })
 
 /** user-defined constants **/
@@ -47,18 +86,36 @@ databaseStateChange: "database-state-change"
 
 /** user-defined types **/
 
-export type AppStateInfo = { ipv4: DatabaseStateInfo; ipv6: DatabaseStateInfo; loading: string | null }
 /**
  * A latitude/longitude coordinate.
  */
 export type Coordinate = { lat: number; lng: number }
 export type DatabaseInfo = { name: string; path: string }
-export type DatabaseStateChange = AppStateInfo
+/**
+ * Fired any time the state of loaded or selected databases are changed on the backend.
+ */
+export type DatabaseStateChange = GlobalDatabaseStateInfo
 export type DatabaseStateInfo = { selected: DatabaseInfo | null; loaded: DatabaseInfo[] }
+/**
+ * A network device that can be captured on
+ */
+export type Device = { name: string; description: string | null; ready: boolean; wireless: boolean }
+export type GlobalDatabaseStateInfo = { ipv4: DatabaseStateInfo; ipv6: DatabaseStateInfo; loading: string | null }
+export type GlobalPcapStateInfo = { Loaded: { version: string; devices: Device[]; capturing: Device | null } } | { Unavailable: string }
 /**
  * Location metadata.
  */
 export type Location = { city: string | null; region: string | null; country_code: string }
+/**
+ * Fired any time the state of loaded or selected databases are changed on the backend.
+ */
+export type NewPacket = Packet
+export type Packet = { size: number; ip: string; direction: PacketDirection }
+export type PacketDirection = "Incoming" | "Outgoing"
+/**
+ * Fired any time the state of loaded or selected databases are changed on the backend.
+ */
+export type PcapStateChange = GlobalPcapStateInfo
 
 /** tauri-specta globals **/
 

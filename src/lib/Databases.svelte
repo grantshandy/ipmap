@@ -1,38 +1,11 @@
 <script lang="ts">
     import { openUrl } from "@tauri-apps/plugin-opener";
-    import {
-        commands,
-        events,
-        type AppStateInfo,
-        type DatabaseStateInfo,
-    } from "../bindings";
+    import { commands, type DatabaseStateInfo } from "../bindings";
     import { open } from "@tauri-apps/plugin-dialog";
+    import { captureError, dbState } from "./stores.svelte";
 
     const DB_DOWNLOAD_URL =
         "https://github.com/sapics/ip-location-db?tab=readme-ov-file#city";
-
-    let { appState = $bindable() }: { appState: AppStateInfo } = $props();
-
-    const updateAppState = (state: AppStateInfo) => {
-        appState.loading = state.loading;
-
-        appState.ipv4.loaded = state.ipv4.loaded;
-        appState.ipv4.selected = state.ipv4.selected
-            ? appState.ipv4.loaded.filter(
-                  (info) => info.path == state.ipv4.selected?.path,
-              )[0]
-            : null;
-
-        appState.ipv6.loaded = state.ipv6.loaded;
-        appState.ipv6.selected = state.ipv6.selected
-            ? appState.ipv6.loaded.filter(
-                  (info) => info.path == state.ipv6.selected?.path,
-              )[0]
-            : null;
-    };
-
-    commands.databaseState().then(updateAppState);
-    events.databaseStateChange.listen((ev) => updateAppState(ev.payload));
 
     const openDatabase = async () => {
         const file = await open({
@@ -47,7 +20,7 @@
             ],
         });
 
-        if (file) commands.loadDatabase(file);
+        if (file) captureError(commands.loadDatabase(file));
     };
 
     const changeDatabase = (ev: Event, dbs: DatabaseStateInfo) => {
@@ -104,9 +77,9 @@
         <button
             onclick={openDatabase}
             class="btn btn-primary float-right"
-            disabled={appState.loading != null}
+            disabled={dbState.loading != null}
         >
-            {#if appState.loading}
+            {#if dbState.loading}
                 <span class="loading loading-spinner loading-xs"></span>
                 Loading...
             {:else}
@@ -115,11 +88,11 @@
         </button>
     </div>
 
-    {#if appState.ipv4.loaded.length > 0}
-        {@render databaseSelector(appState.ipv4, false)}
+    {#if dbState.ipv4.loaded.length > 0}
+        {@render databaseSelector(dbState.ipv4, false)}
     {/if}
 
-    {#if appState.ipv6.loaded.length > 0}
-        {@render databaseSelector(appState.ipv6, true)}
+    {#if dbState.ipv6.loaded.length > 0}
+        {@render databaseSelector(dbState.ipv6, true)}
     {/if}
 </div>
