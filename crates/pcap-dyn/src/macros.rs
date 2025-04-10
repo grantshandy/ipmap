@@ -39,8 +39,6 @@ macro_rules! generate_bindings {
 
         impl<'t> $struct_name<'t> {
             pub unsafe fn init() -> Result<$struct_name<'t>, libloading::Error> {
-                println!("{}", $file);
-
                 let lib = unsafe { libloading::Library::new($file) };
 
                 #[cfg(not(unix))]

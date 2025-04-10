@@ -9,34 +9,29 @@ use libc::{c_char, c_int};
 use std::ffi::CStr;
 use std::net::IpAddr;
 use std::sync::mpsc::{Receiver, Sender};
-use std::sync::{Arc, Mutex, mpsc};
+use std::sync::{Arc, LazyLock, Mutex, mpsc};
 use std::{ptr, slice, thread};
 
 mod ffi;
 mod macros;
 
+pub const INSTANCE: LazyLock<Result<Pcap<'static>, libloading::Error>> = LazyLock::new(Pcap::init);
+
 /// A handle to a dynamically loaded libpcap library.
 #[derive(Clone)]
-pub struct Pcap<'t> {
-    lib: Arc<PcapInner<'t>>,
-}
+pub struct Pcap<'t>(Arc<PcapInner<'t>>);
 
 impl Pcap<'_> {
     /// Load the library.
-    pub fn init() -> Result<Self, Error> {
-        let lib = unsafe { PcapInner::init() };
-
-        match lib {
-            Ok(pcap) => Ok(Self {
-                lib: Arc::new(pcap),
-            }),
-            Err(err) => Err(Error::LibraryLoad(err)),
-        }
+    fn init() -> Result<Self, libloading::Error> {
+        (unsafe { PcapInner::init() })
+            .map(Arc::new)
+            .map(Self)
     }
 
     /// A string with information about the loaded library.
     pub fn lib_version(&self) -> Option<String> {
-        cstr_to_string((self.lib.pcap_lib_version)())
+        cstr_to_string((self.0.pcap_lib_version)())
     }
 
     /// A list of available devices to capture on.
@@ -44,7 +39,7 @@ impl Pcap<'_> {
         let mut all_devs: *mut ffi::pcap_if_t = ptr::null_mut();
 
         let handle =
-            err_cap::<pcap_findalldevs, c_int>(|e| (self.lib.pcap_findalldevs)(&mut all_devs, e))?;
+            err_cap::<pcap_findalldevs, c_int>(|e| (self.0.pcap_findalldevs)(&mut all_devs, e))?;
 
         let mut devices = Vec::with_capacity(handle as usize);
 
@@ -60,14 +55,14 @@ impl Pcap<'_> {
             }
         }
 
-        (self.lib.pcap_freealldevs)(all_devs);
+        (self.0.pcap_freealldevs)(all_devs);
 
         Ok(devices)
     }
 
     /// Open a specific device for capturing.
     pub fn open(&self, device: &Device) -> Result<Capture, Error> {
-        Capture::open(self.lib.clone(), device)
+        Capture::open(&device)
     }
 }
 
@@ -97,14 +92,17 @@ impl Device {
 
 /// A live handle to the network device for capturing.
 #[derive(Clone)]
-pub struct Capture<'t> {
+pub struct Capture {
     handle: PcapTSend,
-    lib: Arc<PcapInner<'t>>,
+    lib: Arc<PcapInner<'static>>,
     stop_signal: Arc<Mutex<()>>,
 }
 
-impl<'t> Capture<'t> {
-    fn open(lib: Arc<PcapInner<'t>>, device: &Device) -> Result<Self, Error> {
+impl Capture {
+    fn open(device: &Device) -> Result<Self, Error> {
+        // unwrap: Capture can only be created from an already valid PCAP
+        let Pcap(lib) = pcap_handle().expect("opening capture without a valid pcap");
+
         let name: *const c_char = device.name.as_ptr() as _;
 
         let handle = err_cap::<pcap_open_live, *mut pcap_t>(|e| {
@@ -152,7 +150,7 @@ impl<'t> Capture<'t> {
     }
 }
 
-impl Drop for Capture<'_> {
+impl Drop for Capture {
     fn drop(&mut self) {
         self.stop();
         (self.lib.pcap_close)(self.handle.0);
@@ -269,4 +267,8 @@ fn err_cap<F: DynCFunc, T>(mut f: impl FnMut(*mut c_char) -> T) -> Result<T, Err
     }
 
     Ok(res)
+}
+
+fn pcap_handle() -> Option<Pcap<'static>> {
+    INSTANCE.as_ref().ok().cloned()
 }

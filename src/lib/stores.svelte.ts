@@ -29,19 +29,20 @@ const updateDbState = (state: GlobalDatabaseStateInfo) => {
 commands.databaseState().then(updateDbState);
 events.databaseStateChange.listen((ev) => updateDbState(ev.payload));
 
-export let pcapState: { version: string; devices: Device[], capturing: Device | null, error: string | null }
-    = $state({ version: "", devices: [], capturing: null, error: "Loading..." });
+export let pcap: { state: { version: string, devices: Device[], capture: Device | null } | string | null }
+    = $state({ state: null });
 
 const updatePcapState = (state: GlobalPcapStateInfo) => {
     console.log(state);
 
     if ("Loaded" in state) {
-        pcapState.version = state.Loaded.version;
-        pcapState.devices = state.Loaded.devices;
-        pcapState.capturing = state.Loaded.capturing;
-        pcapState.error = null;
+        pcap.state = {
+            version: state.Loaded.version,
+            devices: state.Loaded.devices,
+            capture: state.Loaded.capture,
+        };
     } else {
-        pcapState.error = state.Unavailable;
+        pcap.state = state.Unavailable;
     }
 };
 

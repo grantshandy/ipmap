@@ -65,6 +65,8 @@ pub async fn unload_database(
     state: State<'_, GlobalDatabaseState>,
     db: DatabaseInfo,
 ) -> Result<(), String> {
+    tracing::info!("unloading database {:?}", db.name);
+
     state.ipv4_db.remove(&db);
     state.ipv6_db.remove(&db);
 
@@ -81,6 +83,8 @@ pub fn set_selected_database(
     state: State<'_, GlobalDatabaseState>,
     db: DatabaseInfo,
 ) {
+    tracing::info!("set selected database as {:?}", db.name);
+
     state.ipv4_db.set_selected(&db);
     state.ipv6_db.set_selected(&db);
 
@@ -195,8 +199,6 @@ where
     }
 
     pub fn remove(&self, info: &DatabaseInfo) {
-        tracing::info!("unloading database {:?}", info.name);
-
         self.loaded.remove(info);
 
         let mut selected = self.selected.write().expect("open selected");

@@ -20,7 +20,10 @@
             ],
         });
 
-        if (file) captureError(commands.loadDatabase(file));
+        if (file && !dbState.loading) {
+            console.log("loading database");
+            captureError(commands.loadDatabase(file));
+        };
     };
 
     const changeDatabase = (ev: Event, dbs: DatabaseStateInfo) => {

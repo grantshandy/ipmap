@@ -101,7 +101,7 @@ export type DatabaseStateInfo = { selected: DatabaseInfo | null; loaded: Databas
  */
 export type Device = { name: string; description: string | null; ready: boolean; wireless: boolean }
 export type GlobalDatabaseStateInfo = { ipv4: DatabaseStateInfo; ipv6: DatabaseStateInfo; loading: string | null }
-export type GlobalPcapStateInfo = { Loaded: { version: string; devices: Device[]; capturing: Device | null } } | { Unavailable: string }
+export type GlobalPcapStateInfo = { Loaded: { version: string; devices: Device[]; capture: Device | null } } | { Unavailable: string }
 /**
  * Location metadata.
  */
