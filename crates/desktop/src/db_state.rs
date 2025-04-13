@@ -32,7 +32,7 @@ pub async fn load_database(
         return Err("Database is already loading".to_string());
     }
 
-    tracing::info!("loading database from {path:?}");
+    log::info!("loading database from {path:?}");
 
     state.loading_db.write().expect("write loading").replace(
         path.file_name()
@@ -49,7 +49,7 @@ pub async fn load_database(
         GenericDatabase::Ipv6(db) => state.ipv6_db.insert(path, db),
     };
 
-    tracing::info!("finished loading database {:?}", info.name);
+    log::info!("finished loading database {:?}", info.name);
 
     state.loading_db.write().expect("write loading").take();
     DatabaseStateChange::emit(&app, &state);
@@ -65,7 +65,7 @@ pub async fn unload_database(
     state: State<'_, GlobalDatabaseState>,
     db: DatabaseInfo,
 ) -> Result<(), String> {
-    tracing::info!("unloading database {:?}", db.name);
+    log::info!("unloading database {:?}", db.name);
 
     state.ipv4_db.remove(&db);
     state.ipv6_db.remove(&db);
@@ -83,7 +83,7 @@ pub fn set_selected_database(
     state: State<'_, GlobalDatabaseState>,
     db: DatabaseInfo,
 ) {
-    tracing::info!("set selected database as {:?}", db.name);
+    log::info!("set selected database as {:?}", db.name);
 
     state.ipv4_db.set_selected(&db);
     state.ipv6_db.set_selected(&db);

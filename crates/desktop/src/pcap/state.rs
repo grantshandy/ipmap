@@ -157,7 +157,7 @@ pub async fn start_capture(
         }
 
         ActiveConnections::emit_empty(&emit_handle);
-        tracing::info!("finished update loop");
+        log::info!("finished update loop");
     });
 
     PcapStateChange::emit(&handle, state.inner());
@@ -183,7 +183,7 @@ pub async fn stop_capture(
     capture_state.take();
     drop(capture_state);
 
-    tracing::info!("stopped capture");
+    log::info!("stopped capture");
 
     PcapStateChange::emit(&handle, state.inner());
 

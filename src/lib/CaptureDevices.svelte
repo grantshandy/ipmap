@@ -84,41 +84,16 @@
 {/if}
 
 {#if pcap.connections}
-    <div class="overflow-y-auto space-y-3">
         <h2>Active Connections</h2>
-        {@render renderConnections(pcap.connections.active)}
-        <hr />
-        <h2>
-            All Connections
-            <button class="btn btn-xs" onclick={refreshConnections}>
-                reload
-            </button>
-        </h2>
-        {@render renderConnections(pcap.connections.all)}
-    </div>
+    <ol class="list-decimal">
+        {#each pcap.connections.active as a}
+            <li>
+                <span>{a.ip}:</span>
+                <ul class="list-disc">
+                    <li>In: {humanFileSize(a.in.bytes_per_second)}/s ({humanFileSize(a.in.size)})</li>
+                    <li>Out: {humanFileSize(a.out.bytes_per_second)}/s ({humanFileSize(a.out.size)})</li>
+                </ul>
+            </li>
+        {/each}
+    </ol>
 {/if}
-
-{#snippet renderConnections(conn: ConnectionInfo[])}
-    <div class="overflow-x-auto">
-        <table class="table table-xs">
-            <thead>
-                <tr>
-                    <th></th>
-                    <th>IP</th>
-                    <th>Bytes Down</th>
-                    <th>Bytes Up</th>
-                </tr>
-            </thead>
-            <tbody>
-                {#each conn as a, i}
-                    <tr>
-                        <th>{i + 1}</th>
-                        <td>{a.ip}</td>
-                        <td>{humanFileSize(a.in_size)}</td>
-                        <td>{humanFileSize(a.out_size)}</td>
-                    </tr>
-                {/each}
-            </tbody>
-        </table>
-    </div>
-{/snippet}

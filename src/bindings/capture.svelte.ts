@@ -7,8 +7,8 @@ type PcapStore = {
         capture: Device | null
     } | string | null,
     connections: {
-        active: ConnectionInfo[],
-        all: ConnectionInfo[]
+        active: ConnectionInfo[] | undefined,
+        all: ConnectionInfo[] | undefined,
     } | null
 };
 
@@ -51,6 +51,6 @@ events.pcapStateChange.listen((ev) => updatePcapState(ev.payload));
 // update active connections when fired
 events.activeConnections.listen((ev) => {
     if (!pcap.connections) pcap.connections = { all: [], active: [] };
-
+    pcap.connections.active = undefined;
     pcap.connections.active = ev.payload;
 });
