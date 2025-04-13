@@ -49,6 +49,9 @@ async lookupIp(ip: string) : Promise<[Coordinate, Location] | null> {
 async pcapState() : Promise<GlobalPcapStateInfo> {
     return await TAURI_INVOKE("pcap_state");
 },
+async allConnections() : Promise<ConnectionInfo[] | null> {
+    return await TAURI_INVOKE("all_connections");
+},
 async startCapture(device: Device) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("start_capture", { device }) };
@@ -71,12 +74,12 @@ async stopCapture() : Promise<Result<null, string>> {
 
 
 export const events = __makeEvents__<{
+activeConnections: ActiveConnections,
 databaseStateChange: DatabaseStateChange,
-newPacket: NewPacket,
 pcapStateChange: PcapStateChange
 }>({
+activeConnections: "active-connections",
 databaseStateChange: "database-state-change",
-newPacket: "new-packet",
 pcapStateChange: "pcap-state-change"
 })
 
@@ -86,6 +89,11 @@ pcapStateChange: "pcap-state-change"
 
 /** user-defined types **/
 
+/**
+ * Fired any time the state of loaded or selected databases are changed on the backend.
+ */
+export type ActiveConnections = ConnectionInfo[]
+export type ConnectionInfo = { ip: string; last_seen: string; in_packets: number; in_size: number; out_size: number; out_packets: number }
 /**
  * A latitude/longitude coordinate.
  */
@@ -106,12 +114,6 @@ export type GlobalPcapStateInfo = { Loaded: { version: string; devices: Device[]
  * Location metadata.
  */
 export type Location = { city: string | null; region: string | null; country_code: string }
-/**
- * Fired any time the state of loaded or selected databases are changed on the backend.
- */
-export type NewPacket = Packet
-export type Packet = { size: number; ip: string; direction: PacketDirection }
-export type PacketDirection = "Incoming" | "Outgoing"
 /**
  * Fired any time the state of loaded or selected databases are changed on the backend.
  */

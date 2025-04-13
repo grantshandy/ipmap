@@ -1,15 +1,15 @@
 use tauri::Manager;
 
 mod db_state;
-mod pcap_state;
+mod pcap;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri_specta::Builder::<tauri::Wry>::new()
         .events(tauri_specta::collect_events![
             db_state::DatabaseStateChange,
-            pcap_state::PcapStateChange,
-            pcap_state::NewPacket
+            pcap::state::PcapStateChange,
+            pcap::state::ActiveConnections
         ])
         .commands(tauri_specta::collect_commands![
             db_state::load_database,
@@ -17,9 +17,10 @@ pub fn run() {
             db_state::database_state,
             db_state::set_selected_database,
             db_state::lookup_ip,
-            pcap_state::pcap_state,
-            pcap_state::start_capture,
-            pcap_state::stop_capture
+            pcap::state::pcap_state,
+            pcap::state::all_connections,
+            pcap::state::start_capture,
+            pcap::state::stop_capture
         ]);
 
     #[cfg(all(debug_assertions, not(mobile)))]
@@ -38,7 +39,7 @@ pub fn run() {
         .setup(move |app| {
             builder.mount_events(app);
             app.manage(db_state::GlobalDatabaseState::default());
-            app.manage(pcap_state::GlobalPcapState::default());
+            app.manage(pcap::state::GlobalPcapState::default());
             Ok(())
         })
         .run(tauri::generate_context!())

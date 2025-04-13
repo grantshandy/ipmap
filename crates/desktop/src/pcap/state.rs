@@ -1,5 +1,5 @@
 use std::{
-    sync::{Arc, RwLock},
+    sync::{Arc, RwLock, mpsc::TryRecvError},
     thread,
 };
 
@@ -9,13 +9,21 @@ use specta::Type;
 use tauri::{AppHandle, State};
 use tauri_specta::Event;
 
+use super::buf::{CaptureBuffer, ConnectionInfo};
+
 pub enum GlobalPcapState {
     Loaded {
         pcap: Pcap<'static>,
         version: String,
-        capture: RwLock<Option<(Device, Arc<Capture>)>>,
+        capture: RwLock<Option<CaptureState>>,
     },
     Unavailable(String),
+}
+
+pub struct CaptureState {
+    device: Device,
+    handle: Arc<Capture>,
+    buffer: Arc<CaptureBuffer>,
 }
 
 impl Default for GlobalPcapState {
@@ -54,7 +62,7 @@ impl From<&GlobalPcapState> for GlobalPcapStateInfo {
                 capture: capturing
                     .read()
                     .ok()
-                    .and_then(|guard| guard.as_ref().map(|(d, _)| d.clone())),
+                    .and_then(|guard| guard.as_ref().map(|c| c.device.clone())),
             },
             GlobalPcapState::Unavailable(e) => Self::Unavailable(e.clone()),
         }
@@ -63,11 +71,15 @@ impl From<&GlobalPcapState> for GlobalPcapStateInfo {
 
 /// Fired any time the state of loaded or selected databases are changed on the backend.
 #[derive(Serialize, Deserialize, Debug, Clone, Type, Event)]
-pub struct NewPacket(pcap_dyn::Packet);
+pub struct ActiveConnections(Vec<ConnectionInfo>);
 
-impl NewPacket {
-    pub fn emit(app: &AppHandle, packet: pcap_dyn::Packet) {
-        let _ = Self(packet).emit(app);
+impl ActiveConnections {
+    pub fn emit(app: &AppHandle, buffer: &CaptureBuffer) {
+        let _ = Self(buffer.active()).emit(app);
+    }
+
+    pub fn emit_empty(app: &AppHandle) {
+        let _ = Self(Vec::new()).emit(app);
     }
 }
 
@@ -89,6 +101,18 @@ pub fn pcap_state(state: State<'_, GlobalPcapState>) -> GlobalPcapStateInfo {
 
 #[tauri::command]
 #[specta::specta]
+pub fn all_connections(state: State<'_, GlobalPcapState>) -> Option<Vec<ConnectionInfo>> {
+    match state.inner() {
+        GlobalPcapState::Loaded { capture, .. } => capture
+            .read()
+            .ok()
+            .and_then(|guard| guard.as_ref().map(|c| c.buffer.all())),
+        GlobalPcapState::Unavailable(_) => return None,
+    }
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn start_capture(
     handle: AppHandle,
     state: State<'_, GlobalPcapState>,
@@ -104,19 +128,36 @@ pub async fn start_capture(
         .map_err(|e| e.to_string())
         .map(Arc::new)?;
 
+    let buffer = Arc::new(CaptureBuffer::default());
+
     capture
         .write()
         .map_err(|e| e.to_string())?
-        .replace((device.clone(), cap.clone()));
+        .replace(CaptureState {
+            device: device.clone(),
+            handle: cap.clone(),
+            buffer: buffer.clone(),
+        });
 
     let recv = cap.start();
-
     let emit_handle = handle.clone();
+
     thread::spawn(move || {
-        while let Ok(packet) = recv.recv() {
-            NewPacket::emit(&emit_handle, packet);
+        'capture: loop {
+            'packets: loop {
+                match recv.try_recv() {
+                    Ok(packet) => buffer.insert(packet),
+                    Err(TryRecvError::Empty) => break 'packets,
+                    Err(TryRecvError::Disconnected) => break 'capture,
+                }
+            }
+
+            ActiveConnections::emit(&emit_handle, &buffer);
+            thread::sleep(super::buf::CAPTURE_UPDATE_FREQUENCY.unsigned_abs());
         }
-        tracing::info!("capture thread exited");
+
+        ActiveConnections::emit_empty(&emit_handle);
+        tracing::info!("finished update loop");
     });
 
     PcapStateChange::emit(&handle, state.inner());
@@ -136,13 +177,13 @@ pub async fn stop_capture(
     };
 
     if let Some(capture) = capture_state.as_ref() {
-        capture.1.stop();
+        capture.handle.stop();
     }
 
     capture_state.take();
     drop(capture_state);
 
-    tracing::info!("finished stopping capture");
+    tracing::info!("stopped capture");
 
     PcapStateChange::emit(&handle, state.inner());
 

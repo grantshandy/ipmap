@@ -24,9 +24,7 @@ pub struct Pcap<'t>(Arc<PcapInner<'t>>);
 impl Pcap<'_> {
     /// Load the library.
     fn init() -> Result<Self, libloading::Error> {
-        (unsafe { PcapInner::init() })
-            .map(Arc::new)
-            .map(Self)
+        (unsafe { PcapInner::init() }).map(Arc::new).map(Self)
     }
 
     /// A string with information about the loaded library.
@@ -220,8 +218,8 @@ impl Packet {
         };
 
         let (direction, ip) = match (ip_rfc::global(&src), ip_rfc::global(&dst)) {
-            (true, false) => (PacketDirection::Incoming, src),
-            (false, true) => (PacketDirection::Outgoing, dst),
+            (false, true) => (PacketDirection::Incoming, src),
+            (true, false) => (PacketDirection::Outgoing, dst),
             _ => return None,
         };
 

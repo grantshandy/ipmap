@@ -1,5 +1,5 @@
 import { message } from "@tauri-apps/plugin-dialog";
-import { commands, events, type Device, type GlobalDatabaseStateInfo, type GlobalPcapStateInfo, type Result } from "../bindings";
+import { commands, events, type ConnectionInfo, type Device, type GlobalDatabaseStateInfo, type GlobalPcapStateInfo, type Result } from "../bindings";
 
 export let dbState: GlobalDatabaseStateInfo = $state({
     ipv4: { loaded: [], selected: null },
@@ -29,11 +29,24 @@ const updateDbState = (state: GlobalDatabaseStateInfo) => {
 commands.databaseState().then(updateDbState);
 events.databaseStateChange.listen((ev) => updateDbState(ev.payload));
 
+export let connections: { active: ConnectionInfo[], all: ConnectionInfo[] } = $state({ active: [], all: [] });
+events.activeConnections.listen((ev) => {
+    connections.active = ev.payload;
+});
+
+export const refreshConnections = () => commands
+    .allConnections()
+    .then((r) => {
+        if (r != null) connections.all = r;
+    });
+
 export let pcap: { state: { version: string, devices: Device[], capture: Device | null } | string | null }
     = $state({ state: null });
 
 const updatePcapState = (state: GlobalPcapStateInfo) => {
     console.log(state);
+
+    refreshConnections();
 
     if ("Loaded" in state) {
         pcap.state = {

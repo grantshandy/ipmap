@@ -29,4 +29,6 @@ dashmap = "6.1.0"
 
 ipgeo = { path = "../ipgeo" }
 pcap-dyn = { path = "../pcap-dyn" }
+time = { version = "0.3.41", features = ["serde"] }
+itertools = "0.14.0"
 

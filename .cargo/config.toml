@@ -1,0 +1,1 @@
+target.'cfg(target_os = "linux")'.runner = ".cargo/run.sh"
