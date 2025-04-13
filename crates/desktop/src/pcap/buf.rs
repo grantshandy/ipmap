@@ -1,13 +1,13 @@
-use std::net::IpAddr;
+use std::{net::IpAddr, time::Duration};
 
 use dashmap::DashMap;
 use pcap_dyn::{Packet, PacketDirection};
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use time::{Duration, UtcDateTime};
+use time::UtcDateTime;
 use itertools::Itertools;
 
-pub const CAPTURE_UPDATE_FREQUENCY: Duration = Duration::seconds(2);
+pub const CAPTURE_UPDATE_FREQUENCY: Duration = Duration::from_secs(2);
 
 #[derive(Default)]
 pub struct CaptureBuffer {
@@ -54,7 +54,7 @@ impl CaptureBuffer {
         self
             .connections
             .iter()
-            .filter(|kv| now - kv.value().last_seen <= CAPTURE_UPDATE_FREQUENCY)
+            .filter(|kv| now - kv.value().last_seen <= (CAPTURE_UPDATE_FREQUENCY * 2))
             .map(|kv| ConnectionInfo::from(kv.pair()))
             .sorted_by(|a, b| a.total_size().cmp(&b.total_size()).reverse())
             .collect()
@@ -82,7 +82,6 @@ struct Connection {
 #[derive(Clone, Debug, Type, Serialize, Deserialize)]
 pub struct ConnectionInfo {
     ip: IpAddr,
-    last_seen: String,
     in_packets: usize,
     in_size: usize,
     out_size: usize,
@@ -99,7 +98,6 @@ impl From<(&IpAddr, &Connection)> for ConnectionInfo {
     fn from((ip, connection): (&IpAddr, &Connection)) -> Self {
         ConnectionInfo {
             ip: *ip,
-            last_seen: connection.last_seen.to_string(),
             in_packets: connection.in_packets,
             in_size: connection.in_size,
             out_size: connection.out_size,

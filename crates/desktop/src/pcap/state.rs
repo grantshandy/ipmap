@@ -153,7 +153,7 @@ pub async fn start_capture(
             }
 
             ActiveConnections::emit(&emit_handle, &buffer);
-            thread::sleep(super::buf::CAPTURE_UPDATE_FREQUENCY.unsigned_abs());
+            thread::sleep(super::buf::CAPTURE_UPDATE_FREQUENCY);
         }
 
         ActiveConnections::emit_empty(&emit_handle);

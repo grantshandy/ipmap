@@ -1,6 +1,12 @@
 <script lang="ts">
-    import { commands, type ConnectionInfo, type Device } from "../bindings";
-    import { captureError, pcap, connections, refreshConnections, } from "./stores.svelte";
+    import {
+        commands,
+        type ConnectionInfo,
+        type Device,
+        captureError,
+        pcap,
+        refreshConnections,
+    } from "../bindings";
 
     let device: Device | null = $state(null);
 
@@ -38,8 +44,12 @@
 
     const humanFileSize = (size: number): string => {
         const i = size == 0 ? 0 : Math.floor(Math.log(size) / Math.log(1024));
-        return +((size / Math.pow(1024, i)).toFixed(2)) * 1 + ' ' + ['B', 'kB', 'MB', 'GB', 'TB'][i];
-    }
+        return (
+            +(size / Math.pow(1024, i)).toFixed(2) * 1 +
+            " " +
+            ["B", "kB", "MB", "GB", "TB"][i]
+        );
+    };
 </script>
 
 {#if typeof pcap.state == "string"}
@@ -71,42 +81,44 @@
             >
         {/if}
     </div>
+{/if}
 
+{#if pcap.connections}
     <div class="overflow-y-auto space-y-3">
         <h2>Active Connections</h2>
-        {@render renderConnections(connections.active)}
+        {@render renderConnections(pcap.connections.active)}
         <hr />
         <h2>
             All Connections
-            <button class="btn btn-sm" onclick={refreshConnections}>
+            <button class="btn btn-xs" onclick={refreshConnections}>
                 reload
             </button>
         </h2>
-        {@render renderConnections(connections.all)}
+        {@render renderConnections(pcap.connections.all)}
     </div>
 {/if}
 
 {#snippet renderConnections(conn: ConnectionInfo[])}
-<div class="overflow-x-auto">
-    <table class="table table-xs">
-        <thead>
-            <tr>
-                <th></th>
-                <th>IP</th>
-                <th>Bytes Down</th>
-                <th>Bytes Up</th>
-            </tr>
-        </thead>
-        <tbody>
-            {#each conn as a, i}
+    <div class="overflow-x-auto">
+        <table class="table table-xs">
+            <thead>
                 <tr>
-                    <th>{i + 1}</th>
-                    <td>{a.ip}</td>
-                    <td>{humanFileSize(a.in_size)}</td>
-                    <td>{humanFileSize(a.out_size)}</td>
+                    <th></th>
+                    <th>IP</th>
+                    <th>Bytes Down</th>
+                    <th>Bytes Up</th>
                 </tr>
-            {/each}
-        </tbody>
-    </table>
-</div>
+            </thead>
+            <tbody>
+                {#each conn as a, i}
+                    <tr>
+                        <th>{i + 1}</th>
+                        <td>{a.ip}</td>
+                        <td>{humanFileSize(a.in_size)}</td>
+                        <td>{humanFileSize(a.out_size)}</td>
+                    </tr>
+                {/each}
+            </tbody>
+        </table>
+    </div>
 {/snippet}

@@ -1,30 +1,14 @@
 <script lang="ts">
     import { openUrl } from "@tauri-apps/plugin-opener";
-    import { commands, type DatabaseStateInfo } from "../bindings";
-    import { open } from "@tauri-apps/plugin-dialog";
-    import { captureError, dbState } from "./stores.svelte";
+    import {
+        commands,
+        db,
+        type DatabaseStateInfo,
+        openDatabaseDialog,
+    } from "../bindings";
 
     const DB_DOWNLOAD_URL =
         "https://github.com/sapics/ip-location-db?tab=readme-ov-file#city";
-
-    const openDatabase = async () => {
-        const file = await open({
-            title: "Open IP Geolocation City Database",
-            multiple: false,
-            directory: false,
-            filters: [
-                {
-                    name: "IP Geolocation City Database",
-                    extensions: ["csv", "csv.gz"],
-                },
-            ],
-        });
-
-        if (file && !dbState.loading) {
-            console.log("loading database");
-            captureError(commands.loadDatabase(file));
-        };
-    };
 
     const changeDatabase = (ev: Event, dbs: DatabaseStateInfo) => {
         const newDb = dbs.loaded.find(
@@ -78,11 +62,11 @@
             onclick={() => openUrl(DB_DOWNLOAD_URL)}>Download</button
         >
         <button
-            onclick={openDatabase}
+            onclick={openDatabaseDialog}
             class="btn btn-primary float-right"
-            disabled={dbState.loading != null}
+            disabled={db.loading != null}
         >
-            {#if dbState.loading}
+            {#if db.loading}
                 <span class="loading loading-spinner loading-xs"></span>
                 Loading...
             {:else}
@@ -91,11 +75,11 @@
         </button>
     </div>
 
-    {#if dbState.ipv4.loaded.length > 0}
-        {@render databaseSelector(dbState.ipv4, false)}
+    {#if db.ipv4.loaded.length > 0}
+        {@render databaseSelector(db.ipv4, false)}
     {/if}
 
-    {#if dbState.ipv6.loaded.length > 0}
-        {@render databaseSelector(dbState.ipv6, true)}
+    {#if db.ipv6.loaded.length > 0}
+        {@render databaseSelector(db.ipv6, true)}
     {/if}
 </div>

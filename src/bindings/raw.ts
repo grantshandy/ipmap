@@ -93,7 +93,7 @@ pcapStateChange: "pcap-state-change"
  * Fired any time the state of loaded or selected databases are changed on the backend.
  */
 export type ActiveConnections = ConnectionInfo[]
-export type ConnectionInfo = { ip: string; last_seen: string; in_packets: number; in_size: number; out_size: number; out_packets: number }
+export type ConnectionInfo = { ip: string; in_packets: number; in_size: number; out_size: number; out_packets: number }
 /**
  * A latitude/longitude coordinate.
  */

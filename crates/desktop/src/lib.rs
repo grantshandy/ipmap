@@ -28,7 +28,7 @@ pub fn run() {
         .export(
             specta_typescript::Typescript::default()
                 .bigint(specta_typescript::BigIntExportBehavior::Number),
-            "../../src/bindings.ts",
+            "../../src/bindings/raw.ts",
         )
         .expect("Failed to export typescript bindings");
 
