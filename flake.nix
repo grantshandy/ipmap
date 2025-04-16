@@ -18,8 +18,8 @@
       in
       {
         devShells.default = pkgs.mkShell {
-
-          LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath [ pkgs.libpcap ]}:$LD_LIBRARY_PATH";
+          RUST_LOG = "trace";
+          LD_LIBRARY_PATH = "${pkgs.lib.makeLibraryPath [ pkgs.libpcap ]}:$LD_LIBRARY_PATH";
 
           buildInputs = with pkgs; [
             rust-bin.stable.latest.default

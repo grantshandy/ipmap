@@ -10,6 +10,8 @@
 
     let device: Device | null = $state(null);
 
+    $inspect(pcap.connections);
+
     $effect(() => {
         if (
             pcap.state == null ||
@@ -84,14 +86,22 @@
 {/if}
 
 {#if pcap.connections}
-        <h2>Active Connections</h2>
-    <ol class="list-decimal">
-        {#each pcap.connections.active as a}
-            <li>
-                <span>{a.ip}:</span>
+    <h2>Active Connections</h2>
+    <ol class="list-decimal ml-4">
+        {#each Object.entries(pcap.connections.active).sort(([, a], [, b]) => b.in_bps + b.out_bps - (a.in_bps + a.out_bps)) as [ip, info]}
+            <li class="pl-8">
+                <span>{ip}:</span>
                 <ul class="list-disc">
-                    <li>In: {humanFileSize(a.in.bytes_per_second)}/s ({humanFileSize(a.in.size)})</li>
-                    <li>Out: {humanFileSize(a.out.bytes_per_second)}/s ({humanFileSize(a.out.size)})</li>
+                    <li>
+                        In: {humanFileSize(info.in_bps)}/s ({humanFileSize(
+                            info.in,
+                        )})
+                    </li>
+                    <li>
+                        Out: {humanFileSize(info.out_bps)}/s ({humanFileSize(
+                            info.out,
+                        )})
+                    </li>
                 </ul>
             </li>
         {/each}

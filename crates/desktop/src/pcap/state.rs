@@ -1,6 +1,9 @@
 use std::{
     sync::{Arc, RwLock, mpsc::TryRecvError},
+    net::IpAddr,
     thread,
+    time::Duration,
+    collections::HashMap
 };
 
 use pcap_dyn::{Capture, Device, Pcap};
@@ -10,6 +13,8 @@ use tauri::{AppHandle, State};
 use tauri_specta::Event;
 
 use super::buf::{CaptureBuffer, ConnectionInfo};
+
+const CAPTURE_UPDATE_FREQUENCY: Duration = Duration::from_millis(200);
 
 pub enum GlobalPcapState {
     Loaded {
@@ -60,7 +65,7 @@ impl From<&GlobalPcapState> for GlobalPcapStateInfo {
                 devices: pcap.get_devices().unwrap_or_default(),
                 version: version.clone(),
                 capture: capturing
-                    .read()
+                    .try_read()
                     .ok()
                     .and_then(|guard| guard.as_ref().map(|c| c.device.clone())),
             },
@@ -71,7 +76,7 @@ impl From<&GlobalPcapState> for GlobalPcapStateInfo {
 
 /// Fired any time the state of loaded or selected databases are changed on the backend.
 #[derive(Serialize, Deserialize, Debug, Clone, Type, Event)]
-pub struct ActiveConnections(Vec<ConnectionInfo>);
+pub struct ActiveConnections(HashMap<IpAddr, ConnectionInfo>);
 
 impl ActiveConnections {
     pub fn emit(app: &AppHandle, buffer: &CaptureBuffer) {
@@ -79,7 +84,7 @@ impl ActiveConnections {
     }
 
     pub fn emit_empty(app: &AppHandle) {
-        let _ = Self(Vec::new()).emit(app);
+        let _ = Self(HashMap::new()).emit(app);
     }
 }
 
@@ -101,7 +106,7 @@ pub fn pcap_state(state: State<'_, GlobalPcapState>) -> GlobalPcapStateInfo {
 
 #[tauri::command]
 #[specta::specta]
-pub fn all_connections(state: State<'_, GlobalPcapState>) -> Option<Vec<ConnectionInfo>> {
+pub fn all_connections(state: State<'_, GlobalPcapState>) -> Option<HashMap<IpAddr, ConnectionInfo>> {
     match state.inner() {
         GlobalPcapState::Loaded { capture, .. } => capture
             .read()
@@ -153,7 +158,7 @@ pub async fn start_capture(
             }
 
             ActiveConnections::emit(&emit_handle, &buffer);
-            thread::sleep(super::buf::CAPTURE_UPDATE_FREQUENCY);
+            thread::sleep(CAPTURE_UPDATE_FREQUENCY);
         }
 
         ActiveConnections::emit_empty(&emit_handle);

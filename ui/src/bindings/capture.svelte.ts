@@ -7,8 +7,8 @@ type PcapStore = {
         capture: Device | null
     } | string | null,
     connections: {
-        active: ConnectionInfo[] | undefined,
-        all: ConnectionInfo[] | undefined,
+        active: { [ip: string]: ConnectionInfo },
+        all: { [ip: string]: ConnectionInfo },
     } | null
 };
 
@@ -16,15 +16,17 @@ export let pcap: PcapStore = $state({ state: null, connections: null });
 
 export const refreshConnections = async () => {
     const all = await commands.allConnections();
+
+    console.log(all);
     
     if (all == null) {
         pcap.connections == null;
     } else {
         if (!pcap.connections) {
-            pcap.connections = { all: [], active: [] };
+            pcap.connections = { all: {}, active: {} };
         }
 
-        pcap.connections.all = all;
+        pcap.connections.all = all as { [ip: string]: ConnectionInfo };
     }
 };
 
@@ -50,7 +52,6 @@ events.pcapStateChange.listen((ev) => updatePcapState(ev.payload));
 
 // update active connections when fired
 events.activeConnections.listen((ev) => {
-    if (!pcap.connections) pcap.connections = { all: [], active: [] };
-    pcap.connections.active = undefined;
-    pcap.connections.active = ev.payload;
+    if (!pcap.connections) pcap.connections = { all: {}, active: {} };
+    pcap.connections.active = ev.payload as { [ip: string]: ConnectionInfo };
 });

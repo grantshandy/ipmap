@@ -1,14 +1,13 @@
-use std::{net::IpAddr, sync::RwLock, time::Duration};
+use std::{collections::HashMap, net::IpAddr, sync::RwLock, time::Duration};
 
 use dashmap::DashMap;
-use itertools::Itertools;
 use pcap_dyn::{Packet, PacketDirection};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use time::{Duration as TimeDuration, UtcDateTime};
 
-pub const CAPTURE_UPDATE_FREQUENCY: Duration = Duration::from_millis(500);
-pub const CONNECTION_TIMEOUT: Duration = Duration::from_secs(3);
+const CONNECTION_TIMEOUT: Duration = Duration::from_secs(4);
+const BPS_UPDATE_INTERVAL: Duration = Duration::from_secs(2);
 
 pub struct CaptureBuffer {
     connections: DashMap<IpAddr, Connection>,
@@ -28,24 +27,23 @@ impl CaptureBuffer {
     pub fn insert(&self, packet: Packet) {
         let last_seen = UtcDateTime::now();
 
-        let packet_direction = ConnectionDirectionInfo {
-            count: 1,
-            size: packet.size,
-            size_since_update: packet.size,
-            bytes_per_second: 0,
-        };
-
         if let Some(mut connection) = self.connections.get_mut(&packet.ip) {
             connection.last_seen = last_seen;
 
             match packet.direction {
-                PacketDirection::Incoming => connection.r#in.add(packet_direction),
-                PacketDirection::Outgoing => connection.out.add(packet_direction),
+                PacketDirection::Incoming => connection.r#in.add(packet.size),
+                PacketDirection::Outgoing => connection.out.add(packet.size),
             };
         } else {
+            let info = ConnectionDirectionInfo {
+                size: packet.size,
+                recent_size: packet.size,
+                bytes_per_second: 0,
+            };
+
             let (in_packets, out_packets) = match packet.direction {
-                PacketDirection::Incoming => (packet_direction, ConnectionDirectionInfo::default()),
-                PacketDirection::Outgoing => (ConnectionDirectionInfo::default(), packet_direction),
+                PacketDirection::Incoming => (info, ConnectionDirectionInfo::default()),
+                PacketDirection::Outgoing => (ConnectionDirectionInfo::default(), info),
             };
 
             self.connections.insert(
@@ -64,6 +62,15 @@ impl CaptureBuffer {
 
         let now = UtcDateTime::now();
 
+        if now - *last_flushed < BPS_UPDATE_INTERVAL {
+            return;
+        }
+
+        log::debug!(
+            "Updating bytes per second for {} connections",
+            self.connections.len()
+        );
+
         let secs_since_last_update = (now - last_flushed.clone()) / TimeDuration::SECOND;
 
         *last_flushed = now;
@@ -80,7 +87,7 @@ impl CaptureBuffer {
         }
     }
 
-    pub fn active(&self) -> Vec<ConnectionInfo> {
+    pub fn active(&self) -> HashMap<IpAddr, ConnectionInfo> {
         self.update_speeds();
 
         let now = UtcDateTime::now();
@@ -88,18 +95,16 @@ impl CaptureBuffer {
         self.connections
             .iter()
             .filter(|kv| now - kv.value().last_seen <= CONNECTION_TIMEOUT)
-            .map(|kv| ConnectionInfo::from(kv.pair()))
-            .sorted_by(|a, b| a.total_size().cmp(&b.total_size()).reverse())
+            .map(|kv| (*kv.key(), kv.value().into()))
             .collect()
     }
 
-    pub fn all(&self) -> Vec<ConnectionInfo> {
+    pub fn all(&self) -> HashMap<IpAddr, ConnectionInfo> {
         self.update_speeds();
 
         self.connections
             .iter()
-            .map(|kv| ConnectionInfo::from(kv.pair()))
-            .sorted_by(|a, b| a.total_size().cmp(&b.total_size()).reverse())
+            .map(|kv| (*kv.key(), kv.value().into()))
             .collect()
     }
 }
@@ -111,46 +116,40 @@ struct Connection {
     out: ConnectionDirectionInfo,
 }
 
-#[derive(Copy, Clone, Debug, Type, Serialize, Deserialize)]
-pub struct ConnectionInfo {
-    ip: IpAddr,
-    r#in: ConnectionDirectionInfo,
-    out: ConnectionDirectionInfo,
-}
-
-impl ConnectionInfo {
-    pub fn total_size(&self) -> usize {
-        self.r#in.size + self.out.size
-    }
-}
-
-#[derive(Copy, Clone, Debug, Default, Type, Serialize, Deserialize)]
-pub struct ConnectionDirectionInfo {
-    count: usize,
+#[derive(Copy, Clone, Debug, Default)]
+struct ConnectionDirectionInfo {
     size: usize,
-    size_since_update: usize,
+    recent_size: usize,
     bytes_per_second: usize,
 }
 
 impl ConnectionDirectionInfo {
-    pub fn add(&mut self, other: ConnectionDirectionInfo) {
-        self.count += other.count;
-        self.size += other.size;
-        self.size_since_update += other.size;
+    pub fn add(&mut self, size: usize) {
+        self.size += size;
+        self.recent_size += size;
     }
 
     pub fn update_bytes_per_second(&mut self, secs_since_last_flush: f64) {
-        self.bytes_per_second = (self.size_since_update as f64 / secs_since_last_flush) as usize;
-        self.size_since_update = 0;
+        self.bytes_per_second = (self.recent_size as f64 / secs_since_last_flush) as usize;
+        self.recent_size = 0;
     }
 }
 
-impl From<(&IpAddr, &Connection)> for ConnectionInfo {
-    fn from((ip, connection): (&IpAddr, &Connection)) -> Self {
+#[derive(Copy, Clone, Debug, Type, Serialize, Deserialize)]
+pub struct ConnectionInfo {
+    r#in: usize,
+    in_bps: usize,
+    out: usize,
+    out_bps: usize,
+}
+
+impl From<&Connection> for ConnectionInfo {
+    fn from(connection: &Connection) -> Self {
         ConnectionInfo {
-            ip: *ip,
-            r#in: connection.r#in,
-            out: connection.out,
+            r#in: connection.r#in.size,
+            in_bps: connection.r#in.bytes_per_second,
+            out: connection.out.size,
+            out_bps: connection.out.bytes_per_second,
         }
     }
 }

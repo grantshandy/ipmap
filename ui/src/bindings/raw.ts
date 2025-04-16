@@ -49,7 +49,7 @@ async lookupIp(ip: string) : Promise<[Coordinate, Location] | null> {
 async pcapState() : Promise<GlobalPcapStateInfo> {
     return await TAURI_INVOKE("pcap_state");
 },
-async allConnections() : Promise<ConnectionInfo[] | null> {
+async allConnections() : Promise<Partial<{ [key in string]: ConnectionInfo }> | null> {
     return await TAURI_INVOKE("all_connections");
 },
 async startCapture(device: Device) : Promise<Result<null, string>> {
@@ -92,9 +92,8 @@ pcapStateChange: "pcap-state-change"
 /**
  * Fired any time the state of loaded or selected databases are changed on the backend.
  */
-export type ActiveConnections = ConnectionInfo[]
-export type ConnectionDirectionInfo = { count: number; size: number; size_since_update: number; bytes_per_second: number }
-export type ConnectionInfo = { ip: string; in: ConnectionDirectionInfo; out: ConnectionDirectionInfo }
+export type ActiveConnections = Partial<{ [key in string]: ConnectionInfo }>
+export type ConnectionInfo = { in: number; in_bps: number; out: number; out_bps: number }
 /**
  * A latitude/longitude coordinate.
  */
