@@ -5,7 +5,7 @@
         type Device,
         captureError,
         pcap,
-        refreshConnections,
+        type MovingAverageInfo,
     } from "../bindings";
 
     let device: Device | null = $state(null);
@@ -52,6 +52,14 @@
             ["B", "kB", "MB", "GB", "TB"][i]
         );
     };
+
+    const connState = (info: MovingAverageInfo): string =>
+        `${humanFileSize(info.total)} | ${humanFileSize(info.avg_s)}/s`;
+
+    const sortAllConns = (
+        [, a]: [string, ConnectionInfo],
+        [, b]: [string, ConnectionInfo],
+    ): number => b.down.avg_s + b.up.avg_s - (a.down.avg_s + a.up.avg_s);
 </script>
 
 {#if typeof pcap.state == "string"}
@@ -88,20 +96,12 @@
 {#if pcap.connections}
     <h2>Active Connections</h2>
     <ol class="list-decimal ml-4">
-        {#each Object.entries(pcap.connections.active).sort(([, a], [, b]) => b.in_bps + b.out_bps - (a.in_bps + a.out_bps)) as [ip, info]}
+        {#each Object.entries(pcap.connections.active).sort(sortAllConns) as [ip, info]}
             <li class="pl-8">
                 <span>{ip}:</span>
                 <ul class="list-disc">
-                    <li>
-                        In: {humanFileSize(info.in_bps)}/s ({humanFileSize(
-                            info.in,
-                        )})
-                    </li>
-                    <li>
-                        Out: {humanFileSize(info.out_bps)}/s ({humanFileSize(
-                            info.out,
-                        )})
-                    </li>
+                    <li>Down: {connState(info.down)}</li>
+                    <li>Up: {connState(info.up)}</li>
                 </ul>
             </li>
         {/each}

@@ -1,7 +1,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    pretty_env_logger::init();
+    tracing_subscriber::fmt().init();
+    tracing::info!("Starting Ipmap");
 
     ipmap_lib::run()
 }

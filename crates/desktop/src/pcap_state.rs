@@ -1,34 +1,27 @@
 use std::{
-    sync::{Arc, RwLock, mpsc::TryRecvError},
+    collections::HashMap,
     net::IpAddr,
+    sync::{Arc, RwLock, mpsc::TryRecvError},
     thread,
     time::Duration,
-    collections::HashMap
 };
 
-use pcap_dyn::{Capture, Device, Pcap};
+use pcap_dyn::{Api, CaptureTimeBuffer, ConnectionInfo, Device};
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Emitter, State};
 use tauri_specta::Event;
 
-use super::buf::{CaptureBuffer, ConnectionInfo};
-
-const CAPTURE_UPDATE_FREQUENCY: Duration = Duration::from_millis(200);
+const EMIT_FREQ: Duration = Duration::from_millis(200);
 
 pub enum GlobalPcapState {
     Loaded {
-        pcap: Pcap<'static>,
+        pcap: Api,
         version: String,
-        capture: RwLock<Option<CaptureState>>,
+        devices: Vec<Device>,
+        capture: RwLock<Option<CaptureTimeBuffer>>,
     },
     Unavailable(String),
-}
-
-pub struct CaptureState {
-    device: Device,
-    handle: Arc<Capture>,
-    buffer: Arc<CaptureBuffer>,
 }
 
 impl Default for GlobalPcapState {
@@ -36,7 +29,8 @@ impl Default for GlobalPcapState {
         match pcap_dyn::INSTANCE.as_ref() {
             Ok(pcap) => Self::Loaded {
                 pcap: pcap.clone(),
-                version: pcap.lib_version().unwrap_or_else(|| "Unknown".into()),
+                version: pcap.lib_version(),
+                devices: pcap.devices().unwrap_or_default(),
                 capture: RwLock::new(None),
             },
             Err(err) => Self::Unavailable(err.to_string()),
@@ -58,16 +52,17 @@ impl From<&GlobalPcapState> for GlobalPcapStateInfo {
     fn from(state: &GlobalPcapState) -> Self {
         match state {
             GlobalPcapState::Loaded {
-                pcap,
                 version,
-                capture: capturing,
+                devices,
+                capture,
+                ..
             } => Self::Loaded {
-                devices: pcap.get_devices().unwrap_or_default(),
+                devices: devices.clone(),
                 version: version.clone(),
-                capture: capturing
+                capture: capture
                     .try_read()
                     .ok()
-                    .and_then(|guard| guard.as_ref().map(|c| c.device.clone())),
+                    .and_then(|guard| guard.as_ref().map(|c| c.cap.device.clone())),
             },
             GlobalPcapState::Unavailable(e) => Self::Unavailable(e.clone()),
         }
@@ -77,16 +72,6 @@ impl From<&GlobalPcapState> for GlobalPcapStateInfo {
 /// Fired any time the state of loaded or selected databases are changed on the backend.
 #[derive(Serialize, Deserialize, Debug, Clone, Type, Event)]
 pub struct ActiveConnections(HashMap<IpAddr, ConnectionInfo>);
-
-impl ActiveConnections {
-    pub fn emit(app: &AppHandle, buffer: &CaptureBuffer) {
-        let _ = Self(buffer.active()).emit(app);
-    }
-
-    pub fn emit_empty(app: &AppHandle) {
-        let _ = Self(HashMap::new()).emit(app);
-    }
-}
 
 /// Fired any time the state of loaded or selected databases are changed on the backend.
 #[derive(Serialize, Deserialize, Debug, Clone, Type, Event)]
@@ -100,21 +85,22 @@ impl PcapStateChange {
 
 #[tauri::command]
 #[specta::specta]
-pub fn pcap_state(state: State<'_, GlobalPcapState>) -> GlobalPcapStateInfo {
-    GlobalPcapStateInfo::from(state.inner())
+pub async fn pcap_state(state: State<'_, GlobalPcapState>) -> Result<GlobalPcapStateInfo, String> {
+    Ok(GlobalPcapStateInfo::from(state.inner()))
 }
 
-#[tauri::command]
-#[specta::specta]
-pub fn all_connections(state: State<'_, GlobalPcapState>) -> Option<HashMap<IpAddr, ConnectionInfo>> {
-    match state.inner() {
-        GlobalPcapState::Loaded { capture, .. } => capture
-            .read()
-            .ok()
-            .and_then(|guard| guard.as_ref().map(|c| c.buffer.all())),
-        GlobalPcapState::Unavailable(_) => return None,
-    }
-}
+// #[tauri::command]
+// #[specta::specta]
+// pub async fn all_connections(state: State<'_, GlobalPcapState>) -> Result<Option<HashMap<IpAddr, ConnectionInfo>>, String> {
+//     match state.inner() {
+//         GlobalPcapState::Loaded { capture, .. } => capture
+//             .read()
+//             .ok()
+//             .map(|guard| guard.as_ref().map(|c| c.buffer.all()))
+//             .ok_or("Failed to unlock capture mutex".to_string()),
+//         GlobalPcapState::Unavailable(_) => Ok(None),
+//     }
+// }
 
 #[tauri::command]
 #[specta::specta]
@@ -128,42 +114,17 @@ pub async fn start_capture(
         GlobalPcapState::Unavailable(e) => return Err(e.clone()),
     };
 
-    let cap: Arc<Capture> = pcap
-        .open(&device)
-        .map_err(|e| e.to_string())
-        .map(Arc::new)?;
-
-    let buffer = Arc::new(CaptureBuffer::default());
+    let emit_handle = handle.clone();
+    let cap = pcap
+        .open_capture(device, EMIT_FREQ, move |info| {
+            let _ = ActiveConnections(info).emit(&emit_handle);
+        })
+        .map_err(|e| e.to_string())?;
 
     capture
         .write()
         .map_err(|e| e.to_string())?
-        .replace(CaptureState {
-            device: device.clone(),
-            handle: cap.clone(),
-            buffer: buffer.clone(),
-        });
-
-    let recv = cap.start();
-    let emit_handle = handle.clone();
-
-    thread::spawn(move || {
-        'capture: loop {
-            'packets: loop {
-                match recv.try_recv() {
-                    Ok(packet) => buffer.insert(packet),
-                    Err(TryRecvError::Empty) => break 'packets,
-                    Err(TryRecvError::Disconnected) => break 'capture,
-                }
-            }
-
-            ActiveConnections::emit(&emit_handle, &buffer);
-            thread::sleep(CAPTURE_UPDATE_FREQUENCY);
-        }
-
-        ActiveConnections::emit_empty(&emit_handle);
-        log::info!("finished update loop");
-    });
+        .replace(cap);
 
     PcapStateChange::emit(&handle, state.inner());
 
@@ -181,14 +142,10 @@ pub async fn stop_capture(
         GlobalPcapState::Unavailable(e) => return Err(e.clone()),
     };
 
-    if let Some(capture) = capture_state.as_ref() {
-        capture.handle.stop();
-    }
-
     capture_state.take();
     drop(capture_state);
 
-    log::info!("stopped capture");
+    tracing::info!("stopped capture");
 
     PcapStateChange::emit(&handle, state.inner());
 

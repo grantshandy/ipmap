@@ -14,24 +14,28 @@ type PcapStore = {
 
 export let pcap: PcapStore = $state({ state: null, connections: null });
 
-export const refreshConnections = async () => {
-    const all = await commands.allConnections();
+// export const refreshConnections = async () => {
+//     if (all.status == "error") {
+//     }
 
-    console.log(all);
-    
-    if (all == null) {
-        pcap.connections == null;
-    } else {
-        if (!pcap.connections) {
-            pcap.connections = { all: {}, active: {} };
-        }
+//     console.log(all);
 
-        pcap.connections.all = all as { [ip: string]: ConnectionInfo };
-    }
-};
+//     if (all.status == "error" || (all.status == "ok" && all.data == null)) {
+
+//         if (all.status == "error") console.error(all.error);
+
+//         pcap.connections == null;
+//     } else {
+//         if (!pcap.connections) {
+//             pcap.connections = { all: {}, active: {} };
+//         }
+
+//         pcap.connections.all = all.data as { [ip: string]: ConnectionInfo };
+//     }
+// };
 
 const updatePcapState = (state: GlobalPcapStateInfo) => {
-    refreshConnections();
+    // refreshConnections();
 
     if ("Loaded" in state) {
         pcap.state = {
@@ -45,7 +49,11 @@ const updatePcapState = (state: GlobalPcapStateInfo) => {
 };
 
 // update once on page load
-commands.pcapState().then(updatePcapState);
+commands.pcapState().then((d) => {
+    if (d.status == "ok") {
+        updatePcapState(d.data);
+    }
+});
 
 // update every time event fired from backend
 events.pcapStateChange.listen((ev) => updatePcapState(ev.payload));

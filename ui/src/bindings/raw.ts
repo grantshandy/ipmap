@@ -46,11 +46,13 @@ async setSelectedDatabase(db: DatabaseInfo) : Promise<void> {
 async lookupIp(ip: string) : Promise<[Coordinate, Location] | null> {
     return await TAURI_INVOKE("lookup_ip", { ip });
 },
-async pcapState() : Promise<GlobalPcapStateInfo> {
-    return await TAURI_INVOKE("pcap_state");
-},
-async allConnections() : Promise<Partial<{ [key in string]: ConnectionInfo }> | null> {
-    return await TAURI_INVOKE("all_connections");
+async pcapState() : Promise<Result<GlobalPcapStateInfo, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("pcap_state") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 },
 async startCapture(device: Device) : Promise<Result<null, string>> {
     try {
@@ -93,7 +95,7 @@ pcapStateChange: "pcap-state-change"
  * Fired any time the state of loaded or selected databases are changed on the backend.
  */
 export type ActiveConnections = Partial<{ [key in string]: ConnectionInfo }>
-export type ConnectionInfo = { in: number; in_bps: number; out: number; out_bps: number }
+export type ConnectionInfo = { up: MovingAverageInfo; down: MovingAverageInfo }
 /**
  * A latitude/longitude coordinate.
  */
@@ -105,15 +107,32 @@ export type DatabaseInfo = { name: string; path: string }
 export type DatabaseStateChange = GlobalDatabaseStateInfo
 export type DatabaseStateInfo = { selected: DatabaseInfo | null; loaded: DatabaseInfo[] }
 /**
- * A network device that can be captured on
+ * A network device, e.g. "wlp3s0".
  */
-export type Device = { name: string; description: string | null; ready: boolean; wireless: boolean }
+export type Device = { 
+/**
+ * Name, e.g. "wlp3s0"
+ */
+name: string; 
+/**
+ * Note: for physical devices this is usually only on Windows.
+ */
+description: string | null; 
+/**
+ * If the device is up and running.
+ */
+ready: boolean; 
+/**
+ * If the device is a wireless device.
+ */
+wireless: boolean }
 export type GlobalDatabaseStateInfo = { ipv4: DatabaseStateInfo; ipv6: DatabaseStateInfo; loading: string | null }
 export type GlobalPcapStateInfo = { Loaded: { version: string; devices: Device[]; capture: Device | null } } | { Unavailable: string }
 /**
  * Location metadata.
  */
 export type Location = { city: string | null; region: string | null; country_code: string }
+export type MovingAverageInfo = { total: number; avg_s: number }
 /**
  * Fired any time the state of loaded or selected databases are changed on the backend.
  */

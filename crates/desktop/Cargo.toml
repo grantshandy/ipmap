@@ -19,8 +19,9 @@ tauri-plugin-dialog = "2"
 
 specta.workspace = true
 serde.workspace = true
-pretty_env_logger = "0.5.0"
-log = "0.4.27"
+
+tracing = "0.1.41"
+tracing-subscriber = "0.3.19"
 
 tauri-specta = { version = "2.0.0-rc.21", features = ["derive", "typescript"] }
 specta-typescript = "0.0.9"
@@ -30,4 +31,3 @@ dashmap = "6.1.0"
 ipgeo = { path = "../ipgeo" }
 pcap-dyn = { path = "../pcap-dyn" }
 time = { version = "0.3.41", features = ["serde"] }
-

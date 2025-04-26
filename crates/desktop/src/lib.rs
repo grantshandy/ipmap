@@ -1,15 +1,15 @@
 use tauri::Manager;
 
 mod db_state;
-mod pcap;
+mod pcap_state;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri_specta::Builder::<tauri::Wry>::new()
         .events(tauri_specta::collect_events![
             db_state::DatabaseStateChange,
-            pcap::state::PcapStateChange,
-            pcap::state::ActiveConnections
+            pcap_state::PcapStateChange,
+            pcap_state::ActiveConnections
         ])
         .commands(tauri_specta::collect_commands![
             db_state::load_database,
@@ -17,10 +17,10 @@ pub fn run() {
             db_state::database_state,
             db_state::set_selected_database,
             db_state::lookup_ip,
-            pcap::state::pcap_state,
-            pcap::state::all_connections,
-            pcap::state::start_capture,
-            pcap::state::stop_capture
+            pcap_state::pcap_state,
+            // pcap_state::all_connections,
+            pcap_state::start_capture,
+            pcap_state::stop_capture
         ]);
 
     #[cfg(all(debug_assertions, not(mobile)))]
@@ -38,8 +38,13 @@ pub fn run() {
         .invoke_handler(builder.invoke_handler())
         .setup(move |app| {
             builder.mount_events(app);
+
             app.manage(db_state::GlobalDatabaseState::default());
-            app.manage(pcap::state::GlobalPcapState::default());
+            app.manage(pcap_state::GlobalPcapState::default());
+
+            #[cfg(debug_assertions)]
+            app.get_webview_window("main").unwrap().open_devtools();
+
             Ok(())
         })
         .run(tauri::generate_context!())
