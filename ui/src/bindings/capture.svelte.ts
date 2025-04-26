@@ -6,37 +6,12 @@ type PcapStore = {
         devices: Device[],
         capture: Device | null
     } | string | null,
-    connections: {
-        active: { [ip: string]: ConnectionInfo },
-        all: { [ip: string]: ConnectionInfo },
-    } | null
+    connections: { [ip: string]: ConnectionInfo }
 };
 
-export let pcap: PcapStore = $state({ state: null, connections: null });
-
-// export const refreshConnections = async () => {
-//     if (all.status == "error") {
-//     }
-
-//     console.log(all);
-
-//     if (all.status == "error" || (all.status == "ok" && all.data == null)) {
-
-//         if (all.status == "error") console.error(all.error);
-
-//         pcap.connections == null;
-//     } else {
-//         if (!pcap.connections) {
-//             pcap.connections = { all: {}, active: {} };
-//         }
-
-//         pcap.connections.all = all.data as { [ip: string]: ConnectionInfo };
-//     }
-// };
+export let pcap: PcapStore = $state({ state: null, connections: {} });
 
 const updatePcapState = (state: GlobalPcapStateInfo) => {
-    // refreshConnections();
-
     if ("Loaded" in state) {
         pcap.state = {
             version: state.Loaded.version,
@@ -60,6 +35,5 @@ events.pcapStateChange.listen((ev) => updatePcapState(ev.payload));
 
 // update active connections when fired
 events.activeConnections.listen((ev) => {
-    if (!pcap.connections) pcap.connections = { all: {}, active: {} };
-    pcap.connections.active = ev.payload as { [ip: string]: ConnectionInfo };
+    pcap.connections = ev.payload as { [ip: string]: ConnectionInfo };
 });

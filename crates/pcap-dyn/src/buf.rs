@@ -1,66 +1,44 @@
 use std::{
     collections::{HashMap, VecDeque},
     net::IpAddr,
-    sync::{
-        Arc,
-        mpsc::{RecvTimeoutError, Sender},
-    },
+    sync::Arc,
     thread,
     time::{Duration, Instant},
 };
 
 use dashmap::DashMap;
-
 use crate::{Capture, PacketDirection, cap::Packet};
 
 const WINDOW_DURATION: Duration = Duration::from_secs(4);
 
 pub struct CaptureTimeBuffer {
     pub cap: Capture,
-    emit_stop_tx: Sender<()>,
+    buf: Arc<DashMap<IpAddr, Connection>>,
 }
 
 impl CaptureTimeBuffer {
-    pub(crate) fn start(
-        cap: Capture,
-        emit_freq: Duration,
-        emitter: impl Fn(HashMap<IpAddr, ConnectionInfo>) + Send + 'static,
-    ) -> Self {
+    pub fn start(cap: Capture) -> Self {
         let packet_recv = cap.start();
 
-        let avg: Arc<DashMap<IpAddr, Connection>> = Arc::default();
-        let avg_cum = avg.clone();
+        let buf: Arc<DashMap<IpAddr, Connection>> = Arc::default();
 
+        // Thread exits when the capture sender is dropped,
+        // so this exits when Self is dropped.
+        let buf_cum = buf.clone();
         thread::spawn(move || {
             for packet in packet_recv {
-                avg_cum.entry(packet.ip).or_default().add_sample(packet);
+                buf_cum.entry(packet.ip).or_default().add_sample(packet);
             }
         });
 
-        let (emit_stop_tx, emit_stop_rx) = std::sync::mpsc::channel();
-
-        thread::spawn(move || {
-            while let Err(RecvTimeoutError::Timeout) = emit_stop_rx.recv_timeout(emit_freq) {
-                let info = avg
-                    .iter_mut()
-                    .map(|mut kv| (*kv.key(), kv.value_mut().info()))
-                    .collect();
-
-                emitter(info);
-            }
-        });
-
-        Self { cap, emit_stop_tx }
+        Self { cap, buf }
     }
 
-    pub fn stop(self) {
-        drop(self);
-    }
-}
-
-impl Drop for CaptureTimeBuffer {
-    fn drop(&mut self) {
-        self.emit_stop_tx.send(()).unwrap();
+    pub fn info(&self) -> HashMap<IpAddr, ConnectionInfo> {
+        self.buf
+            .iter_mut()
+            .map(|mut kv| (*kv.key(), kv.value_mut().info()))
+            .collect()
     }
 }
 
@@ -92,6 +70,12 @@ pub struct ConnectionInfo {
     pub down: MovingAverageInfo,
 }
 
+#[derive(Copy, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, specta::Type)]
+pub struct MovingAverageInfo {
+    pub total: usize,
+    pub avg_s: usize,
+}
+
 // A time-based moving average
 #[derive(Default)]
 struct MovingAverage {
@@ -114,7 +98,7 @@ impl MovingAverage {
 
         MovingAverageInfo {
             total: self.total_bytes,
-            avg_s: self.get_average_bytes_per_second(),
+            avg_s: self.get_average_bytes_per_second() as usize,
         }
     }
 
@@ -157,10 +141,4 @@ impl MovingAverage {
 
         self.current_window_sum as f64 / duration.as_secs_f64()
     }
-}
-
-#[derive(Copy, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, specta::Type)]
-pub struct MovingAverageInfo {
-    pub total: usize,
-    pub avg_s: f64,
 }

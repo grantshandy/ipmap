@@ -6,11 +6,12 @@
         captureError,
         pcap,
         type MovingAverageInfo,
+        db,
     } from "../bindings";
 
     let device: Device | null = $state(null);
 
-    $inspect(pcap.connections);
+    $inspect(pcap.state);
 
     $effect(() => {
         if (
@@ -60,6 +61,8 @@
         [, a]: [string, ConnectionInfo],
         [, b]: [string, ConnectionInfo],
     ): number => b.down.avg_s + b.up.avg_s - (a.down.avg_s + a.up.avg_s);
+
+    let dbLoaded = $derived(db.ipv4.selected || db.ipv6.selected);
 </script>
 
 {#if typeof pcap.state == "string"}
@@ -68,7 +71,11 @@
     <pre>{pcap.state.version}</pre>
 
     <div class="join join-horizontal">
-        <select class="select join-item" bind:value={device}>
+        <select
+            class="select join-item"
+            disabled={pcap.state.capture != null}
+            bind:value={device}
+        >
             {#each pcap.state.devices as device}
                 <option value={device} selected>
                     {device.name}
@@ -96,12 +103,17 @@
 {#if pcap.connections}
     <h2>Active Connections</h2>
     <ol class="list-decimal ml-4">
-        {#each Object.entries(pcap.connections.active).sort(sortAllConns) as [ip, info]}
+        {#each Object.entries(pcap.connections).sort(sortAllConns) as [ip, info]}
             <li class="pl-8">
                 <span>{ip}:</span>
                 <ul class="list-disc">
                     <li>Down: {connState(info.down)}</li>
                     <li>Up: {connState(info.up)}</li>
+                    {#if dbLoaded}
+                        {#await commands.lookupIp(ip) then loc}
+                            <li>location: <pre>{JSON.stringify(loc)}</pre></li>
+                        {/await}
+                    {/if}
                 </ul>
             </li>
         {/each}

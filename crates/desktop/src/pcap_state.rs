@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
     net::IpAddr,
-    sync::{Arc, RwLock, mpsc::TryRecvError},
+    sync::{Arc, RwLock},
     thread,
     time::Duration,
 };
@@ -9,17 +9,17 @@ use std::{
 use pcap_dyn::{Api, CaptureTimeBuffer, ConnectionInfo, Device};
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, State};
 use tauri_specta::Event;
 
-const EMIT_FREQ: Duration = Duration::from_millis(200);
+const EMIT_FREQ: Duration = Duration::from_millis(300);
 
 pub enum GlobalPcapState {
     Loaded {
         pcap: Api,
         version: String,
         devices: Vec<Device>,
-        capture: RwLock<Option<CaptureTimeBuffer>>,
+        capture: Arc<RwLock<Option<CaptureTimeBuffer>>>,
     },
     Unavailable(String),
 }
@@ -31,7 +31,7 @@ impl Default for GlobalPcapState {
                 pcap: pcap.clone(),
                 version: pcap.lib_version(),
                 devices: pcap.devices().unwrap_or_default(),
-                capture: RwLock::new(None),
+                capture: Arc::default(),
             },
             Err(err) => Self::Unavailable(err.to_string()),
         }
@@ -56,13 +56,18 @@ impl From<&GlobalPcapState> for GlobalPcapStateInfo {
                 devices,
                 capture,
                 ..
-            } => Self::Loaded {
-                devices: devices.clone(),
-                version: version.clone(),
-                capture: capture
-                    .try_read()
-                    .ok()
-                    .and_then(|guard| guard.as_ref().map(|c| c.cap.device.clone())),
+            } => {
+                let capture = capture
+                    .read()
+                    .expect("read capture")
+                    .as_ref()
+                    .map(|p| p.cap.device.clone());
+
+                Self::Loaded {
+                    devices: devices.clone(),
+                    version: version.clone(),
+                    capture,
+                }
             },
             GlobalPcapState::Unavailable(e) => Self::Unavailable(e.clone()),
         }
@@ -89,19 +94,6 @@ pub async fn pcap_state(state: State<'_, GlobalPcapState>) -> Result<GlobalPcapS
     Ok(GlobalPcapStateInfo::from(state.inner()))
 }
 
-// #[tauri::command]
-// #[specta::specta]
-// pub async fn all_connections(state: State<'_, GlobalPcapState>) -> Result<Option<HashMap<IpAddr, ConnectionInfo>>, String> {
-//     match state.inner() {
-//         GlobalPcapState::Loaded { capture, .. } => capture
-//             .read()
-//             .ok()
-//             .map(|guard| guard.as_ref().map(|c| c.buffer.all()))
-//             .ok_or("Failed to unlock capture mutex".to_string()),
-//         GlobalPcapState::Unavailable(_) => Ok(None),
-//     }
-// }
-
 #[tauri::command]
 #[specta::specta]
 pub async fn start_capture(
@@ -109,22 +101,43 @@ pub async fn start_capture(
     state: State<'_, GlobalPcapState>,
     device: Device,
 ) -> Result<(), String> {
-    let (pcap, capture) = match state.inner() {
-        GlobalPcapState::Loaded { pcap, capture, .. } => (pcap, capture),
+    let (pcap, capture_state) = match state.inner() {
+        GlobalPcapState::Loaded { pcap, capture, .. } => (pcap, capture.clone()),
         GlobalPcapState::Unavailable(e) => return Err(e.clone()),
     };
 
-    let emit_handle = handle.clone();
-    let cap = pcap
-        .open_capture(device, EMIT_FREQ, move |info| {
-            let _ = ActiveConnections(info).emit(&emit_handle);
-        })
-        .map_err(|e| e.to_string())?;
+    let cap = pcap.open_capture(device).map_err(|e| e.to_string())?;
+    let buf = CaptureTimeBuffer::start(cap);
 
-    capture
+    capture_state
         .write()
         .map_err(|e| e.to_string())?
-        .replace(cap);
+        .replace(buf);
+
+    let emit_handle = handle.clone();
+
+    // thread stops when the capture state is set to None (at break)
+    // at stop_capture().
+    thread::spawn(move || {
+        loop {
+            thread::sleep(EMIT_FREQ);
+
+            let Some(info) = capture_state
+                .read()
+                .ok()
+                .map(|guard| guard.as_ref().map(|p| p.info()))
+                .flatten()
+            else {
+                break;
+            };
+
+            let _ = info;
+
+            // let _ = ActiveConnections(HashMap::default()).emit(&emit_handle);
+        }
+
+        let _ = ActiveConnections(HashMap::default()).emit(&emit_handle);
+    });
 
     PcapStateChange::emit(&handle, state.inner());
 
@@ -137,15 +150,12 @@ pub async fn stop_capture(
     handle: AppHandle,
     state: State<'_, GlobalPcapState>,
 ) -> Result<(), String> {
-    let mut capture_state = match state.inner() {
-        GlobalPcapState::Loaded { capture, .. } => capture.write().map_err(|e| e.to_string())?,
+    let capture_state = match state.inner() {
+        GlobalPcapState::Loaded { capture, .. } => capture,
         GlobalPcapState::Unavailable(e) => return Err(e.clone()),
     };
 
-    capture_state.take();
-    drop(capture_state);
-
-    tracing::info!("stopped capture");
+    capture_state.write().map_err(|e| e.to_string())?.take();
 
     PcapStateChange::emit(&handle, state.inner());
 

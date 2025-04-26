@@ -1,12 +1,8 @@
 #![doc = include_str!("../README.md")]
 
 use std::{
-    collections::HashMap,
-    fmt,
-    net::IpAddr,
-    ptr,
+    fmt, ptr,
     sync::{Arc, LazyLock},
-    time::Duration,
 };
 
 use dlopen2::wrapper::Container;
@@ -16,8 +12,7 @@ mod cap;
 mod ffi;
 
 pub use buf::{CaptureTimeBuffer, ConnectionInfo};
-use cap::Capture;
-pub use cap::PacketDirection;
+pub use cap::{Capture, Packet, PacketDirection};
 use ffi::{Raw, pcap_if_t};
 
 /// A static instance of the pcap library API, initialized when first used.
@@ -67,14 +62,8 @@ impl Api {
     }
 
     /// Start capturing packets from the given device.
-    pub fn open_capture(
-        &self,
-        device: Device,
-        emit_freq: Duration,
-        emitter: impl Fn(HashMap<IpAddr, ConnectionInfo>) + Send + 'static,
-    ) -> Result<CaptureTimeBuffer, Error> {
+    pub fn open_capture(&self, device: Device) -> Result<Capture, Error> {
         Capture::open(self.raw.clone(), device)
-            .map(|cap| CaptureTimeBuffer::start(cap, emit_freq, emitter))
     }
 }
 
