@@ -11,7 +11,7 @@ mod buf;
 mod cap;
 mod ffi;
 
-pub use buf::{CaptureTimeBuffer, ConnectionInfo};
+pub use buf::{CaptureTimeBuffer, ConnectionInfo, MovingAverageInfo};
 pub use cap::{Capture, Packet, PacketDirection};
 use ffi::{Raw, pcap_if_t};
 

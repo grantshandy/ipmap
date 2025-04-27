@@ -3,6 +3,7 @@ resolver = "2"
 members = ["crates/ipgeo", "crates/desktop", "crates/pcap-dyn"]
 
 [workspace.dependencies]
+tokio = "1.44"
 thiserror = "2.0.12"
 specta = { version = "2.0.0-rc.21", features = ["derive"] }
 serde = { version = "1.0.219", features = ["derive"] }

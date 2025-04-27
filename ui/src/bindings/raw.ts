@@ -54,9 +54,9 @@ async pcapState() : Promise<Result<GlobalPcapStateInfo, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async startCapture(device: Device) : Promise<Result<null, string>> {
+async startCapture(device: Device, connectionChannel: TAURI_CHANNEL<ActiveConnections>) : Promise<Result<null, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("start_capture", { device }) };
+    return { status: "ok", data: await TAURI_INVOKE("start_capture", { device, connectionChannel }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -76,11 +76,9 @@ async stopCapture() : Promise<Result<null, string>> {
 
 
 export const events = __makeEvents__<{
-activeConnections: ActiveConnections,
 databaseStateChange: DatabaseStateChange,
 pcapStateChange: PcapStateChange
 }>({
-activeConnections: "active-connections",
 databaseStateChange: "database-state-change",
 pcapStateChange: "pcap-state-change"
 })
@@ -91,10 +89,7 @@ pcapStateChange: "pcap-state-change"
 
 /** user-defined types **/
 
-/**
- * Fired any time the state of loaded or selected databases are changed on the backend.
- */
-export type ActiveConnections = Partial<{ [key in string]: ConnectionInfo }>
+export type ActiveConnections = { data: Partial<{ [key in string]: ConnectionInfo }> }
 export type ConnectionInfo = { up: MovingAverageInfo; down: MovingAverageInfo }
 /**
  * A latitude/longitude coordinate.
@@ -137,6 +132,7 @@ export type MovingAverageInfo = { total: number; avg_s: number }
  * Fired any time the state of loaded or selected databases are changed on the backend.
  */
 export type PcapStateChange = GlobalPcapStateInfo
+export type TAURI_CHANNEL<TSend> = null
 
 /** tauri-specta globals **/
 

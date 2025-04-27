@@ -1,12 +1,12 @@
 <script lang="ts">
     import {
-        commands,
-        type ConnectionInfo,
         type Device,
-        captureError,
-        pcap,
         type MovingAverageInfo,
+        commands,
+        pcap,
         db,
+        startCapture,
+        stopCapture,
     } from "../bindings";
 
     let device: Device | null = $state(null);
@@ -38,13 +38,6 @@
         }
     });
 
-    const startCapture = async () => {
-        if (!device) return;
-        captureError(commands.startCapture(device));
-    };
-
-    const stopCapture = () => captureError(commands.stopCapture());
-
     const humanFileSize = (size: number): string => {
         const i = size == 0 ? 0 : Math.floor(Math.log(size) / Math.log(1024));
         return (
@@ -56,11 +49,6 @@
 
     const connState = (info: MovingAverageInfo): string =>
         `${humanFileSize(info.total)} | ${humanFileSize(info.avg_s)}/s`;
-
-    const sortAllConns = (
-        [, a]: [string, ConnectionInfo],
-        [, b]: [string, ConnectionInfo],
-    ): number => b.down.avg_s + b.up.avg_s - (a.down.avg_s + a.up.avg_s);
 
     let dbLoaded = $derived(db.ipv4.selected || db.ipv6.selected);
 </script>
@@ -89,7 +77,7 @@
         {#if pcap.state.capture == null}
             <button
                 class="join-item btn btn-primary"
-                onclick={startCapture}
+                onclick={() => startCapture(device)}
                 disabled={device == null}>Start Capture</button
             >
         {:else}
@@ -103,7 +91,7 @@
 {#if pcap.connections}
     <h2>Active Connections</h2>
     <ol class="list-decimal ml-4">
-        {#each Object.entries(pcap.connections).sort(sortAllConns) as [ip, info]}
+        {#each Object.entries(pcap.connections).sort(([, a], [, b]) => b.down.avg_s + b.up.avg_s - (a.down.avg_s + a.up.avg_s)) as [ip, info]}
             <li class="pl-8">
                 <span>{ip}:</span>
                 <ul class="list-disc">
@@ -111,7 +99,9 @@
                     <li>Up: {connState(info.up)}</li>
                     {#if dbLoaded}
                         {#await commands.lookupIp(ip) then loc}
-                            <li>location: <pre>{JSON.stringify(loc)}</pre></li>
+                            <li>
+                                location: <pre>{JSON.stringify(loc)}</pre>
+                            </li>
                         {/await}
                     {/if}
                 </ul>

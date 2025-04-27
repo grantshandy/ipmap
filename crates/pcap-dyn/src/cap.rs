@@ -32,17 +32,29 @@ impl Capture {
     pub(crate) fn open(raw: Arc<Container<Raw>>, device: Device) -> Result<Self, Error> {
         // open the device for live capture
         let device_name = CString::new(device.name.clone()).unwrap();
+
+        // TODO: Handle Warnings:
+        // pcap_open_live() returns a pcap_t * on success and NULL on
+        // failure.  If NULL is returned, errbuf is filled in with an
+        // appropriate error message.  errbuf may also be set to warning text
+        // when pcap_open_live() succeeds; to detect this case the caller
+        // should store a zero-length string in errbuf before calling
+        // pcap_open_live() and display the warning to the user if errbuf is
+        // no longer a zero-length string.
+
         let handle = ffi::err_cap("pcap_open_live", |errbuf| unsafe {
-            raw.pcap_open_live(device_name.as_ptr(), 128, 1, 1000, errbuf)
-        })
-        .map(PcapTSend)?;
+            let h = raw.pcap_open_live(device_name.as_ptr(), 128, 1, 1000, errbuf);
+            // (!h.is_null()).then(|| h)
+            h
+        })?;
+
 
         // let (stop_tx, stop_rx) = mpsc::channel::<()>();
 
         Ok(Self {
             device,
             raw,
-            handle,
+            handle: PcapTSend(handle),
             // stop_tx,
             // stop_rx,
         })

@@ -5,11 +5,13 @@ mod pcap_state;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(debug_assertions)] // only enable instrumentation in development builds
+    let devtools = tauri_plugin_devtools::init();
+
     let builder = tauri_specta::Builder::<tauri::Wry>::new()
         .events(tauri_specta::collect_events![
             db_state::DatabaseStateChange,
             pcap_state::PcapStateChange,
-            pcap_state::ActiveConnections
         ])
         .commands(tauri_specta::collect_commands![
             db_state::load_database,
@@ -18,7 +20,6 @@ pub fn run() {
             db_state::set_selected_database,
             db_state::lookup_ip,
             pcap_state::pcap_state,
-            // pcap_state::all_connections,
             pcap_state::start_capture,
             pcap_state::stop_capture
         ]);
@@ -32,7 +33,7 @@ pub fn run() {
         )
         .expect("Failed to export typescript bindings");
 
-    tauri::Builder::default()
+    let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(builder.invoke_handler())
@@ -46,7 +47,14 @@ pub fn run() {
             app.get_webview_window("main").unwrap().open_devtools();
 
             Ok(())
-        })
+        });
+
+    #[cfg(debug_assertions)]
+    {
+        builder = builder.plugin(devtools);
+    }
+
+    builder
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

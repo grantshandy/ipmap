@@ -18,7 +18,7 @@
       in
       {
         devShells.default = pkgs.mkShell {
-          RUST_LOG = "trace";
+          RUST_LOG = "debug";
           LD_LIBRARY_PATH = "${pkgs.lib.makeLibraryPath [ pkgs.libpcap ]}:$LD_LIBRARY_PATH";
 
           buildInputs = with pkgs; [

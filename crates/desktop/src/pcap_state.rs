@@ -2,17 +2,17 @@ use std::{
     collections::HashMap,
     net::IpAddr,
     sync::{Arc, RwLock},
-    thread,
     time::Duration,
 };
 
 use pcap_dyn::{Api, CaptureTimeBuffer, ConnectionInfo, Device};
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tauri::{AppHandle, State};
+use tokio::time;
+use tauri::{AppHandle, State, ipc::Channel};
 use tauri_specta::Event;
 
-const EMIT_FREQ: Duration = Duration::from_millis(300);
+const EMIT_FREQ: Duration = Duration::from_millis(150);
 
 pub enum GlobalPcapState {
     Loaded {
@@ -68,15 +68,11 @@ impl From<&GlobalPcapState> for GlobalPcapStateInfo {
                     version: version.clone(),
                     capture,
                 }
-            },
+            }
             GlobalPcapState::Unavailable(e) => Self::Unavailable(e.clone()),
         }
     }
 }
-
-/// Fired any time the state of loaded or selected databases are changed on the backend.
-#[derive(Serialize, Deserialize, Debug, Clone, Type, Event)]
-pub struct ActiveConnections(HashMap<IpAddr, ConnectionInfo>);
 
 /// Fired any time the state of loaded or selected databases are changed on the backend.
 #[derive(Serialize, Deserialize, Debug, Clone, Type, Event)]
@@ -94,12 +90,24 @@ pub async fn pcap_state(state: State<'_, GlobalPcapState>) -> Result<GlobalPcapS
     Ok(GlobalPcapStateInfo::from(state.inner()))
 }
 
+#[derive(Default, Clone, Debug, Serialize, Deserialize, Type)]
+pub struct ActiveConnections {
+    data: HashMap<IpAddr, ConnectionInfo>,
+}
+
+impl From<HashMap<IpAddr, ConnectionInfo>> for ActiveConnections {
+    fn from(data: HashMap<IpAddr, ConnectionInfo>) -> Self {
+        Self { data }
+    }
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn start_capture(
     handle: AppHandle,
     state: State<'_, GlobalPcapState>,
     device: Device,
+    connection_channel: Channel<ActiveConnections>,
 ) -> Result<(), String> {
     let (pcap, capture_state) = match state.inner() {
         GlobalPcapState::Loaded { pcap, capture, .. } => (pcap, capture.clone()),
@@ -114,14 +122,10 @@ pub async fn start_capture(
         .map_err(|e| e.to_string())?
         .replace(buf);
 
-    let emit_handle = handle.clone();
-
     // thread stops when the capture state is set to None (at break)
     // at stop_capture().
-    thread::spawn(move || {
+    tokio::spawn(async move {
         loop {
-            thread::sleep(EMIT_FREQ);
-
             let Some(info) = capture_state
                 .read()
                 .ok()
@@ -131,12 +135,14 @@ pub async fn start_capture(
                 break;
             };
 
-            let _ = info;
+            connection_channel.send(info.into()).unwrap();
 
-            // let _ = ActiveConnections(HashMap::default()).emit(&emit_handle);
+            time::sleep(EMIT_FREQ).await;
         }
 
-        let _ = ActiveConnections(HashMap::default()).emit(&emit_handle);
+        connection_channel
+            .send(ActiveConnections::default())
+            .unwrap();
     });
 
     PcapStateChange::emit(&handle, state.inner());

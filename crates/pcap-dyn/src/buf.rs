@@ -38,6 +38,7 @@ impl CaptureTimeBuffer {
         self.buf
             .iter_mut()
             .map(|mut kv| (*kv.key(), kv.value_mut().info()))
+            .filter(|(_, info)| info.down.avg_s + info.up.avg_s > 0)
             .collect()
     }
 }
