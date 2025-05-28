@@ -14,7 +14,7 @@ use tokio::time;
 
 const EMIT_FREQ: Duration = Duration::from_millis(150);
 
-pub enum GlobalPcapState {
+pub enum PcapState {
     Loaded {
         pcap: Api,
         version: String,
@@ -24,7 +24,7 @@ pub enum GlobalPcapState {
     Unavailable(String),
 }
 
-impl Default for GlobalPcapState {
+impl Default for PcapState {
     fn default() -> Self {
         let pcap = match pcap_dyn::INSTANCE.as_ref() {
             Ok(pcap) => pcap.clone(),
@@ -46,7 +46,7 @@ impl Default for GlobalPcapState {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Type, Event)]
-pub enum GlobalPcapStateInfo {
+pub enum PcapStateInfo {
     Loaded {
         version: String,
         devices: Vec<Device>,
@@ -55,10 +55,10 @@ pub enum GlobalPcapStateInfo {
     Unavailable(String),
 }
 
-impl From<&GlobalPcapState> for GlobalPcapStateInfo {
-    fn from(state: &GlobalPcapState) -> Self {
+impl From<&PcapState> for PcapStateInfo {
+    fn from(state: &PcapState) -> Self {
         match state {
-            GlobalPcapState::Loaded {
+            PcapState::Loaded {
                 version,
                 devices,
                 capture,
@@ -76,27 +76,25 @@ impl From<&GlobalPcapState> for GlobalPcapStateInfo {
                     capture,
                 }
             }
-            GlobalPcapState::Unavailable(e) => Self::Unavailable(e.clone()),
+            PcapState::Unavailable(e) => Self::Unavailable(e.clone()),
         }
     }
 }
 
 /// Fired any time the state of loaded or selected databases are changed on the backend.
 #[derive(Serialize, Deserialize, Debug, Clone, Type, Event)]
-pub struct PcapStateChange(GlobalPcapStateInfo);
+pub struct PcapStateChange(PcapStateInfo);
 
 impl PcapStateChange {
-    pub fn emit(app: &AppHandle, state: &GlobalPcapState) {
+    pub fn emit(app: &AppHandle, state: &PcapState) {
         let _ = Self(state.into()).emit(app);
     }
 }
 
 #[tauri::command]
 #[specta::specta]
-pub async fn sync_pcap_state(
-    state: State<'_, GlobalPcapState>,
-) -> Result<GlobalPcapStateInfo, String> {
-    Ok(GlobalPcapStateInfo::from(state.inner()))
+pub async fn sync_pcap_state(state: State<'_, PcapState>) -> Result<PcapStateInfo, String> {
+    Ok(PcapStateInfo::from(state.inner()))
 }
 
 #[derive(Default, Clone, Debug, Serialize, Deserialize, Type)]
@@ -114,13 +112,13 @@ impl From<HashMap<IpAddr, ConnectionInfo>> for ActiveConnections {
 #[specta::specta]
 pub async fn start_capture(
     handle: AppHandle,
-    state: State<'_, GlobalPcapState>,
+    state: State<'_, PcapState>,
     device: Device,
     channel: Channel<ActiveConnections>,
 ) -> Result<(), String> {
     let (pcap, capture_state) = match state.inner() {
-        GlobalPcapState::Loaded { pcap, capture, .. } => (pcap, capture.clone()),
-        GlobalPcapState::Unavailable(e) => return Err(e.clone()),
+        PcapState::Loaded { pcap, capture, .. } => (pcap, capture.clone()),
+        PcapState::Unavailable(e) => return Err(e.clone()),
     };
 
     let cap = pcap.open_capture(device).map_err(|e| e.to_string())?;
@@ -150,6 +148,7 @@ pub async fn start_capture(
         }
 
         channel.send(ActiveConnections::default()).unwrap();
+        tracing::debug!("stopped emitting active connections");
     });
 
     PcapStateChange::emit(&handle, state.inner());
@@ -159,13 +158,10 @@ pub async fn start_capture(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn stop_capture(
-    handle: AppHandle,
-    state: State<'_, GlobalPcapState>,
-) -> Result<(), String> {
+pub async fn stop_capture(handle: AppHandle, state: State<'_, PcapState>) -> Result<(), String> {
     let capture_state = match state.inner() {
-        GlobalPcapState::Loaded { capture, .. } => capture,
-        GlobalPcapState::Unavailable(e) => return Err(e.clone()),
+        PcapState::Loaded { capture, .. } => capture,
+        PcapState::Unavailable(e) => return Err(e.clone()),
     };
 
     capture_state.write().map_err(|e| e.to_string())?.take();

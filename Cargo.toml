@@ -1,6 +1,10 @@
 [workspace]
 resolver = "2"
-members = ["crates/ipgeo", "crates/desktop", "crates/pcap-dyn"]
+members = [
+    "crates/ipgeo",
+    "crates/desktop",
+    "crates/pcap-dyn"
+]
 
 [workspace.dependencies]
 tokio = { version = "1.45.1", features = ["time"] }

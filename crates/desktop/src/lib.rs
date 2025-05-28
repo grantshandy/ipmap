@@ -10,7 +10,7 @@ pub fn run() {
 
     let ts_export_builder = tauri_specta::Builder::<tauri::Wry>::new()
         .events(tauri_specta::collect_events![
-            db_state::DatabaseStateChange,
+            db_state::DbStateChange,
             pcap_state::PcapStateChange,
         ])
         .commands(tauri_specta::collect_commands![
@@ -40,8 +40,8 @@ pub fn run() {
         .setup(move |app| {
             ts_export_builder.mount_events(app);
 
-            app.manage(db_state::GlobalDatabaseState::default());
-            app.manage(pcap_state::GlobalPcapState::default());
+            app.manage(db_state::DbState::default());
+            app.manage(pcap_state::PcapState::default());
 
             #[cfg(debug_assertions)]
             app.get_webview_window("main").unwrap().open_devtools();
