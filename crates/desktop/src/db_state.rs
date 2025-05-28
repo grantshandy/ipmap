@@ -3,33 +3,31 @@ use std::{
     net::{IpAddr, Ipv4Addr, Ipv6Addr},
     path::PathBuf,
     sync::{Arc, RwLock},
+    thread,
 };
 
 use dashmap::DashMap;
 use ipgeo::{Coordinate, Database, GenericDatabase, Location};
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, State, ipc::Channel, Manager};
 use tauri_specta::Event;
 
 /// Load a IP-Geolocation database into the program from the filename.
 #[tauri::command]
 #[specta::specta]
-pub async fn load_database(
+pub fn load_database(
     app: AppHandle,
     state: State<'_, GlobalDatabaseState>,
     path: PathBuf,
-) -> Result<DatabaseInfo, String> {
-    if let Some(exists) = state.ipv4_db.db_exists(&path) {
-        return Ok(exists);
-    }
-
-    if let Some(exists) = state.ipv6_db.db_exists(&path) {
-        return Ok(exists);
+    err: Channel<String>,
+) {
+    if state.ipv4_db.db_exists(&path).is_some() || state.ipv6_db.db_exists(&path).is_some() {
+        return;
     }
 
     if state.loading_db.read().expect("read loading").is_some() {
-        return Err("Database is already loading".to_string());
+        err.send("Database is already loading".to_string()).ok();
     }
 
     tracing::info!("loading database from {path:?}");
@@ -41,20 +39,34 @@ pub async fn load_database(
     );
     DatabaseStateChange::emit(&app, &state);
 
-    let file = File::open(&path).map_err(|e| e.to_string())?;
-    let db = ipgeo::from_read(file).map_err(|e| e.to_string())?;
+    thread::spawn(move || {
+        let state: State<'_, GlobalDatabaseState> = app.try_state().unwrap();
 
-    let info = match db {
-        GenericDatabase::Ipv4(db) => state.ipv4_db.insert(path, db),
-        GenericDatabase::Ipv6(db) => state.ipv6_db.insert(path, db),
-    };
+        let file = match File::open(&path) {
+            Ok(file) => file,
+            Err(e) => {
+                err.send(e.to_string()).ok();
+                return;
+            }
+        };
+        let db = match ipgeo::from_read(file) {
+            Ok(db) => db,
+            Err(e) => {
+                err.send(e.to_string()).ok();
+                return;
+            }
+        };
 
-    tracing::info!("finished loading database {:?}", info.name);
+        let info = match db {
+            GenericDatabase::Ipv4(db) => state.ipv4_db.insert(path, db),
+            GenericDatabase::Ipv6(db) => state.ipv6_db.insert(path, db),
+        };
 
-    state.loading_db.write().expect("write loading").take();
-    DatabaseStateChange::emit(&app, &state);
+        tracing::info!("finished loading database {:?}", info.name);
 
-    Ok(info)
+        state.loading_db.write().expect("write loading").take();
+        DatabaseStateChange::emit(&app, &state);
+    });
 }
 
 /// Unload the database, freeing up memory.
@@ -102,10 +114,7 @@ pub fn database_state(state: State<'_, GlobalDatabaseState>) -> GlobalDatabaseSt
 /// Lookup a given IP address in the currently selected database(s).
 #[tauri::command]
 #[specta::specta]
-pub fn lookup_ip(
-    state: State<'_, GlobalDatabaseState>,
-    ip: IpAddr,
-) -> Option<(Coordinate, Location)> {
+pub fn lookup_ip(state: State<'_, GlobalDatabaseState>, ip: IpAddr) -> Option<LookupInfo> {
     match ip {
         IpAddr::V4(ip) => state.ipv4_db.get(ip),
         IpAddr::V6(ip) => state.ipv6_db.get(ip),
@@ -232,12 +241,13 @@ where
         DatabaseStateInfo { selected, loaded }
     }
 
-    pub fn get(&self, ip: B) -> Option<(Coordinate, Location)> {
+    pub fn get(&self, ip: B) -> Option<LookupInfo> {
         self.selected
             .read()
             .expect("read selected")
             .as_ref()
             .and_then(|(_, db)| db.get(ip))
+            .map(|(crd, loc)| LookupInfo { crd, loc })
     }
 
     pub fn set_selected(&self, info: &DatabaseInfo) {
@@ -257,4 +267,10 @@ pub struct DatabaseStateInfo {
 pub struct DatabaseInfo {
     pub name: String,
     pub path: PathBuf,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
+pub struct LookupInfo {
+    pub crd: Coordinate,
+    pub loc: Location,
 }

@@ -8,13 +8,8 @@ export const commands = {
 /**
  * Load a IP-Geolocation database into the program from the filename.
  */
-async loadDatabase(path: string) : Promise<Result<DatabaseInfo, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("load_database", { path }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
+async loadDatabase(path: string, err: TAURI_CHANNEL<string>) : Promise<void> {
+    await TAURI_INVOKE("load_database", { path, err });
 },
 /**
  * Unload the database, freeing up memory.
@@ -43,20 +38,20 @@ async setSelectedDatabase(db: DatabaseInfo) : Promise<void> {
 /**
  * Lookup a given IP address in the currently selected database(s).
  */
-async lookupIp(ip: string) : Promise<[Coordinate, Location] | null> {
+async lookupIp(ip: string) : Promise<LookupInfo | null> {
     return await TAURI_INVOKE("lookup_ip", { ip });
 },
-async pcapState() : Promise<Result<GlobalPcapStateInfo, string>> {
+async syncPcapState() : Promise<Result<GlobalPcapStateInfo, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("pcap_state") };
+    return { status: "ok", data: await TAURI_INVOKE("sync_pcap_state") };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
 },
-async startCapture(device: Device, connectionChannel: TAURI_CHANNEL<ActiveConnections>) : Promise<Result<null, string>> {
+async startCapture(device: Device, channel: TAURI_CHANNEL<ActiveConnections>) : Promise<Result<null, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("start_capture", { device, connectionChannel }) };
+    return { status: "ok", data: await TAURI_INVOKE("start_capture", { device, channel }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -127,6 +122,7 @@ export type GlobalPcapStateInfo = { Loaded: { version: string; devices: Device[]
  * Location metadata.
  */
 export type Location = { city: string | null; region: string | null; country_code: string }
+export type LookupInfo = { crd: Coordinate; loc: Location }
 export type MovingAverageInfo = { total: number; avg_s: number }
 /**
  * Fired any time the state of loaded or selected databases are changed on the backend.

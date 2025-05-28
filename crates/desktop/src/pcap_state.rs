@@ -8,9 +8,9 @@ use std::{
 use pcap_dyn::{Api, CaptureTimeBuffer, ConnectionInfo, Device};
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tokio::time;
 use tauri::{AppHandle, State, ipc::Channel};
 use tauri_specta::Event;
+use tokio::time;
 
 const EMIT_FREQ: Duration = Duration::from_millis(150);
 
@@ -26,14 +26,21 @@ pub enum GlobalPcapState {
 
 impl Default for GlobalPcapState {
     fn default() -> Self {
-        match pcap_dyn::INSTANCE.as_ref() {
-            Ok(pcap) => Self::Loaded {
-                pcap: pcap.clone(),
-                version: pcap.lib_version(),
-                devices: pcap.devices().unwrap_or_default(),
-                capture: Arc::default(),
-            },
-            Err(err) => Self::Unavailable(err.to_string()),
+        let pcap = match pcap_dyn::INSTANCE.as_ref() {
+            Ok(pcap) => pcap.clone(),
+            Err(err) => return Self::Unavailable(err.to_string()),
+        };
+
+        let devices = match pcap.devices() {
+            Ok(devices) => devices,
+            Err(err) => return Self::Unavailable(err.to_string()),
+        };
+
+        Self::Loaded {
+            version: pcap.lib_version(),
+            pcap,
+            devices,
+            capture: Arc::default(),
         }
     }
 }
@@ -80,13 +87,15 @@ pub struct PcapStateChange(GlobalPcapStateInfo);
 
 impl PcapStateChange {
     pub fn emit(app: &AppHandle, state: &GlobalPcapState) {
-        let _ = Self(GlobalPcapStateInfo::from(state)).emit(app);
+        let _ = Self(state.into()).emit(app);
     }
 }
 
 #[tauri::command]
 #[specta::specta]
-pub async fn pcap_state(state: State<'_, GlobalPcapState>) -> Result<GlobalPcapStateInfo, String> {
+pub async fn sync_pcap_state(
+    state: State<'_, GlobalPcapState>,
+) -> Result<GlobalPcapStateInfo, String> {
     Ok(GlobalPcapStateInfo::from(state.inner()))
 }
 
@@ -107,7 +116,7 @@ pub async fn start_capture(
     handle: AppHandle,
     state: State<'_, GlobalPcapState>,
     device: Device,
-    connection_channel: Channel<ActiveConnections>,
+    channel: Channel<ActiveConnections>,
 ) -> Result<(), String> {
     let (pcap, capture_state) = match state.inner() {
         GlobalPcapState::Loaded { pcap, capture, .. } => (pcap, capture.clone()),
@@ -129,20 +138,18 @@ pub async fn start_capture(
             let Some(info) = capture_state
                 .read()
                 .ok()
-                .map(|guard| guard.as_ref().map(|p| p.info()))
+                .map(|guard| guard.as_ref().map(|p| p.active()))
                 .flatten()
             else {
                 break;
             };
 
-            connection_channel.send(info.into()).unwrap();
+            channel.send(info.into()).unwrap();
 
             time::sleep(EMIT_FREQ).await;
         }
 
-        connection_channel
-            .send(ActiveConnections::default())
-            .unwrap();
+        channel.send(ActiveConnections::default()).unwrap();
     });
 
     PcapStateChange::emit(&handle, state.inner());

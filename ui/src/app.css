@@ -4,3 +4,11 @@
 @plugin "daisyui" {
     themes: business --default;
 }
+
+/* .marker-icon {
+    @apply h-full w-full rounded-full border bg-primary text-center align-sub font-bold text-primary-content drop-shadow-lg;
+}
+
+.marker-icon-active {
+    @apply marker-icon border-2 text-lg !important;
+} */

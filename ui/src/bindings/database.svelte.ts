@@ -1,28 +1,22 @@
-import { commands, events, type GlobalDatabaseStateInfo } from "./raw";
-import { open } from "@tauri-apps/plugin-dialog";
-import { captureError } from "./index";
+import { commands, events, type DatabaseInfo, type DatabaseStateInfo, type GlobalDatabaseStateInfo } from "./raw";
+import * as dialog from "@tauri-apps/plugin-dialog";
+import { Channel } from "@tauri-apps/api/core";
 
-export let db: GlobalDatabaseStateInfo = $state({
-    ipv4: { loaded: [], selected: null },
-    ipv6: { loaded: [], selected: null },
-    loading: null,
-});
+export const ipv4: DatabaseStateInfo = $state({ loaded: [], selected: null });
+export const ipv6: DatabaseStateInfo = $state({ loaded: [], selected: null });
+export const loading: { msg: string | null } = $state({ msg: null });
 
 const updateDbState = (state: GlobalDatabaseStateInfo) => {
-    db.loading = state.loading;
+    loading.msg = state.loading;
 
-    db.ipv4.loaded = state.ipv4.loaded;
-    db.ipv4.selected = state.ipv4.selected
-        ? db.ipv4.loaded.filter(
-            (info) => info.path == state.ipv4.selected?.path,
-        )[0]
+    ipv4.loaded = state.ipv4.loaded;
+    ipv4.selected
+        ? ipv4.loaded.find((info) => info.path === ipv4.selected?.path)
         : null;
 
-    db.ipv6.loaded = state.ipv6.loaded;
-    db.ipv6.selected = state.ipv6.selected
-        ? db.ipv6.loaded.filter(
-            (info) => info.path == state.ipv6.selected?.path,
-        )[0]
+    ipv6.loaded = state.ipv6.loaded;
+    ipv6.selected
+        ? ipv6.loaded.find((info) => info.path === ipv6.selected?.path)
         : null;
 };
 
@@ -31,7 +25,7 @@ commands.databaseState().then(updateDbState);
 events.databaseStateChange.listen((ev) => updateDbState(ev.payload));
 
 export const openDatabaseDialog = async () => {
-    const file = await open({
+    const file = await dialog.open({
         title: "Open IP Geolocation City Database",
         multiple: false,
         directory: false,
@@ -43,7 +37,24 @@ export const openDatabaseDialog = async () => {
         ],
     });
 
-    if (file && !db.loading) {
-        captureError(commands.loadDatabase(file));
-    };
+    console.log("opening database", file);
+
+    if (file && !loading.msg) {
+        commands.loadDatabase(
+            file,
+            new Channel((msg: string) => dialog.message(msg, { title: "Ipmap Error", kind: "error" }))
+        )
+    }
 };
+
+export const setSelectedDatabase = commands.setSelectedDatabase;
+
+export const unloadSelectedDatabase = (isIpv6: boolean) => {
+    const selected = isIpv6 ? ipv6.selected : ipv4.selected;
+
+    if (selected) {
+        commands.unloadDatabase(selected);
+    }
+};
+
+export const lookupIp = commands.lookupIp;

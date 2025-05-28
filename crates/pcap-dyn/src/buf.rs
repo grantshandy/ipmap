@@ -6,8 +6,8 @@ use std::{
     time::{Duration, Instant},
 };
 
-use dashmap::DashMap;
 use crate::{Capture, PacketDirection, cap::Packet};
+use dashmap::DashMap;
 
 const WINDOW_DURATION: Duration = Duration::from_secs(4);
 
@@ -34,7 +34,7 @@ impl CaptureTimeBuffer {
         Self { cap, buf }
     }
 
-    pub fn info(&self) -> HashMap<IpAddr, ConnectionInfo> {
+    pub fn active(&self) -> HashMap<IpAddr, ConnectionInfo> {
         self.buf
             .iter_mut()
             .map(|mut kv| (*kv.key(), kv.value_mut().info()))

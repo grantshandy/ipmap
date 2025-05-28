@@ -23,7 +23,6 @@ pub struct Capture {
     pub device: Device,
     raw: Arc<Container<Raw>>,
     handle: PcapTSend,
-
     // stop_tx: Sender<()>,
     // stop_rx: Receiver<()>,
 }
@@ -43,11 +42,10 @@ impl Capture {
         // no longer a zero-length string.
 
         let handle = ffi::err_cap("pcap_open_live", |errbuf| unsafe {
-            let h = raw.pcap_open_live(device_name.as_ptr(), 128, 1, 1000, errbuf);
+            let h = raw.pcap_open_live(device_name.as_ptr(), 128, 0, 0, errbuf);
             // (!h.is_null()).then(|| h)
             h
         })?;
-
 
         // let (stop_tx, stop_rx) = mpsc::channel::<()>();
 
@@ -173,8 +171,8 @@ impl Packet {
         };
 
         let (direction, ip) = match (ip_rfc::global(&src), ip_rfc::global(&dst)) {
-            (false, true) => (PacketDirection::Down, src),
-            (true, false) => (PacketDirection::Up, dst),
+            (false, true) => (PacketDirection::Down, dst),
+            (true, false) => (PacketDirection::Up, src),
             _ => return None,
         };
 

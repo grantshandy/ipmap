@@ -5,10 +5,10 @@ mod pcap_state;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    #[cfg(debug_assertions)] // only enable instrumentation in development builds
-    let devtools = tauri_plugin_devtools::init();
+    // #[cfg(debug_assertions)] // only enable instrumentation in development builds
+    // let devtools = tauri_plugin_devtools::init();
 
-    let builder = tauri_specta::Builder::<tauri::Wry>::new()
+    let ts_export_builder = tauri_specta::Builder::<tauri::Wry>::new()
         .events(tauri_specta::collect_events![
             db_state::DatabaseStateChange,
             pcap_state::PcapStateChange,
@@ -19,13 +19,13 @@ pub fn run() {
             db_state::database_state,
             db_state::set_selected_database,
             db_state::lookup_ip,
-            pcap_state::pcap_state,
+            pcap_state::sync_pcap_state,
             pcap_state::start_capture,
             pcap_state::stop_capture
         ]);
 
     #[cfg(all(debug_assertions, not(mobile)))]
-    builder
+    ts_export_builder
         .export(
             specta_typescript::Typescript::default()
                 .bigint(specta_typescript::BigIntExportBehavior::Number),
@@ -33,12 +33,12 @@ pub fn run() {
         )
         .expect("Failed to export typescript bindings");
 
-    let mut builder = tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(builder.invoke_handler())
+        .invoke_handler(ts_export_builder.invoke_handler())
         .setup(move |app| {
-            builder.mount_events(app);
+            ts_export_builder.mount_events(app);
 
             app.manage(db_state::GlobalDatabaseState::default());
             app.manage(pcap_state::GlobalPcapState::default());
@@ -49,10 +49,10 @@ pub fn run() {
             Ok(())
         });
 
-    #[cfg(debug_assertions)]
-    {
-        builder = builder.plugin(devtools);
-    }
+    // #[cfg(debug_assertions)]
+    // {
+    //     builder = builder.plugin(devtools);
+    // }
 
     builder
         .run(tauri::generate_context!())
