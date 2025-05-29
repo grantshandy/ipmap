@@ -1,60 +1,59 @@
-import { commands, events, type DatabaseInfo, type DatabaseStateInfo, type GlobalDatabaseStateInfo } from "./raw";
+import { events, commands, type DbStateInfo, type DbCollectionInfo } from "./raw";
 import * as dialog from "@tauri-apps/plugin-dialog";
 import { Channel } from "@tauri-apps/api/core";
+import { captureError, displayError } from ".";
 
-export const ipv4: DatabaseStateInfo = $state({ loaded: [], selected: null });
-export const ipv6: DatabaseStateInfo = $state({ loaded: [], selected: null });
-export const loading: { msg: string | null } = $state({ msg: null });
+class Database implements DbStateInfo {
+    ipv4: DbCollectionInfo = $state({ loaded: [], selected: null });
+    ipv6: DbCollectionInfo = $state({ loaded: [], selected: null });
+    loading: string | null = $state(null);
 
-const updateDbState = (state: GlobalDatabaseStateInfo) => {
-    loading.msg = state.loading;
+    constructor() {
+        console.log("database binding initialized");
 
-    ipv4.loaded = state.ipv4.loaded;
-    ipv4.selected
-        ? ipv4.loaded.find((info) => info.path === ipv4.selected?.path)
-        : null;
-
-    ipv6.loaded = state.ipv6.loaded;
-    ipv6.selected
-        ? ipv6.loaded.find((info) => info.path === ipv6.selected?.path)
-        : null;
-};
-
-// initialize the state and keep it up to date from the backend.
-commands.databaseState().then(updateDbState);
-events.databaseStateChange.listen((ev) => updateDbState(ev.payload));
-
-export const openDatabaseDialog = async () => {
-    const file = await dialog.open({
-        title: "Open IP Geolocation City Database",
-        multiple: false,
-        directory: false,
-        filters: [
-            {
-                name: "IP Geolocation City Database",
-                extensions: ["csv", "csv.gz"],
-            },
-        ],
-    });
-
-    console.log("opening database", file);
-
-    if (file && !loading.msg) {
-        commands.loadDatabase(
-            file,
-            new Channel((msg: string) => dialog.message(msg, { title: "Ipmap Error", kind: "error" }))
-        )
+        commands.databaseState().then(this.update);
+        events.dbStateChange.listen((ev) => this.update(ev.payload));
     }
-};
 
-export const setSelectedDatabase = commands.setSelectedDatabase;
+    private update = (state: DbStateInfo) => {
+        console.log("update from backend", state);
 
-export const unloadSelectedDatabase = (isIpv6: boolean) => {
-    const selected = isIpv6 ? ipv6.selected : ipv4.selected;
-
-    if (selected) {
-        commands.unloadDatabase(selected);
+        this.loading = state.loading;
+        this.ipv4 = state.ipv4;
+        this.ipv6 = state.ipv6;
     }
-};
 
-export const lookupIp = commands.lookupIp;
+    open = async () => {
+        if (this.loading) return;
+
+        const file = await dialog.open({
+            title: "Open IP Geolocation City Database",
+            multiple: false,
+            directory: false,
+            filters: [
+                {
+                    name: "IP Geolocation City Database",
+                    extensions: ["csv", "csv.gz"],
+                },
+            ],
+        });
+
+        if (!file) return;
+
+        console.log("opening database", file);
+
+        return captureError(commands.loadDatabase(file, new Channel(displayError)));
+    }
+
+    setSelected = (name: string | null | undefined) => {
+        if (name) commands.setSelectedDatabase(name);
+    }
+
+    unload = (name: string | null) => {
+        if (name) captureError(commands.unloadDatabase(name));
+    };
+
+    lookupIp = commands.lookupIp;
+}
+
+export default new Database();

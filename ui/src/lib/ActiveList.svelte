@@ -2,12 +2,12 @@
     import {
         type ConnectionInfo,
         type MovingAverageInfo,
-        cap,
-        db,
+        pcap,
+        database,
     } from "../bindings";
 
     let sortedConnections: [string, ConnectionInfo][] = $derived(
-        Object.entries(cap.state.connections).sort(
+        Object.entries(pcap.connections).sort(
             ([, a], [, b]) =>
                 b.down.avg_s + b.up.avg_s - (a.down.avg_s + a.up.avg_s),
         ),
@@ -26,7 +26,7 @@
         `${humanFileSize(info.total)} | ${humanFileSize(info.avg_s)}/s`;
 </script>
 
-{#if cap.state.connections}
+{#if pcap.connections}
     <h2>Active Connections</h2>
     <ol class="list-decimal ml-4">
         {#each sortedConnections as [ip, info] (ip)}
@@ -35,8 +35,8 @@
                 <ul class="list-disc">
                     <li>Down: {connState(info.down)}</li>
                     <li>Up: {connState(info.up)}</li>
-                    {#if db.ipv4.loaded || db.ipv6.loaded}
-                        {#await db.lookupIp(ip) then res}
+                    {#if database.ipv4.loaded || database.ipv6.loaded}
+                        {#await database.lookupIp(ip) then res}
                             {#if res}
                                 <li>{res.loc.city}, {res.loc.country_code}</li>
                             {/if}

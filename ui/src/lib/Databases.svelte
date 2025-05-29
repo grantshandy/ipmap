@@ -1,19 +1,10 @@
 <script lang="ts">
     import { openUrl } from "@tauri-apps/plugin-opener";
-    import { db, type DatabaseStateInfo } from "../bindings";
+    import { database, type DbCollectionInfo } from "../bindings";
+    import { basename } from "@tauri-apps/api/path";
 
     const DB_DOWNLOAD_URL =
         "https://github.com/sapics/ip-location-db?tab=readme-ov-file#city";
-
-    const changeDatabase = (ev: Event, dbs: DatabaseStateInfo) => {
-        const newDb = dbs.loaded.find(
-            (db) => db.name === (ev.target as HTMLSelectElement).value,
-        );
-
-        if (newDb) {
-            db.setSelectedDatabase(newDb);
-        }
-    };
 </script>
 
 <div
@@ -27,11 +18,11 @@
             onclick={() => openUrl(DB_DOWNLOAD_URL)}>Download</button
         >
         <button
-            onclick={db.openDatabaseDialog}
+            onclick={database.open}
             class="btn btn-primary float-right"
-            disabled={db.loading.msg != null}
+            disabled={database.loading != null}
         >
-            {#if db.loading.msg}
+            {#if database.loading}
                 <span class="loading loading-spinner loading-xs"></span>
                 Loading...
             {:else}
@@ -40,37 +31,39 @@
         </button>
     </div>
 
-    {#if db.ipv4.loaded.length > 0}
-        {@render databaseSelector(db.ipv4, false)}
+    {#if database.ipv4.loaded.length > 0}
+        {@render databaseSelector(database.ipv4, false)}
     {/if}
 
-    {#if db.ipv6.loaded.length > 0}
-        {@render databaseSelector(db.ipv6, true)}
+    {#if database.ipv6.loaded.length > 0}
+        {@render databaseSelector(database.ipv6, true)}
     {/if}
 </div>
 
-{#snippet databaseSelector(dbs: DatabaseStateInfo, ipv6: boolean)}
+{#snippet databaseSelector(dbs: DbCollectionInfo, ipv6: boolean)}
     <div class="flex space-x-4 items-center grow">
         <span>IPv{ipv6 ? "6" : "4"}: </span>
         <div class="join join-horizontal grow flex">
             <select
                 class="select join-item grow"
                 disabled={dbs.loaded.length < 2}
-                onchange={(ev) => changeDatabase(ev, dbs)}
+                onchange={(ev) => database.setSelected(ev.currentTarget.value)}
             >
-                {#if dbs.loaded?.length == 0}
+                {#if dbs.loaded.length === 0}
                     <option disabled selected>None Loaded</option>
                 {/if}
 
-                {#each dbs.loaded as db}
-                    <option value={db.name} selected={db == dbs.selected}
-                        >{db.name}</option
-                    >
+                {#each dbs.loaded as name}
+                    <option value={name} selected={name === dbs.selected}>
+                        {#await basename(name) then filename}
+                            {filename || name}
+                        {/await}
+                    </option>
                 {/each}
             </select>
             <button
                 disabled={dbs.selected == null}
-                onclick={() => db.unloadSelectedDatabase(ipv6)}
+                onclick={() => database.unload(dbs.selected)}
                 class="btn btn-error join-item">Unload</button
             >
         </div>

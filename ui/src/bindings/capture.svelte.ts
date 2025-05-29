@@ -1,59 +1,104 @@
 import { Channel } from "@tauri-apps/api/core";
 import { captureError } from ".";
-import { commands, events, type ActiveConnections, type ConnectionInfo, type Device, type GlobalPcapStateInfo } from "./raw";
+import { commands, events, type ActiveConnections, type ConnectionInfo, type Device, type PcapStateInfo } from "./raw";
 
-type PcapStore = {
-    status: {
-        version: string,
-        devices: Device[],
-        capture: Device | null,
-    } | string | null,
-    connections: { [ip: string]: ConnectionInfo }
+type CaptureState = {
+    version: string,
+    devices: Device[],
+    capture: Device | null,
 };
 
-// let startCalled = false;
+type ConnectionStart = (ip: string, info: ConnectionInfo) => void;
+type ConnectionEnd = (ip: string) => void;
 
-export let state: PcapStore = $state({ status: null, connections: {} });
+class Pcap {
+    device: Device | null = $state(null);
+    status: CaptureState | string | null = $state(null);
+    connections: { [ip: string]: ConnectionInfo } = $state({});
 
-const updatePcapState = (n: GlobalPcapStateInfo) => {
-    if ("Loaded" in n) {
-        // This is triggered if the capture is running, but
-        // the page was reloaded so we don't have access to
-        // the channel anymore. Just stop the capture.
-        // TODO: is there a way to recover this?
-        // if (n.Loaded.capture && !startCalled) {
-        //     stopCapture();
-        // }
+    private connStarts: ConnectionStart[] = [];
+    private connEnds: ConnectionEnd[] = [];
 
-        state.status = n.Loaded;
-    } else {
-        state.status = n.Unavailable;
+    constructor() {
+        console.log("capture binding initialized");
+
+        commands
+            .syncPcapState()
+            .then((result) => result.status == "ok" ? result.data : { Unavailable: result.status })
+            .then(this.update);
+
+        events
+            .pcapStateChange
+            .listen((ev) => this.update(ev.payload));
     }
-};
 
-// update every time event fired from backend
-const onConnectionRecv = (connections: ActiveConnections) => {
-    state.connections = connections.data as { [ip: string]: ConnectionInfo };
-};
+    private update = (state: PcapStateInfo) => {
+        if ("Unavailable" in state) {
+            this.status = state.Unavailable;
+            return;
+        }
 
-// update once on page load
-commands.syncPcapState().then((d) => {
-    if (d.status == "ok") {
-        updatePcapState(d.data);
-    } else {
-        state.status = d.status;
+        this.status = state.Loaded;
+
+        // **this.device must be a reference to a device in the status.devices array**
+        // because of the obj equivalence check in the device <select>
+
+        if (this.device == null) {
+            this.device = this.status.devices[0];
+        } else {
+            this.device =
+                this.status.devices.find((d) => d.name == this.device?.name)
+                ?? null;
+        }
+
+        if (this.status.capture) {
+            const captureName = this.status.capture.name;
+
+            this.device =
+                this.status.devices.find((d) => d.name == captureName)
+                ?? null;
+        }
     }
-})
 
-events.pcapStateChange.listen((ev) => updatePcapState(ev.payload));
+    public onConnStart = (l: ConnectionStart) => this.connStarts.push(l);
+    public onConnEnd = (l: ConnectionEnd) => this.connEnds.push(l);
 
-export const startCapture = (device: Device | null) => {
-    if (device == null) return;
+    private fireConnStart = (ip: string, info: ConnectionInfo) =>
+        this.connStarts.forEach((cb) => cb(ip, info));
 
-    // startCalled = true;
-    captureError(commands.startCapture(device, new Channel(onConnectionRecv)));
-};
+    private fireConnEnd = (ip: string) =>
+        this.connEnds.forEach((cb) => cb(ip));
 
-export const stopCapture = () => captureError(commands.stopCapture());
+    private onConnectionRecv = (conns: ActiveConnections) => {
+        const newConns = conns.data as { [ip: string]: ConnectionInfo };
 
-window.onclose = () => commands.stopCapture();
+        // Add/update new connections
+        for (const [ip, data] of Object.entries(newConns)) {
+            if (!(ip in this.connections)) {
+                this.fireConnStart(ip, data);
+            }
+
+            this.connections[ip] = data;
+        }
+
+        // Remove ended connections
+        for (const ip of Object.keys(this.connections)) {
+            if (!(ip in newConns)) {
+                this.fireConnEnd(ip);
+                delete this.connections[ip];
+            }
+        }
+    };
+
+    public startCapture = () => {
+        if (this.device == null) return;
+
+        const channel = new Channel(this.onConnectionRecv);
+
+        captureError(commands.startCapture(this.device, channel));
+    };
+
+    public stopCapture = () => captureError(commands.stopCapture());
+}
+
+export default new Pcap();

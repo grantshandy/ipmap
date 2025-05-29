@@ -10,6 +10,7 @@ pkgs.mkShell {
     cargo
     rustfmt
     cargo-expand
+    cargo-watch
     cargo-tauri
 
     pnpm

@@ -9,7 +9,7 @@ members = [
 [workspace.dependencies]
 tokio = { version = "1.45.1", features = ["time"] }
 thiserror = "2.0.12"
-specta = { version = "2.0.0-rc.21", features = ["derive"] }
+specta = { version = "2.0.0-rc.21", features = ["derive", "function"] }
 serde = { version = "1.0.219", features = ["derive"] }
 tracing = "0.1.41"
 

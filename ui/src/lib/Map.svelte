@@ -34,7 +34,7 @@
     const mapAction = (cont: HTMLDivElement) => {
         map = leaflet.map(cont, {
             preferCanvas: false,
-            minZoom: 2,
+            // minZoom: 2,
             maxZoom: 13,
             zoomControl: false,
             edgeBufferTiles: 1,

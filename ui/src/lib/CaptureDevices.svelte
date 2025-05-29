@@ -1,47 +1,19 @@
 <script lang="ts">
-    import { type Device, cap, db } from "../bindings";
-
-    let device: Device | null = $state(null);
-
-    $effect(() => {
-        if (
-            cap.state.status == null ||
-            typeof cap.state.status != "object" ||
-            cap.state.status.devices.length == 0
-        )
-            return;
-
-        if (device == null) {
-            device = cap.state.status.devices[0];
-        } else {
-            device =
-                cap.state.status.devices.find((d) => d.name == device?.name) ??
-                null;
-        }
-
-        if (cap.state.status.capture != null) {
-            for (const d of cap.state.status.devices) {
-                if (d.name == cap.state.status.capture.name) {
-                    device = d;
-                    break;
-                }
-            }
-        }
-    });
+    import { pcap } from "../bindings";
 </script>
 
-{#if typeof cap.state.status == "string"}
-    <p>Couldn't load <code>libpcap</code>: <code>{cap.state}</code></p>
-{:else if cap.state.status != null}
-    <p>Loaded <code>{cap.state.status.version}</code></p>
+{#if typeof pcap.status == "string"}
+    <p>Couldn't load <code>libpcap</code>: <code>{pcap.status}</code></p>
+{:else if pcap.status != null}
+    <p>Loaded <code>{pcap.status.version}</code></p>
 
     <div class="join join-horizontal">
         <select
             class="select join-item"
-            disabled={cap.state.status.capture != null}
-            bind:value={device}
+            disabled={pcap.status.capture != null}
+            bind:value={pcap.device}
         >
-            {#each cap.state.status.devices as device}
+            {#each pcap.status.devices as device}
                 <option value={device} selected>
                     {device.name}
                     {#if device.description}
@@ -51,16 +23,18 @@
             {/each}
         </select>
 
-        {#if cap.state.status.capture == null}
+        {#if pcap.status.capture}
+            <button class="join-item btn btn-error" onclick={pcap.stopCapture}>
+                Stop Capture
+            </button>
+        {:else}
             <button
                 class="join-item btn btn-primary"
-                onclick={() => cap.startCapture(device)}
-                disabled={device == null}>Start Capture</button
+                onclick={pcap.startCapture}
+                disabled={pcap.device == null}
             >
-        {:else}
-            <button class="join-item btn btn-error" onclick={cap.stopCapture}
-                >Stop Capture</button
-            >
+                Start Capture
+            </button>
         {/if}
     </div>
 {/if}

@@ -16,27 +16,28 @@ use tauri_specta::Event;
 /// Load a IP-Geolocation database into the program from the filename.
 #[tauri::command]
 #[specta::specta]
-pub fn load_database(
+pub async fn load_database(
     app: AppHandle,
     state: State<'_, DbState>,
     path: PathBuf,
     err: Channel<String>,
-) {
-    if state.ipv4_db.db_exists(&path).is_some() || state.ipv6_db.db_exists(&path).is_some() {
-        return;
+) -> Result<(), String> {
+    if state.ipv4_db.exists(&path) || state.ipv6_db.exists(&path) {
+        err.send("Database with the same name already loaded".to_string())
+            .ok();
     }
 
-    if state.loading_db.read().expect("read loading").is_some() {
+    if state.loading.read().expect("read loading").is_some() {
         err.send("Database is already loading".to_string()).ok();
     }
 
     tracing::info!("loading database from {path:?}");
 
-    state.loading_db.write().expect("write loading").replace(
-        path.file_name()
-            .map(|s| s.to_string_lossy().to_string())
-            .unwrap_or_else(|| "unknown".to_string()),
-    );
+    state
+        .loading
+        .write()
+        .expect("write loading")
+        .replace(path.clone());
     DbStateChange::emit(&app, &state);
 
     thread::spawn(move || {
@@ -57,16 +58,18 @@ pub fn load_database(
             }
         };
 
-        let info = match db {
-            GenericDatabase::Ipv4(db) => state.ipv4_db.insert(path, db),
-            GenericDatabase::Ipv6(db) => state.ipv6_db.insert(path, db),
-        };
+        match db {
+            GenericDatabase::Ipv4(db) => state.ipv4_db.insert(&path, db),
+            GenericDatabase::Ipv6(db) => state.ipv6_db.insert(&path, db),
+        }
 
-        tracing::info!("finished loading database {:?}", info.name);
+        tracing::info!("finished loading database {path:#?}");
 
-        state.loading_db.write().expect("write loading").take();
+        state.loading.write().expect("write loading").take();
         DbStateChange::emit(&app, &state);
     });
+
+    Ok(())
 }
 
 /// Unload the database, freeing up memory.
@@ -75,12 +78,12 @@ pub fn load_database(
 pub async fn unload_database(
     app: AppHandle,
     state: State<'_, DbState>,
-    db: DbInfo,
+    path: PathBuf,
 ) -> Result<(), String> {
-    tracing::info!("unloading database {:?}", db.name);
+    tracing::info!("unloading database {path:#?}");
 
-    state.ipv4_db.remove(&db);
-    state.ipv6_db.remove(&db);
+    state.ipv4_db.remove(&path);
+    state.ipv6_db.remove(&path);
 
     DbStateChange::emit(&app, &state);
 
@@ -90,11 +93,11 @@ pub async fn unload_database(
 /// Set the given database as the selected database for lookups.
 #[tauri::command]
 #[specta::specta]
-pub fn set_selected_database(app: AppHandle, state: State<'_, DbState>, db: DbInfo) {
-    tracing::info!("set selected database as {:?}", db.name);
+pub fn set_selected_database(app: AppHandle, state: State<'_, DbState>, path: PathBuf) {
+    tracing::info!("set selected database as {path:#?}");
 
-    state.ipv4_db.set_selected(&db);
-    state.ipv6_db.set_selected(&db);
+    state.ipv4_db.set_selected(&path);
+    state.ipv6_db.set_selected(&path);
 
     DbStateChange::emit(&app, &state);
 }
@@ -121,7 +124,7 @@ pub fn lookup_ip(state: State<'_, DbState>, ip: IpAddr) -> Option<LookupInfo> {
 pub struct DbState {
     ipv4_db: DbCollection<Ipv4Addr>,
     ipv6_db: DbCollection<Ipv6Addr>,
-    loading_db: RwLock<Option<String>>,
+    loading: RwLock<Option<PathBuf>>,
 }
 
 impl DbState {
@@ -129,18 +132,14 @@ impl DbState {
         DbStateInfo {
             ipv4: self.ipv4_db.info(),
             ipv6: self.ipv6_db.info(),
-            loading: self
-                .loading_db
-                .read()
-                .map(|s| s.clone())
-                .unwrap_or_default(),
+            loading: self.loading.read().map(|s| s.clone()).unwrap_or_default(),
         }
     }
 }
 
 pub struct DbCollection<B> {
-    pub selected: RwLock<Option<(DbInfo, Arc<Database<B>>)>>,
-    pub loaded: DashMap<DbInfo, Arc<Database<B>>>,
+    pub selected: RwLock<Option<(PathBuf, Arc<Database<B>>)>>,
+    pub loaded: DashMap<PathBuf, Arc<Database<B>>>,
 }
 
 impl<B> Default for DbCollection<B> {
@@ -157,41 +156,22 @@ where
     B: Ord + Clone,
     ipgeo::SteppedIp<B>: ipgeo::StepLite,
 {
-    pub fn insert(&self, path: PathBuf, db: Database<B>) -> DbInfo {
-        let mut name = path
-            .file_name()
-            .and_then(|s| s.to_str())
-            .unwrap_or_default()
-            .to_owned();
-
-        let duplicates = self
-            .loaded
-            .iter()
-            .filter(|kv| &kv.key().name == &name)
-            .count();
-
-        if duplicates > 0 {
-            name.push_str(&format!(" ({duplicates})"));
-        }
-
-        let info = DbInfo { name, path };
+    pub fn insert(&self, path: &PathBuf, db: Database<B>) {
         let db = Arc::new(db);
 
-        self.loaded.insert(info.clone(), db.clone());
+        self.loaded.insert(path.clone(), db.clone());
         self.selected
             .write()
             .expect("open selected")
-            .replace((info.clone(), db));
-
-        info
+            .replace((path.clone(), db));
     }
 
-    pub fn remove(&self, info: &DbInfo) {
-        self.loaded.remove(info);
+    pub fn remove(&self, path: &PathBuf) {
+        self.loaded.remove(path);
 
         let mut selected = self.selected.write().expect("open selected");
 
-        if selected.as_ref().is_some_and(|(loaded, _)| loaded == info) {
+        if selected.as_ref().is_some_and(|(s, _)| s == path) {
             *selected = self
                 .loaded
                 .iter()
@@ -200,12 +180,8 @@ where
         }
     }
 
-    pub fn db_exists(&self, path: &PathBuf) -> Option<DbInfo> {
-        self.loaded
-            .iter()
-            .filter(|kv| &kv.key().path == path)
-            .map(|kv| kv.key().clone())
-            .next()
+    pub fn exists(&self, path: &PathBuf) -> bool {
+        self.loaded.contains_key(path)
     }
 
     pub fn info(&self) -> DbCollectionInfo {
@@ -214,8 +190,9 @@ where
             .read()
             .expect("read selected")
             .as_ref()
-            .map(|(info, _)| info.clone());
-        let loaded = self.loaded.iter().map(|kv| kv.key().clone()).collect();
+            .map(|(path, _)| path.clone());
+
+        let loaded: Vec<PathBuf> = self.loaded.iter().map(|kv| kv.key().clone()).collect();
 
         DbCollectionInfo { selected, loaded }
     }
@@ -229,24 +206,25 @@ where
             .map(|(crd, loc)| LookupInfo { crd, loc })
     }
 
-    pub fn set_selected(&self, info: &DbInfo) {
-        if let Some(db) = self.loaded.get(info) {
-            *self.selected.write().expect("open selected") = Some((info.clone(), db.clone()));
+    pub fn set_selected(&self, path: &PathBuf) {
+        if let Some(db) = self.loaded.get(path) {
+            *self.selected.write().expect("open selected") =
+                Some((db.key().clone(), db.value().clone()));
         }
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub struct DbStateInfo {
     pub ipv4: DbCollectionInfo,
     pub ipv6: DbCollectionInfo,
-    pub loading: Option<String>,
+    pub loading: Option<PathBuf>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub struct DbCollectionInfo {
-    pub selected: Option<DbInfo>,
-    pub loaded: Vec<DbInfo>,
+    pub loaded: Vec<PathBuf>,
+    pub selected: Option<PathBuf>,
 }
 
 /// Fired any time the state of loaded or selected databases are changed on the backend.
@@ -257,12 +235,6 @@ impl DbStateChange {
     pub fn emit(app: &AppHandle, state: &DbState) {
         let _ = Self(state.info()).emit(app);
     }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Type)]
-pub struct DbInfo {
-    pub name: String,
-    pub path: PathBuf,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]

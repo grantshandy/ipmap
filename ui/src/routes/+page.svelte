@@ -12,5 +12,5 @@
 
   <CaptureDevices />
   <CaptureMap />
-  <ActiveList />
+  <!-- <ActiveList /> -->
 </main>
