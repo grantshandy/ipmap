@@ -8,6 +8,8 @@ class Database implements DbStateInfo {
     ipv6: DbCollectionInfo = $state({ loaded: [], selected: null });
     loading: string | null = $state(null);
 
+    anyLoaded: boolean = $derived(this.ipv4.selected != null || this.ipv6.selected != null);
+
     constructor() {
         console.log("database binding initialized");
 

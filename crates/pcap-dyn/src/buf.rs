@@ -6,8 +6,11 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::{Capture, PacketDirection, cap::Packet};
 use dashmap::DashMap;
+use serde::{Deserialize, Serialize};
+use specta::Type;
+
+use crate::{Capture, PacketDirection, cap::Packet};
 
 const WINDOW_DURATION: Duration = Duration::from_secs(4);
 
@@ -34,12 +37,54 @@ impl CaptureTimeBuffer {
         Self { cap, buf }
     }
 
-    pub fn active(&self) -> HashMap<IpAddr, ConnectionInfo> {
-        self.buf
-            .iter_mut()
-            .map(|mut kv| (*kv.key(), kv.value_mut().info()))
-            .filter(|(_, info)| info.down.avg_s + info.up.avg_s > 0)
-            .collect()
+    pub fn connections(&self) -> Connections {
+        let mut updates = HashMap::new();
+        let mut started = Vec::new();
+        let mut ended = Vec::new();
+
+        for mut kv in self.buf.iter_mut() {
+            let (info, status) = kv.value_mut().info();
+
+            if status == ConnectionStatus::Started {
+                started.push(*kv.key());
+            }
+            
+            if status == ConnectionStatus::Ended {
+                ended.push(*kv.key());
+            } else {
+                updates.insert(*kv.key(), info);
+            }
+        }
+
+        for ip in &ended {
+            self.buf.remove(ip);
+        }
+
+        Connections {
+            updates,
+            started,
+            ended,
+            stopping_capture: false,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+pub struct Connections {
+    updates: HashMap<IpAddr, ConnectionInfo>,
+    started: Vec<IpAddr>,
+    ended: Vec<IpAddr>,
+    stopping_capture: bool,
+}
+
+impl Connections {
+    pub fn stop() -> Self {
+        Self {
+            updates: HashMap::new(),
+            started: Vec::new(),
+            ended: Vec::new(),
+            stopping_capture: true,
+        }
     }
 }
 
@@ -47,6 +92,7 @@ impl CaptureTimeBuffer {
 struct Connection {
     up: MovingAverage,
     down: MovingAverage,
+    status: ConnectionStatus,
 }
 
 impl Connection {
@@ -57,24 +103,31 @@ impl Connection {
         }
     }
 
-    pub fn info(&mut self) -> ConnectionInfo {
-        ConnectionInfo {
+    pub fn info(&mut self) -> (ConnectionInfo, ConnectionStatus) {
+        let info = ConnectionInfo {
             up: self.up.info(),
             down: self.down.info(),
-        }
+        };
+
+        let status = if info.up.avg_s + info.down.avg_s == 0 {
+            ConnectionStatus::Ended
+        } else if self.status == ConnectionStatus::Started {
+            self.status = ConnectionStatus::Active;
+            ConnectionStatus::Started
+        } else {
+            ConnectionStatus::Active
+        };
+
+        (info, status)
     }
 }
 
-#[derive(Copy, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, specta::Type)]
-pub struct ConnectionInfo {
-    pub up: MovingAverageInfo,
-    pub down: MovingAverageInfo,
-}
-
-#[derive(Copy, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, specta::Type)]
-pub struct MovingAverageInfo {
-    pub total: usize,
-    pub avg_s: usize,
+#[derive(Default, Copy, Clone, PartialEq)]
+enum ConnectionStatus {
+    #[default]
+    Started,
+    Active,
+    Ended,
 }
 
 // A time-based moving average
@@ -142,4 +195,16 @@ impl MovingAverage {
 
         self.current_window_sum as f64 / duration.as_secs_f64()
     }
+}
+
+#[derive(Copy, Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
+pub struct MovingAverageInfo {
+    pub total: usize,
+    pub avg_s: usize,
+}
+
+#[derive(Copy, Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
+pub struct ConnectionInfo {
+    pub up: MovingAverageInfo,
+    pub down: MovingAverageInfo,
 }

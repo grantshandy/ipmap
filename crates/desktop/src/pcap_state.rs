@@ -1,11 +1,9 @@
 use std::{
-    collections::HashMap,
-    net::IpAddr,
     sync::{Arc, RwLock},
     time::Duration,
 };
 
-use pcap_dyn::{Api, CaptureTimeBuffer, ConnectionInfo, Device};
+use pcap_dyn::{Api, CaptureTimeBuffer, Connections, Device};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tauri::{AppHandle, State, ipc::Channel};
@@ -97,24 +95,13 @@ pub async fn sync_pcap_state(state: State<'_, PcapState>) -> Result<PcapStateInf
     Ok(PcapStateInfo::from(state.inner()))
 }
 
-#[derive(Default, Clone, Debug, Serialize, Deserialize, Type)]
-pub struct ActiveConnections {
-    data: HashMap<IpAddr, ConnectionInfo>,
-}
-
-impl From<HashMap<IpAddr, ConnectionInfo>> for ActiveConnections {
-    fn from(data: HashMap<IpAddr, ConnectionInfo>) -> Self {
-        Self { data }
-    }
-}
-
 #[tauri::command]
 #[specta::specta]
 pub async fn start_capture(
     handle: AppHandle,
     state: State<'_, PcapState>,
     device: Device,
-    channel: Channel<ActiveConnections>,
+    channel: Channel<Connections>,
 ) -> Result<(), String> {
     let (pcap, capture_state) = match state.inner() {
         PcapState::Loaded { pcap, capture, .. } => (pcap, capture.clone()),
@@ -136,18 +123,18 @@ pub async fn start_capture(
             let Some(info) = capture_state
                 .read()
                 .ok()
-                .map(|guard| guard.as_ref().map(|p| p.active()))
+                .map(|guard| guard.as_ref().map(|p| p.connections()))
                 .flatten()
             else {
                 break;
             };
 
-            channel.send(info.into()).unwrap();
+            channel.send(info).unwrap();
 
             time::sleep(EMIT_FREQ).await;
         }
 
-        channel.send(ActiveConnections::default()).unwrap();
+        channel.send(Connections::stop()).unwrap();
         tracing::debug!("stopped emitting active connections");
     });
 

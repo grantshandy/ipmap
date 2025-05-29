@@ -76,16 +76,16 @@ pub fn from_read(mut source: impl Read + Seek) -> Result<GenericDatabase, Error>
 
     // is this too monomorphized? Should this be better with dyn dispatch...?
     #[rustfmt::skip]
-        let parsed = match (is_gzip, is_num, is_ipv6) {
-            (false, false, false) => Database::from_read::<StrParser>(source).map(GenericDatabase::Ipv4),
-            (false, true, false) => Database::from_read::<NumParser>(source).map(GenericDatabase::Ipv4),
-            (false, false, true) => Database::from_read::<StrParser>(source).map(GenericDatabase::Ipv6),
-            (false, true, true) => Database::from_read::<NumParser>(source).map(GenericDatabase::Ipv6),
-            (true, false, false) => Database::from_read::<StrParser>(GzDecoder::new(source)).map(GenericDatabase::Ipv4),
-            (true, true, false) => Database::from_read::<NumParser>(GzDecoder::new(source)).map(GenericDatabase::Ipv4),
-            (true, false, true) => Database::from_read::<StrParser>(GzDecoder::new(source)).map(GenericDatabase::Ipv6),
-            (true, true, true) => Database::from_read::<NumParser>(GzDecoder::new(source)).map(GenericDatabase::Ipv6),
-        };
+    let parsed = match (is_gzip, is_num, is_ipv6) {
+        (false, false, false) => Database::from_read::<StrParser>(source).map(GenericDatabase::Ipv4),
+        (false, true, false) => Database::from_read::<NumParser>(source).map(GenericDatabase::Ipv4),
+        (false, false, true) => Database::from_read::<StrParser>(source).map(GenericDatabase::Ipv6),
+        (false, true, true) => Database::from_read::<NumParser>(source).map(GenericDatabase::Ipv6),
+        (true, false, false) => Database::from_read::<StrParser>(GzDecoder::new(source)).map(GenericDatabase::Ipv4),
+        (true, true, false) => Database::from_read::<NumParser>(GzDecoder::new(source)).map(GenericDatabase::Ipv4),
+        (true, false, true) => Database::from_read::<StrParser>(GzDecoder::new(source)).map(GenericDatabase::Ipv6),
+        (true, true, true) => Database::from_read::<NumParser>(GzDecoder::new(source)).map(GenericDatabase::Ipv6),
+    };
 
     parsed
 }

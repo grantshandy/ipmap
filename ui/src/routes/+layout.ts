@@ -1,3 +1,4 @@
+import "@fontsource/inter";
 import "../app.css";
 
 export const prerender = true;

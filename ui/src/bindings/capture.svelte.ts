@@ -1,6 +1,6 @@
 import { Channel } from "@tauri-apps/api/core";
 import { captureError } from ".";
-import { commands, events, type ActiveConnections, type ConnectionInfo, type Device, type PcapStateInfo } from "./raw";
+import { commands, events, type Connections, type ConnectionInfo, type Device, type PcapStateInfo } from "./raw";
 
 type CaptureState = {
     version: string,
@@ -12,6 +12,7 @@ type ConnectionStart = (ip: string, info: ConnectionInfo) => void;
 type ConnectionEnd = (ip: string) => void;
 
 class Pcap {
+    startCalled = false;
     device: Device | null = $state(null);
     status: CaptureState | string | null = $state(null);
     connections: { [ip: string]: ConnectionInfo } = $state({});
@@ -22,8 +23,10 @@ class Pcap {
     constructor() {
         console.log("capture binding initialized");
 
+        // initialize state from backend on page load
         commands
             .syncPcapState()
+            // flatten result :)
             .then((result) => result.status == "ok" ? result.data : { Unavailable: result.status })
             .then(this.update);
 
@@ -39,6 +42,11 @@ class Pcap {
         }
 
         this.status = state.Loaded;
+
+        if (this.status.capture != null && !this.startCalled) {
+            console.warn("stopping previous page-load capture session");
+            captureError(commands.stopCapture());
+        }
 
         // **this.device must be a reference to a device in the status.devices array**
         // because of the obj equivalence check in the device <select>
@@ -69,29 +77,39 @@ class Pcap {
     private fireConnEnd = (ip: string) =>
         this.connEnds.forEach((cb) => cb(ip));
 
-    private onConnectionRecv = (conns: ActiveConnections) => {
-        const newConns = conns.data as { [ip: string]: ConnectionInfo };
+    private onConnectionRecv = (conns: Connections) => {
+        const connUpdates = conns.updates as { [ip: string]: ConnectionInfo };
 
-        // Add/update new connections
-        for (const [ip, data] of Object.entries(newConns)) {
-            if (!(ip in this.connections)) {
-                this.fireConnStart(ip, data);
+        if (conns.stopping_capture) {
+            for (const ip of Object.keys(this.connections)) {
+                this.fireConnEnd(ip);
             }
 
+            this.connections = {};
+            return;
+        }
+
+        for (const [ip, data] of Object.entries(connUpdates)) {
             this.connections[ip] = data;
         }
 
-        // Remove ended connections
-        for (const ip of Object.keys(this.connections)) {
-            if (!(ip in newConns)) {
-                this.fireConnEnd(ip);
-                delete this.connections[ip];
-            }
+        // if (conns.started.length > 0) console.log(conns.started.length, "connections added");
+        // if (conns.ended.length > 0) console.log(conns.ended.length, "connections ended");
+
+        for (const ip of conns.started) {
+            this.fireConnStart(ip, this.connections[ip]);
+        }
+
+        for (const ip of conns.ended) {
+            this.fireConnEnd(ip);
+            delete this.connections[ip];
         }
     };
 
     public startCapture = () => {
         if (this.device == null) return;
+
+        this.startCalled = true;
 
         const channel = new Channel(this.onConnectionRecv);
 

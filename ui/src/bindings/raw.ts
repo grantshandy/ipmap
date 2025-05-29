@@ -54,7 +54,7 @@ async syncPcapState() : Promise<Result<PcapStateInfo, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async startCapture(device: Device, channel: TAURI_CHANNEL<ActiveConnections>) : Promise<Result<null, string>> {
+async startCapture(device: Device, channel: TAURI_CHANNEL<Connections>) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("start_capture", { device, channel }) };
 } catch (e) {
@@ -89,8 +89,8 @@ pcapStateChange: "pcap-state-change"
 
 /** user-defined types **/
 
-export type ActiveConnections = { data: Partial<{ [key in string]: ConnectionInfo }> }
 export type ConnectionInfo = { up: MovingAverageInfo; down: MovingAverageInfo }
+export type Connections = { updates: Partial<{ [key in string]: ConnectionInfo }>; started: string[]; ended: string[]; stopping_capture: boolean }
 /**
  * A latitude/longitude coordinate.
  */
