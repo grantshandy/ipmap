@@ -11,22 +11,15 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["tracing", "devtools"] }
+tauri.workspace = true
 tauri-plugin-opener = "2"
 tauri-plugin-dialog = "2"
-# tauri-plugin-devtools = "2"
-
 specta.workspace = true
-serde.workspace = true
-tokio.workspace = true
-
 tracing.workspace = true
 tracing-subscriber = "0.3.19"
-
-tauri-specta = { version = "2.0.0-rc.21", features = ["derive", "typescript"] }
+tauri-specta.workspace = true
 specta-typescript = "0.0.9"
-dashmap = "6.1.0"
 
-ipgeo = { path = "../ipgeo" }
-pcap-dyn = { path = "../pcap-dyn" }
-time = { version = "0.3.41", features = ["serde"] }
+pcap-state = { path = "../pcap-state" }
+ipgeo-state = { path = "../ipgeo-state" }
+tauri-plugin-devtools = "2.0.0"

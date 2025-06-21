@@ -1,17 +1,25 @@
-# use with nixpkgs 24.05 or later.
-
-{ pkgs ? import <nixpkgs> {} }:
-
-pkgs.mkShell {
+# use with nixpkgs 25.05 or later.
+{pkgs ? import <nixpkgs> {}}:
+pkgs.mkShell.override {
+  stdenv = pkgs.stdenvAdapters.useMoldLinker pkgs.clangStdenv;
+} {
   RUST_LOG = "debug";
-  LD_LIBRARY_PATH = "${pkgs.lib.makeLibraryPath [ pkgs.libpcap ]}:$LD_LIBRARY_PATH";
+  RUST_SRC_PATH = "${pkgs.rustPlatform.rustLibSrc}";
+  LD_LIBRARY_PATH = "${pkgs.lib.makeLibraryPath [pkgs.libpcap]}:$LD_LIBRARY_PATH";
 
   buildInputs = with pkgs; [
     cargo
+    rustc
     rustfmt
     cargo-expand
     cargo-watch
     cargo-tauri
+    cargo-bloat
+    clippy
+
+    rust-analyzer
+    typescript-language-server
+    svelte-language-server
 
     pnpm
     nodejs-slim

@@ -99,6 +99,7 @@ pub struct Coordinate {
 
 /// Location metadata.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Type, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Location {
     pub city: Option<String>,
     pub region: Option<String>,

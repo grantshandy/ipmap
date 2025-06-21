@@ -1,8 +1,5 @@
 use tauri::Manager;
 
-mod db_state;
-mod pcap_state;
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // #[cfg(debug_assertions)] // only enable instrumentation in development builds
@@ -10,18 +7,20 @@ pub fn run() {
 
     let ts_export_builder = tauri_specta::Builder::<tauri::Wry>::new()
         .events(tauri_specta::collect_events![
-            db_state::DbStateChange,
-            pcap_state::PcapStateChange,
+            ipgeo_state::DbStateChange,
+            pcap_state::PcapStateChange
         ])
         .commands(tauri_specta::collect_commands![
-            db_state::load_database,
-            db_state::unload_database,
-            db_state::database_state,
-            db_state::set_selected_database,
-            db_state::lookup_ip,
-            pcap_state::sync_pcap_state,
-            pcap_state::start_capture,
-            pcap_state::stop_capture
+            ipgeo_state::commands::load_database,
+            ipgeo_state::commands::unload_database,
+            ipgeo_state::commands::database_state,
+            ipgeo_state::commands::set_selected_database,
+            ipgeo_state::commands::lookup_ip,
+            ipgeo_state::commands::lookup_dns,
+            ipgeo_state::commands::lookup_host,
+            pcap_state::commands::init_pcap,
+            pcap_state::commands::start_capture,
+            pcap_state::commands::stop_capture
         ]);
 
     #[cfg(all(debug_assertions, not(mobile)))]
@@ -40,8 +39,8 @@ pub fn run() {
         .setup(move |app| {
             ts_export_builder.mount_events(app);
 
-            app.manage(db_state::DbState::default());
-            app.manage(pcap_state::PcapState::default());
+            app.manage(ipgeo_state::DbState::default());
+            app.manage(pcap_state::PcapState::new());
 
             #[cfg(debug_assertions)]
             app.get_webview_window("main").unwrap().open_devtools();

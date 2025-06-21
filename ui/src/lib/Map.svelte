@@ -3,7 +3,7 @@
     import "leaflet";
     import {
         LatLngBounds,
-        Map,
+        type Map,
         type DivIcon,
         type LatLngExpression,
     } from "leaflet";
@@ -18,7 +18,10 @@
     leaflet.Icon.Default.prototype.options.shadowUrl = markerShadowUrl;
     leaflet.Icon.Default.imagePath = "";
 
-    let { map = $bindable(), children }: { map: Map | null, children?: Snippet } = $props();
+    let {
+        map = $bindable(),
+        children,
+    }: { map: Map | null; children?: Snippet } = $props();
 
     export const DEFAULT_POS: LatLngExpression = [25, 0];
     export const DEFAULT_ZOOM = 2;
@@ -42,9 +45,11 @@
         map.setView(DEFAULT_POS, DEFAULT_ZOOM);
         map.attributionControl.remove();
         map.setMaxBounds(new LatLngBounds([-150, -300], [150, 400]));
-        leaflet.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-            noWrap: true,
-        }).addTo(map);
+        leaflet
+            .tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+                noWrap: true,
+            })
+            .addTo(map);
 
         return {
             destroy: () => map?.remove(),
@@ -55,20 +60,18 @@
 <svelte:window on:resize={() => map?.invalidateSize()} />
 
 <div class="overflow-none relative grow rounded-box">
-    {#if map}
-        <div
-            class="join select-bordered join-vertical absolute left-2 top-2 z-30 border"
+    <div
+        class="join join-vertical absolute left-2 top-2 z-30 border rounded-box"
+    >
+        <button
+            onclick={() => map?.zoomIn()}
+            class="btn join-item btn-sm text-xl font-bold">+</button
         >
-            <button
-                onclick={() => map?.zoomIn()}
-                class="btn join-item btn-sm text-xl font-bold">+</button
-            >
-            <button
-                onclick={() => map?.zoomOut()}
-                class="btn join-item btn-sm text-xl font-bold">&#x2212;</button
-            >
-        </div>
-    {/if}
+        <button
+            onclick={() => map?.zoomOut()}
+            class="btn join-item btn-sm text-xl font-bold">&#x2212;</button
+        >
+    </div>
     {@render children?.()}
     <div use:mapAction class="z-20 h-full w-full select-none rounded-box"></div>
 </div>

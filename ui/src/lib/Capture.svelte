@@ -1,13 +1,31 @@
 <script lang="ts">
-    import { pcap, database } from "$lib/../bindings";
+    import {
+        Pcap,
+        database,
+        type Coordinate,
+        type ConnectionInfo,
+    } from "$lib/../bindings";
     import MapView from "$lib/Map.svelte";
     import { type Map, marker, type Marker } from "leaflet";
+    import { onDestroy } from "svelte";
+
+    const { pcap }: { pcap: Pcap } = $props();
+
+    onDestroy(() => {
+        pcap.stopCapture();
+    });
 
     let map: Map | null = $state(null);
 
-    const markers: Record<string, Marker> = {};
+    type CoordKey = string;
+    const coordKey = (p: Coordinate): CoordKey => `${p.lat}${p.lng}`;
+    const popup = (ips: string[]): string =>
+        ips.map((ip) => `<p>${ip}</p>`).join("");
 
-    pcap.onConnStart(async (ip, _) => {
+    const keys: Record<string, CoordKey> = {};
+    const locs: Record<CoordKey, { ips: string[]; marker: Marker }> = {};
+
+    pcap.onConnStart(async (ip) => {
         if (!map) return;
 
         const loc = await database.lookupIp(ip);
@@ -17,62 +35,103 @@
             return;
         }
 
-        markers[ip] = marker(loc.crd)
-            .bindPopup(ip)
-            .addTo(map);
+        const key = coordKey(loc.crd);
+
+        keys[ip] = key;
+
+        if (key in locs) {
+            const marker = locs[key];
+
+            marker.ips.push(ip);
+            marker.marker.bindPopup(popup(marker.ips));
+        } else {
+            locs[key] = {
+                ips: [ip],
+                marker: marker(loc.crd)
+                    .bindPopup(popup([ip]))
+                    .addTo(map),
+            };
+        }
     });
 
     pcap.onConnEnd((ip) => {
-        markers[ip]?.remove();
-        delete markers[ip];
+        if (!keys[ip]) return;
+
+        const marker = locs[keys[ip]];
+
+        const idx = marker.ips.indexOf(ip);
+        if (idx > -1) marker.ips.splice(idx, 1);
+
+        if (marker.ips.length == 0) {
+            marker.marker.remove();
+            delete locs[ip];
+            delete keys[ip];
+        } else {
+            marker.marker.bindPopup(popup(marker.ips));
+        }
     });
 </script>
 
 <div class="grow flex flex-col space-y-3">
-    {#if pcap.status != null && typeof pcap.status !== "string"}
-        <div class="w-full flow-root">
-            <div class="float-left join join-horizontal">
-                <select
-                    class="select select-sm join-item"
-                    disabled={pcap.status.capture != null}
-                    bind:value={pcap.device}
-                >
-                    {#each pcap.status.devices as device}
-                        <option value={device} selected>
-                            {device.name}
-                            {#if device.description}
-                                : ({device.description})
-                            {/if}
-                        </option>
-                    {/each}
-                </select>
+    <div class="w-full flow-root">
+        <div class="float-left join join-horizontal">
+            <select
+                class="select select-sm join-item"
+                disabled={pcap.status.capture != null}
+                bind:value={pcap.device}
+            >
+                {#each pcap.status.devices as device}
+                    <option value={device} disabled={!device.ready} selected>
+                        {device.name}
+                        {#if device.description}
+                            : ({device.description})
+                        {/if}
+                    </option>
+                {/each}
+            </select>
 
-                {#if pcap.status.capture}
-                    <button
-                        class="join-item btn btn-sm"
-                        onclick={pcap.stopCapture}
-                    >
-                        Stop Capture
-                    </button>
-                {:else}
-                    <button
-                        class="join-item btn btn-sm btn-primary"
-                        onclick={pcap.startCapture}
-                        disabled={pcap.device == null}
-                    >
-                        Start Capture
-                    </button>
-                {/if}
-            </div>
-            {#if pcap.status.capture != null}
-                <p class="float-right">
-                    No. Connections: {Object.keys(pcap.connections).length}
-                </p>
+            {#if pcap.status.capture}
+                <button
+                    onclick={pcap.stopCapture}
+                    class="join-item btn btn-sm btn-error"
+                >
+                    Stop Capture
+                </button>
+            {:else}
+                <button
+                    onclick={pcap.startCapture}
+                    class="join-item btn btn-sm btn-primary"
+                    disabled={pcap.device == null}
+                >
+                    Start Capture
+                </button>
             {/if}
         </div>
+        {#if pcap.status.capture != null}
+            <p class="float-right">
+                No. Connections: {Object.keys(pcap.connections).length}
+            </p>
+        {/if}
+    </div>
 
-        <div class="grow flex">
-            <MapView bind:map />
-        </div>
-    {/if}
+    <div class="grow flex">
+        <MapView bind:map>
+            <div
+                class="absolute right-0 top-0 bottom-0 w-64 bg-base-300 opacity-50 z-[999]"
+            >
+                <!-- <p>On Map</p>
+                {@render showConnections(onMap)}
+                <p>Not on Map</p>
+                {@render showConnections(notOnMap)} -->
+            </div>
+        </MapView>
+    </div>
 </div>
+
+{#snippet showConnections(connections: string[])}
+    <ul>
+        {#each connections as ip}
+            <li>{ip}</li>
+        {/each}
+    </ul>
+{/snippet}

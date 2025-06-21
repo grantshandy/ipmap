@@ -46,22 +46,43 @@ async setSelectedDatabase(path: string) : Promise<void> {
 async lookupIp(ip: string) : Promise<LookupInfo | null> {
     return await TAURI_INVOKE("lookup_ip", { ip });
 },
-async syncPcapState() : Promise<Result<PcapStateInfo, string>> {
+/**
+ * Get a hostname with the system for a given IP address.
+ */
+async lookupDns(ip: string) : Promise<string | null> {
+    return await TAURI_INVOKE("lookup_dns", { ip });
+},
+/**
+ * Get a hostname with the system for a given IP address.
+ */
+async lookupHost(host: string) : Promise<string | null> {
+    return await TAURI_INVOKE("lookup_host", { host });
+},
+/**
+ * Gets the initial libpcap connector state, and provides a channel for all future updates.
+ */
+async initPcap() : Promise<Result<PcapStateInfo, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("sync_pcap_state") };
+    return { status: "ok", data: await TAURI_INVOKE("init_pcap") };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
 },
-async startCapture(device: Device, channel: TAURI_CHANNEL<Connections>) : Promise<Result<null, string>> {
+/**
+ * Starts capture on a given device, providing a connection channel for recieving statuses
+ */
+async startCapture(device: Device, connectionChannel: TAURI_CHANNEL<Connections>) : Promise<Result<null, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("start_capture", { device, channel }) };
+    return { status: "ok", data: await TAURI_INVOKE("start_capture", { device, connectionChannel }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
 },
+/**
+ * Stop the current capture.
+ */
 async stopCapture() : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("stop_capture") };
@@ -90,7 +111,7 @@ pcapStateChange: "pcap-state-change"
 /** user-defined types **/
 
 export type ConnectionInfo = { up: MovingAverageInfo; down: MovingAverageInfo }
-export type Connections = { updates: Partial<{ [key in string]: ConnectionInfo }>; started: string[]; ended: string[]; stopping_capture: boolean }
+export type Connections = { updates: Partial<{ [key in string]: ConnectionInfo }>; started: string[]; ended: string[]; stoppingCapture: boolean }
 /**
  * A latitude/longitude coordinate.
  */
@@ -124,14 +145,23 @@ wireless: boolean }
 /**
  * Location metadata.
  */
-export type Location = { city: string | null; region: string | null; country_code: string }
+export type Location = { city: string | null; region: string | null; countryCode: string }
 export type LookupInfo = { crd: Coordinate; loc: Location }
-export type MovingAverageInfo = { total: number; avg_s: number }
-/**
- * Fired any time the state of loaded or selected databases are changed on the backend.
- */
+export type MovingAverageInfo = { total: number; avgS: number }
 export type PcapStateChange = PcapStateInfo
-export type PcapStateInfo = { Loaded: { version: string; devices: Device[]; capture: Device | null } } | { Unavailable: string }
+export type PcapStateInfo = { 
+/**
+ * The version information about the currently loaded libpcap
+ */
+version: string; 
+/**
+ * The list of available network devices for capture
+ */
+devices: Device[]; 
+/**
+ * The currently-captured on device, if any
+ */
+capture: Device | null }
 export type TAURI_CHANNEL<TSend> = null
 
 /** tauri-specta globals **/

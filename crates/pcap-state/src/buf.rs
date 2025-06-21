@@ -7,10 +7,9 @@ use std::{
 };
 
 use dashmap::DashMap;
+use pcap_dyn::{Capture, Packet, PacketDirection};
 use serde::{Deserialize, Serialize};
 use specta::Type;
-
-use crate::{Capture, PacketDirection, cap::Packet};
 
 const WINDOW_DURATION: Duration = Duration::from_secs(4);
 
@@ -48,7 +47,7 @@ impl CaptureTimeBuffer {
             if status == ConnectionStatus::Started {
                 started.push(*kv.key());
             }
-            
+
             if status == ConnectionStatus::Ended {
                 ended.push(*kv.key());
             } else {
@@ -70,6 +69,7 @@ impl CaptureTimeBuffer {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
 pub struct Connections {
     updates: HashMap<IpAddr, ConnectionInfo>,
     started: Vec<IpAddr>,
@@ -198,6 +198,7 @@ impl MovingAverage {
 }
 
 #[derive(Copy, Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
 pub struct MovingAverageInfo {
     pub total: usize,
     pub avg_s: usize,
