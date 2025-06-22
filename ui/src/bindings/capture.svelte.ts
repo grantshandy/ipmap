@@ -24,8 +24,8 @@ class ConnectionChangeEvents {
 
   constructor() {}
 
-  onConnStart = (l: ConnectionStart) => this.connStarts.push(l);
-  onConnEnd = (l: ConnectionEnd) => this.connEnds.push(l);
+  onStart = (l: ConnectionStart) => this.connStarts.push(l);
+  onEnd = (l: ConnectionEnd) => this.connEnds.push(l);
 
   fireConnStart = (ip: string, info: ConnectionInfo) =>
     this.connStarts.forEach((cb) => cb(ip, info));
@@ -43,10 +43,7 @@ export class Pcap {
   });
   connections: { [ip: string]: ConnectionInfo } = $state({});
 
-  changes = new ConnectionChangeEvents();
-
-  onConnStart = this.changes.onConnStart;
-  onConnEnd = this.changes.onConnEnd;
+  conn = new ConnectionChangeEvents();
 
   constructor(status: CaptureState) {
     this.update(status);
@@ -61,7 +58,7 @@ export class Pcap {
 
     if (conns.stoppingCapture) {
       for (const ip of Object.keys(this.connections)) {
-        this.changes.fireConnEnd(ip);
+        this.conn.fireConnEnd(ip);
       }
 
       this.connections = {};
@@ -77,12 +74,12 @@ export class Pcap {
 
     for (const ip of conns.started) {
       console.log(`${ip} started`);
-      this.changes.fireConnStart(ip, this.connections[ip]);
+      this.conn.fireConnStart(ip, this.connections[ip]);
     }
 
     for (const ip of conns.ended) {
       console.log(`${ip} ended`);
-      this.changes.fireConnEnd(ip);
+      this.conn.fireConnEnd(ip);
       delete this.connections[ip];
     }
   };
@@ -106,7 +103,7 @@ export class Pcap {
 
     if (this.status.capture != null && !this.startCalled) {
       console.warn("stopping previous page-load capture session");
-      captureError(commands.stopCapture());
+      this.stopCapture();
     }
 
     // **this.device must be a reference to a device in the status.devices array**

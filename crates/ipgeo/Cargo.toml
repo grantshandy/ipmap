@@ -13,3 +13,4 @@ rangemap = "1.5.1"
 thiserror.workspace = true
 specta.workspace = true
 serde.workspace = true
+rstar = "0.12.2"

@@ -1,150 +1,145 @@
 <script lang="ts">
-    import MapView from "$lib/Map.svelte";
-    import { isIP, isIPv4, isIPv6 } from "is-ip";
+  import MapView from "$lib/Map.svelte";
 
-    const validDomainName =
-        /^((?!-))(xn--)?[a-z0-9][a-z0-9-_]{0,61}[a-z0-9]{0,1}\.(xn--)?([a-z0-9\-]{1,61}|[a-z0-9-]{1,30}\.[a-z]{2,})$/;
+  import { database, type LookupInfo, type Location } from "../bindings";
+  import { marker, Marker, type Map } from "leaflet";
+  import { Address4, Address6 } from "ip-address";
+  import { fade } from "svelte/transition";
 
-    import { database, type LookupInfo } from "../bindings";
-    import { marker, Marker, type Map } from "leaflet";
+  const validDomainName =
+    /^((?!-))(xn--)?[a-z0-9][a-z0-9-_]{0,61}[a-z0-9]{0,1}\.(xn--)?([a-z0-9\-]{1,61}|[a-z0-9-]{1,30}\.[a-z]{2,})$/;
+  const SEARCH_ZOOM = 10;
+  const regionNames = new Intl.DisplayNames(["en"], { type: "region" });
 
-    const regionNames = new Intl.DisplayNames(["en"], { type: "region" });
+  let map: Map | null = $state(null);
+  let input = $state("");
+  let trimmedInput = $derived(input.replace(/\s/g, ""));
 
-    let map: Map | null = $state(null);
+  let isDomainName: boolean = $derived(validDomainName.test(trimmedInput));
+  let ipv4: string | null = $derived(
+    database.ipv4Enabled && Address4.isValid(trimmedInput)
+      ? new Address4(trimmedInput).correctForm()
+      : null,
+  );
+  let ipv6: string | null = $derived(
+    database.ipv6Enabled && Address6.isValid(trimmedInput)
+      ? new Address6(trimmedInput).correctForm()
+      : null,
+  );
 
-    let input = $state("");
+  let validInput: boolean = $derived(
+    isDomainName || ipv4 != null || ipv6 != null,
+  );
 
-    $effect(() => {
-        if (input) error = null;
-    });
+  let ip: string | null = $state(null);
+  let result: LookupInfo | string | null = $state(null);
 
-    let ip = $derived(input.replace(/\s/g, ""));
+  $effect(() => {
+    if (!validInput) {
+      ip = null;
+      result = null;
+    }
+  });
 
-    let validInput = $derived(
-        (database.anyEnabled && validDomainName.test(ip)) ||
-            (database.ipv4Enabled && isIPv4(ip)) ||
-            (database.ipv6Enabled && isIPv6(ip)),
-    );
+  const search = async () => {
+    if (!validInput) return;
 
-    let loc: LookupInfo | null = $state(null);
-    let mrk: Marker | null = $state(null);
-    let error: string | null = $state(null);
+    if (isDomainName) {
+      const lookup = await database.lookupHost(trimmedInput);
 
-    $effect(() => {
-        if (ip && loc && !validInput) {
-            loc = null;
-        }
-    });
+      if (lookup.status == "error" || lookup.data == null) {
+        result = `No IP found for "${trimmedInput}"`;
+        return;
+      }
 
-    $effect(() => {
-        if (loc) {
-            if (!mrk && map) {
-                mrk = marker(loc.crd);
-            }
+      ip = lookup.data;
+    } else {
+      ip = ipv4 ?? ipv6;
+    }
 
-            if (map) mrk?.addTo(map);
-            mrk?.setLatLng(loc.crd);
+    if (!ip) return;
 
-            if (map && map.getZoom() > 10) {
-                map?.panTo(loc.crd, { duration: 2 });
-            } else {
-                map?.flyTo(loc.crd, 10, { duration: 2 });
-            }
-        } else {
-            if (mrk) mrk.remove();
-        }
-    });
+    const lookup = await database.lookupIp(ip);
 
-    const search = async () => {
-        if (!validInput) return;
+    if (!lookup) {
+      result = `"${ip}" not found in database`;
+      return;
+    }
 
-        const normIp: string | null = isIP(ip)
-            ? ip
-            : await database.lookupHost(ip);
+    input = trimmedInput;
+    result = lookup;
+  };
 
-        if (!normIp) {
-            error = "Host IP not found";
-            return;
-        }
+  let mrk: Marker = $state(marker({ lat: 0, lng: 0 }));
 
-        loc = await database.lookupIp(normIp);
+  $effect(() => {
+    if (!map) return;
 
-        if (loc == null) {
-            error = "IP not found in the database";
-        }
-    };
+    if (result != null && typeof result == "object") {
+      mrk.setLatLng(result.crd).addTo(map);
+
+      if (map.getZoom() > SEARCH_ZOOM) {
+        map.panTo(result.crd);
+      } else {
+        map.flyTo(result.crd, SEARCH_ZOOM, { duration: 1.5 });
+      }
+    } else {
+      mrk.removeFrom(map);
+    }
+  });
 </script>
 
-<div class="grow flex flex-col space-y-3">
-    <div class="grow flex">
-        <MapView bind:map>
-            <form
-                class="join join-horizontal absolute border top-2 right-2 z-[999] bg-base-300 rounded-box"
-                onsubmit={(ev) => {
-                    ev.preventDefault();
-                    if (ip.length != 0 && validInput) {
-                        search();
-                    }
-                }}
-            >
-                <input
-                    type="text"
-                    class="input input-sm join-item"
-                    placeholder="IP Address"
-                    class:font-mono={ip.length != 0}
-                    class:input-error={ip.length != 0 && !validInput}
-                    bind:value={input}
-                />
-                <button
-                    class="btn btn-sm btn-primary join-item"
-                    disabled={!validInput}
-                    type="submit">Search</button
-                >
-            </form>
+<div class="flex grow">
+  <MapView bind:map>
+    <form
+      class="join join-horizontal bg-base-300 rounded-box absolute top-2 right-2 z-[999] border select-none"
+      onsubmit={search}
+    >
+      <input
+        type="text"
+        class="input input-sm join-item"
+        placeholder="IP Address"
+        oninput={() => {
+          ip = null;
+          result = null;
+        }}
+        class:input-error={trimmedInput.length != 0 && !validInput}
+        bind:value={input}
+      />
+      <button
+        class="btn btn-sm btn-primary join-item"
+        disabled={!validInput || ip != null}
+        type="submit">Search</button
+      >
+    </form>
 
-            {#if loc}
-                <div
-                    class="absolute border bottom-2 right-2 bg-base-200 text-sm rounded-box p-2 z-[999] text-right"
-                >
-                    <p>
-                        {`${loc.loc.city ?? "Unknown City"}${loc.loc.region ? `, ${loc.loc.region}` : ""}`}
-                    </p>
-                    <p class="italic text-xs">
-                        {regionNames.of(loc.loc.countryCode)}
-                    </p>
-                    {#if isIP(ip)}
-                        {#await database.lookupDns(ip) then dns}
-                            {#if dns}
-                                <p class="text-xs">
-                                    DNS: <span class="font-mono">{dns}</span>
-                                </p>
-                            {/if}
-                        {/await}
-                    {/if}
-                </div>
-            {/if}
-
-            {#if error}
-                <div
-                    role="alert"
-                    class="alert alert-error py-2 italic text-sm absolute left-2 bottom-2 z-[999]"
-                >
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        class="h-6 w-6 shrink-0 stroke-current"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                    >
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2"
-                            d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-                        />
-                    </svg>
-                    <span>Error: {error}</span>
-                </div>
-            {/if}
-        </MapView>
-    </div>
+    {#if typeof result == "string"}
+      <p
+        transition:fade={{ duration: 200 }}
+        class="rounded-box bg-error absolute bottom-2 left-2 z-[999] p-2 text-sm select-none"
+      >
+        {result}
+      </p>
+    {:else if result != null && ip}
+      {@render renderIpInfo(ip, result.loc)}
+    {/if}
+  </MapView>
 </div>
+
+{#snippet renderIpInfo(ip: string, loc: Location)}
+  <div
+    transition:fade={{ duration: 200 }}
+    class="bg-base-200 rounded-box absolute right-2 bottom-2 z-[999] border p-2 text-right select-none"
+  >
+    <p class="underline">{ip}</p>
+    <p class="text-sm">
+      {`${loc.city ?? "Unknown City"}${loc.region ? `, ${loc.region}` : ""}`},
+      {regionNames.of(loc.countryCode)}
+    </p>
+    {#await database.lookupDns(ip) then host}
+      {#if host.status == "ok" && host.data != null}
+        <p class="font-mono text-xs">DNS: {host.data}</p>
+      {/if}
+    {/await}
+  </div>
+{/snippet}

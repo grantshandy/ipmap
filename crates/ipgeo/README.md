@@ -7,7 +7,7 @@ All formats (including `.gz`) files are automatically detected and decompressed,
 ```rust
 use std::{env, fs::File, net::IpAddr, error::Error};
 
-use ipmap::GeoDatabase;
+use ipgeo::GeoDatabase;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let args = env::args().collect::<Vec<_>>();

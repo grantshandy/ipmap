@@ -2,6 +2,7 @@ use std::{
     net::{Ipv4Addr, Ipv6Addr},
     path::PathBuf,
     sync::{Arc, RwLock},
+    time::Duration,
 };
 
 use dashmap::DashMap;
@@ -10,6 +11,8 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use tauri::{AppHandle, Manager};
 use tauri_specta::Event;
+
+const DNS_LOOKUP_TIMEOUT: Duration = Duration::from_millis(300);
 
 #[derive(Default)]
 pub struct DbState {
@@ -140,7 +143,7 @@ pub mod commands {
     use std::{fs::File, net::IpAddr, path::PathBuf, thread};
     use tauri::{AppHandle, Manager, State, ipc::Channel};
 
-    use super::{DbState, DbStateChange, DbStateInfo, LookupInfo};
+    use super::{DNS_LOOKUP_TIMEOUT, DbState, DbStateChange, DbStateInfo, LookupInfo};
 
     /// Load a IP-Geolocation database into the program from the filename.
     #[tauri::command]
@@ -252,16 +255,26 @@ pub mod commands {
     /// Get a hostname with the system for a given IP address.
     #[tauri::command]
     #[specta::specta]
-    pub fn lookup_dns(ip: IpAddr) -> Option<String> {
-        dns_lookup::lookup_addr(&ip).ok()
+    pub async fn lookup_dns(ip: IpAddr) -> Result<Option<String>, ()> {
+        let host = async { dns_lookup::lookup_addr(&ip).ok() };
+
+        tokio::time::timeout(DNS_LOOKUP_TIMEOUT, host)
+            .await
+            .map_err(|_| ())
     }
 
     /// Get a hostname with the system for a given IP address.
     #[tauri::command]
     #[specta::specta]
-    pub fn lookup_host(host: &str) -> Option<IpAddr> {
-        dns_lookup::lookup_host(host)
-            .ok()
-            .and_then(|i| i.first().copied())
+    pub async fn lookup_host(host: &str) -> Result<Option<IpAddr>, ()> {
+        let ip = async {
+            dns_lookup::lookup_host(host)
+                .ok()
+                .and_then(|i| i.first().copied())
+        };
+
+        tokio::time::timeout(DNS_LOOKUP_TIMEOUT, ip)
+            .await
+            .map_err(|_| ())
     }
 }

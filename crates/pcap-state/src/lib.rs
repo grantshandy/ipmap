@@ -31,6 +31,10 @@ impl PcapState {
             .map_err(|e| e.to_string())
             .cloned()?;
 
+        if !commands::capture_available() {
+            return Err("Insufficient Permissions".to_string());
+        }
+
         let devices = pcap.devices().map_err(|e| e.to_string())?;
 
         Ok(Self {
@@ -157,5 +161,17 @@ pub mod commands {
             .take();
 
         Ok(())
+    }
+
+    /// Check to see if capture is even available
+    #[tauri::command]
+    #[specta::specta]
+    pub fn capture_available() -> bool {
+        #[cfg(target_os = "linux")]
+        return caps::has_cap(None, caps::CapSet::Effective, caps::Capability::CAP_NET_RAW)
+            .unwrap_or(false);
+
+        #[cfg(not(target_os = "linux"))]
+        return true;
     }
 }

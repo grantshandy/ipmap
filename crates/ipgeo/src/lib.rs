@@ -5,6 +5,7 @@ use std::{
     fmt,
     io::{Read, Seek, SeekFrom},
     net::{IpAddr, Ipv4Addr, Ipv6Addr},
+    num::NonZero,
 };
 
 use compact_str::CompactString;
@@ -145,7 +146,7 @@ impl GenericDatabase {
 pub struct Database<B> {
     map: RangeInclusiveMap<SteppedIp<B>, PackedCoordinate>,
     locations: HashMap<PackedCoordinate, LocationIndices>,
-    strings: IndexSet<CompactString>,
+    strings: StringDict,
 }
 
 impl<B> Database<B>
@@ -158,13 +159,8 @@ where
         let mut db = Self {
             map: RangeInclusiveMap::new(),
             locations: HashMap::new(),
-            strings: IndexSet::new(),
+            strings: StringDict::default(),
         };
-
-        // The first element is the "null" value, so indexes in LocationIndices that are 0 are null.
-        // This is better than Option<StringDictKey> because it saves a bit of memory.
-        let (zero, _) = db.strings.insert_full(CompactString::default());
-        assert_eq!(zero, 0);
 
         for record in ReaderBuilder::new()
             .has_headers(false)
@@ -181,16 +177,12 @@ where
 
             #[allow(clippy::map_entry)] // need mutable access to db in that time
             if !db.locations.contains_key(&coord) {
-                let city = db.add_string(&record[CITY_IDX])?;
-                let region = db.add_string(&record[STATE_IDX])?;
-                let country_code = CountryCode::from(&record[COUNTRY_CODE_IDX]);
-
                 db.locations.insert(
                     coord,
                     LocationIndices {
-                        city,
-                        region,
-                        country_code,
+                        city: db.strings.insert(&record[CITY_IDX]),
+                        region: db.strings.insert(&record[STATE_IDX]),
+                        country_code: CountryCode::from(&record[COUNTRY_CODE_IDX]),
                     },
                 );
             }
@@ -209,41 +201,35 @@ where
         let coord = self.map.get(&SteppedIp::<B>(ip)).copied()?;
 
         let location = self.locations.get(&coord).map(|loc| Location {
-            city: self.get_string(loc.city),
-            region: self.get_string(loc.region),
+            city: loc.city.and_then(|i| self.strings.get(i)),
+            region: loc.region.and_then(|i| self.strings.get(i)),
             country_code: loc.country_code.to_string(),
         })?;
 
         Some((coord.into(), location))
     }
+}
 
-    /// Adds a string to the string database and returns its index.
-    fn add_string(&mut self, item: &[u8]) -> Result<StringDictKey, Error> {
+#[derive(PartialEq, Eq, Default)]
+struct StringDict(IndexSet<CompactString>);
+
+impl StringDict {
+    pub fn insert(&mut self, item: &[u8]) -> Option<StringDictKey> {
         if item.is_empty() {
-            // empty strings are represented as 0 - not Option<StringDictKey> - to save memory
-            return Ok(0);
-        }
-
-        let (idx, _) = self
-            .strings
-            .insert_full(CompactString::from_utf8_lossy(item).to_lowercase());
-
-        if idx > StringDictKey::MAX as usize {
-            return Err(Error::DatabaseMetadataOverflow);
-        }
-
-        Ok(idx as StringDictKey)
-    }
-
-    /// Retrieves a string from the string database by its index.
-    fn get_string(&self, idx: StringDictKey) -> Option<String> {
-        if idx == 0 {
             return None;
         }
 
-        self.strings
-            .get_index(idx as usize)
-            .map(|s| s.to_title_case())
+        let s = CompactString::from_utf8_lossy(item).to_lowercase();
+
+        let (idx, _) = self.0.insert_full(s);
+
+        NonZero::new((idx + 1) as u32)
+    }
+
+    pub fn get(&self, idx: StringDictKey) -> Option<String> {
+        self.0
+            .get_index((idx.get() - 1) as usize)
+            .map(|c| c.to_title_case())
     }
 }
 
@@ -371,14 +357,14 @@ impl From<PackedCoordinate> for Coordinate {
 }
 
 /// Number of strings in the database must be less than u32::MAX
-type StringDictKey = u32;
+type StringDictKey = NonZero<u32>;
 
 /// The city and region are stored as indexes into a string database.
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 struct LocationIndices {
-    city: StringDictKey,
-    region: StringDictKey,
+    city: Option<StringDictKey>,
+    region: Option<StringDictKey>,
     country_code: CountryCode,
 }
 
@@ -386,20 +372,20 @@ struct LocationIndices {
 // Takes advantage of their compact representation.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(transparent)]
-struct CountryCode([u8; 2]);
+struct CountryCode(u16);
 
 impl<A: AsRef<[u8]>> From<A> for CountryCode {
     fn from(value: A) -> Self {
         match value.as_ref() {
-            [a, b, ..] => Self([*a, *b]),
-            _ => Self([0, 0]),
+            [a, b, ..] => Self(u16::from_ne_bytes([*a, *b])),
+            _ => Self(0),
         }
     }
 }
 
 impl fmt::Display for CountryCode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self.0 {
+        match self.0.to_ne_bytes() {
             [0, 0] => "??".fmt(f),
             [a, b] => unsafe {
                 char::from_u32_unchecked(a as u32).fmt(f)?;
