@@ -79,6 +79,17 @@ export const commands = {
     }
   },
   /**
+   * Attempt to get the user's current location
+   */
+  async myLocation(): Promise<Result<LookupInfo, string>> {
+    try {
+      return { status: "ok", data: await TAURI_INVOKE("my_location") };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
+  /**
    * Gets the initial libpcap connector state, and provides a channel for all future updates.
    */
   async initPcap(): Promise<Result<PcapStateInfo, string>> {
@@ -209,6 +220,7 @@ export type PcapStateInfo = {
    */
   capture: Device | null;
 };
+export type TAURI_CHANNEL<TSend> = null;
 
 /** tauri-specta globals **/
 

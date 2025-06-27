@@ -53,3 +53,7 @@
 body {
   font-family: "Inter";
 }
+
+.marker-icon {
+  @apply bg-primary text-primary-content h-full w-full rounded-full border text-center align-sub font-bold drop-shadow-lg;
+}

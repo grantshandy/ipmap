@@ -73,12 +73,12 @@ export class Pcap {
     // if (conns.ended.length > 0) console.log(conns.ended.length, "connections ended");
 
     for (const ip of conns.started) {
-      console.log(`${ip} started`);
+      // console.log(`${ip} started`);
       this.conn.fireConnStart(ip, this.connections[ip]);
     }
 
     for (const ip of conns.ended) {
-      console.log(`${ip} ended`);
+      // console.log(`${ip} ended`);
       this.conn.fireConnEnd(ip);
       delete this.connections[ip];
     }

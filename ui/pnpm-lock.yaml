@@ -28,6 +28,9 @@ importers:
       leaflet:
         specifier: ^1.9.4
         version: 1.9.4
+      leaflet.geodesic:
+        specifier: ^2.7.1
+        version: 2.7.1(leaflet@1.9.4)
       tailwindcss:
         specifier: ^4.1.3
         version: 4.1.7
@@ -907,6 +910,14 @@ packages:
       }
     engines: { node: ">=6" }
 
+  leaflet.geodesic@2.7.1:
+    resolution:
+      {
+        integrity: sha512-28mjn13lv0Iv4xnojqLh1wVSFaGZy8DzKQyu66a/3uQkyRB5fVuGZwlDzJJygwI0DEMyLVzLeJUOPd95H3OFrA==,
+      }
+    peerDependencies:
+      leaflet: ^1.9.4
+
   leaflet@1.9.4:
     resolution:
       {
@@ -1726,6 +1737,10 @@ snapshots:
   jiti@2.4.2: {}
 
   kleur@4.1.5: {}
+
+  leaflet.geodesic@2.7.1(leaflet@1.9.4):
+    dependencies:
+      leaflet: 1.9.4
 
   leaflet@1.9.4: {}
 

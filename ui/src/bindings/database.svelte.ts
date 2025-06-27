@@ -3,6 +3,7 @@ import {
   commands,
   type DbStateInfo,
   type DbCollectionInfo,
+  type Coordinate,
 } from "./raw";
 import * as dialog from "@tauri-apps/plugin-dialog";
 import { Channel } from "@tauri-apps/api/core";
@@ -66,6 +67,7 @@ class Database implements DbStateInfo {
   lookupIp = commands.lookupIp;
   lookupDns = commands.lookupDns;
   lookupHost = commands.lookupHost;
+  myLocation = () => captureError(commands.myLocation());
 }
 
 export default new Database();

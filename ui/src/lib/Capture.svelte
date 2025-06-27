@@ -1,7 +1,8 @@
 <script lang="ts">
   import { Pcap, database, type Coordinate } from "$lib/../bindings";
   import MapView from "$lib/Map.svelte";
-  import { type Map, marker, type Marker } from "leaflet";
+  import { divIcon, type Map, marker, type Marker } from "leaflet";
+  import { GeodesicLine } from "leaflet.geodesic";
   import { onDestroy } from "svelte";
 
   const { pcap }: { pcap: Pcap } = $props();
@@ -13,56 +14,79 @@
   let map: Map | null = $state(null);
 
   type CoordKey = string;
+  type ActiveLocationRecord = {
+    ips: string[];
+    marker: Marker;
+    arc: GeodesicLine;
+  };
+
   const coordKey = (p: Coordinate): CoordKey => `${p.lat}${p.lng}`;
-  const popup = (ips: string[]): string =>
-    ips.map((ip) => `<p>${ip}</p>`).join("");
+
+  const updateLocation = (loc: ActiveLocationRecord) => {
+    loc.marker.setIcon(
+      divIcon({
+        html: `<div>${loc.ips.length}</div>`,
+        className: "marker-icon",
+        iconSize: [20, 20],
+        iconAnchor: [10, 10],
+      }),
+    );
+    loc.marker.bindPopup(loc.ips.map((ip) => `<p>${ip}</p>`).join(""));
+  };
 
   const keys: Record<string, CoordKey> = {};
-  const locs: Record<CoordKey, { ips: string[]; marker: Marker }> = {};
+  const locs: Record<CoordKey, ActiveLocationRecord> = {};
 
-  pcap.conn.onStart(async (ip) => {
-    if (!map) return;
-
-    const loc = await database.lookupIp(ip);
-
-    if (!loc) {
-      // TODO: handle case where location is not found
-      return;
-    }
-
-    const key = coordKey(loc.crd);
-
-    keys[ip] = key;
-
-    if (key in locs) {
-      const marker = locs[key];
-
-      marker.ips.push(ip);
-      marker.marker.bindPopup(popup(marker.ips));
-    } else {
-      locs[key] = {
-        ips: [ip],
-        marker: marker(loc.crd)
-          .bindPopup(popup([ip]))
-          .addTo(map),
-      };
+  let myLocation: Coordinate | null = null;
+  database.myLocation().then((l) => {
+    if (l) {
+      myLocation = l.crd;
     }
   });
 
+  pcap.conn.onStart(async (ip) => {
+    if (!map || !myLocation) return;
+
+    const lookupResp = await database.lookupIp(ip);
+
+    if (!lookupResp) {
+      // TODO: handle case where location is not found
+      console.warn(`${ip} not found in db`);
+      return;
+    }
+
+    const locKey = coordKey(lookupResp.crd);
+    keys[ip] = locKey;
+
+    if (locKey in locs) {
+      locs[locKey].ips.push(ip);
+    } else {
+      locs[locKey] = {
+        ips: [ip],
+        marker: marker(lookupResp.crd).addTo(map),
+        arc: new GeodesicLine([lookupResp.crd, myLocation]).addTo(map),
+      };
+    }
+
+    updateLocation(locs[locKey]);
+  });
+
   pcap.conn.onEnd((ip) => {
-    if (!keys[ip]) return;
+    if (!keys[ip] || !map) return;
 
-    const marker = locs[keys[ip]];
+    const locRecord = locs[keys[ip]];
+    if (!locRecord) return;
 
-    const idx = marker.ips.indexOf(ip);
-    if (idx > -1) marker.ips.splice(idx, 1);
+    const idx = locRecord.ips.indexOf(ip);
+    if (idx > -1) locRecord.ips.splice(idx, 1);
 
-    if (marker.ips.length == 0) {
-      marker.marker.remove();
-      delete locs[ip];
+    if (locRecord.ips.length == 0) {
+      locRecord.marker.removeFrom(map);
+      locRecord.arc.removeFrom(map);
+      delete locs[keys[ip]];
       delete keys[ip];
     } else {
-      marker.marker.bindPopup(popup(marker.ips));
+      updateLocation(locRecord);
     }
   });
 </script>
@@ -111,22 +135,22 @@
 
   <div class="flex grow">
     <MapView bind:map>
-      <div
+      <!-- <div
         class="bg-base-300 absolute top-0 right-0 bottom-0 z-[999] w-64 opacity-50"
       >
-        <!-- <p>On Map</p>
+        <p>On Map</p>
                 {@render showConnections(onMap)}
                 <p>Not on Map</p>
-                {@render showConnections(notOnMap)} -->
-      </div>
+                {@render showConnections(notOnMap)}
+      </div> -->
     </MapView>
   </div>
 </div>
 
-{#snippet showConnections(connections: string[])}
+<!-- {#snippet showConnections(connections: string[])}
   <ul>
     {#each connections as ip}
       <li>{ip}</li>
     {/each}
   </ul>
-{/snippet}
+{/snippet} -->

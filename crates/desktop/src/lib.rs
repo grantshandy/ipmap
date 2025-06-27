@@ -18,6 +18,7 @@ pub fn run() {
             ipgeo_state::commands::lookup_ip,
             ipgeo_state::commands::lookup_dns,
             ipgeo_state::commands::lookup_host,
+            ipgeo_state::commands::my_location,
             pcap_state::commands::init_pcap,
             pcap_state::commands::start_capture,
             pcap_state::commands::stop_capture,
