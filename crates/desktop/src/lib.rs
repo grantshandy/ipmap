@@ -23,6 +23,7 @@ pub fn run() {
             pcap_state::commands::start_capture,
             pcap_state::commands::stop_capture,
             pcap_state::commands::capture_available,
+            trace::commands::run_traceroute,
         ]);
 
     #[cfg(all(debug_assertions, not(mobile)))]

@@ -1,0 +1,13 @@
+[package]
+name = "trace"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+serde.workspace = true
+tracing.workspace = true
+tauri-specta.workspace = true
+tauri.workspace = true
+specta.workspace = true
+
+trippy-core = "0.13.0"

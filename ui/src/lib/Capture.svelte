@@ -91,11 +91,13 @@
   });
 </script>
 
-<div class="flex grow flex-col space-y-3">
-  <div class="flow-root w-full">
-    <div class="join join-horizontal float-left">
+<div class="flex grow">
+  <MapView bind:map>
+    <div
+      class="join join-horizontal rounded-box absolute top-2 right-2 z-[999] border"
+    >
       <select
-        class="select select-sm join-item"
+        class="join-item select select-sm w-48"
         disabled={pcap.status.capture != null}
         bind:value={pcap.device}
       >
@@ -126,31 +128,5 @@
         </button>
       {/if}
     </div>
-    {#if pcap.status.capture != null}
-      <p class="float-right">
-        No. Connections: {Object.keys(pcap.connections).length}
-      </p>
-    {/if}
-  </div>
-
-  <div class="flex grow">
-    <MapView bind:map>
-      <!-- <div
-        class="bg-base-300 absolute top-0 right-0 bottom-0 z-[999] w-64 opacity-50"
-      >
-        <p>On Map</p>
-                {@render showConnections(onMap)}
-                <p>Not on Map</p>
-                {@render showConnections(notOnMap)}
-      </div> -->
-    </MapView>
-  </div>
+  </MapView>
 </div>
-
-<!-- {#snippet showConnections(connections: string[])}
-  <ul>
-    {#each connections as ip}
-      <li>{ip}</li>
-    {/each}
-  </ul>
-{/snippet} -->

@@ -22,4 +22,6 @@ specta-typescript = "0.0.9"
 
 pcap-state = { path = "../pcap-state" }
 ipgeo-state = { path = "../ipgeo-state" }
+trace = { path = "../trace" }
+
 tauri-plugin-devtools = "2.0.0"

@@ -5,7 +5,7 @@ members = [
     "crates/desktop",
     "crates/pcap-dyn",
     "crates/pcap-state",
-    "crates/ipgeo-state",
+    "crates/ipgeo-state", "crates/trace",
 ]
 
 [workspace.dependencies]
