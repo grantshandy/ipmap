@@ -2341,8 +2341,10 @@ dependencies = [
 name = "ipmap"
 version = "5.0.0"
 dependencies = [
+ "ip_rfc",
  "ipgeo-state",
  "pcap-state",
+ "serde",
  "specta",
  "specta-typescript",
  "tauri",
@@ -5472,10 +5474,11 @@ checksum = "8df9b6e13f2d32c91b9bd719c00d1958837bc7dec474d94952798cc8e69eeec3"
 name = "trace"
 version = "0.1.0"
 dependencies = [
+ "ip_rfc",
+ "ipgeo-state",
  "serde",
  "specta",
  "tauri",
- "tauri-specta",
  "tracing",
  "trippy-core",
 ]

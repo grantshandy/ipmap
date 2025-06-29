@@ -22,7 +22,7 @@ pub fn run() {
             pcap_state::commands::init_pcap,
             pcap_state::commands::start_capture,
             pcap_state::commands::stop_capture,
-            pcap_state::commands::capture_available,
+            pcap_state::commands::net_raw_available,
             trace::commands::run_traceroute,
         ]);
 

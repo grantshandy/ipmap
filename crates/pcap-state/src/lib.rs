@@ -31,7 +31,7 @@ impl PcapState {
             .map_err(|e| e.to_string())
             .cloned()?;
 
-        if !commands::capture_available() {
+        if !commands::net_raw_available() {
             return Err("Insufficient Permissions".to_string());
         }
 
@@ -166,7 +166,7 @@ pub mod commands {
     /// Check to see if capture is even available
     #[tauri::command]
     #[specta::specta]
-    pub fn capture_available() -> bool {
+    pub fn net_raw_available() -> bool {
         #[cfg(target_os = "linux")]
         return caps::has_cap(None, caps::CapSet::Effective, caps::Capability::CAP_NET_RAW)
             .unwrap_or(false);

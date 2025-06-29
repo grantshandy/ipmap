@@ -7,7 +7,8 @@
 
   type SearchCallback = (ip: Result<string, string> | null) => void;
 
-  let { search }: { search: SearchCallback } = $props();
+  let { search, disabled }: { search: SearchCallback; disabled?: boolean } =
+    $props();
 
   let input = $state("");
   let trimmedInput = $derived(input.replace(/\s/g, ""));
@@ -34,6 +35,8 @@
   });
 
   const searchWrapper = async () => {
+    if (!validInput || disabled) return;
+
     let ip: string | null = null;
 
     if (isDomainName) {
@@ -57,20 +60,19 @@
   };
 </script>
 
-<form
-  class="join join-horizontal bg-base-300 rounded-box border select-none"
-  onsubmit={searchWrapper}
->
+<form class="join join-horizontal select-none" onsubmit={searchWrapper}>
   <input
+    id="ipsearchbox"
     type="text"
     class="input input-sm join-item"
     placeholder="IP Address"
+    {disabled}
     class:input-error={trimmedInput.length != 0 && !validInput}
     bind:value={input}
   />
   <button
     class="btn btn-sm btn-primary join-item"
-    disabled={!validInput}
+    disabled={!validInput || disabled}
     type="submit">Search</button
   >
 </form>

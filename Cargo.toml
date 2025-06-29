@@ -5,7 +5,8 @@ members = [
     "crates/desktop",
     "crates/pcap-dyn",
     "crates/pcap-state",
-    "crates/ipgeo-state", "crates/trace",
+    "crates/ipgeo-state",
+    "crates/trace",
 ]
 
 [workspace.dependencies]
@@ -17,6 +18,7 @@ serde = { version = "1.0.219", features = ["derive"] }
 tracing = "0.1.41"
 tauri-specta = { version = "2.0.0-rc.21", features = ["derive", "typescript"] }
 dashmap = "6.1.0"
+ip_rfc = "0.1.0"
 
 [profile.dev]
 opt-level = 0

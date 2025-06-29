@@ -115,12 +115,12 @@ async stopCapture() : Promise<Result<null, string>> {
 /**
  * Check to see if capture is even available
  */
-async captureAvailable() : Promise<boolean> {
-    return await TAURI_INVOKE("capture_available");
+async netRawAvailable() : Promise<boolean> {
+    return await TAURI_INVOKE("net_raw_available");
 },
-async runTraceroute(ip: string) : Promise<Result<string[], string>> {
+async runTraceroute(prefs: TraceroutePreferences, roundUpdate: TAURI_CHANNEL<number>) : Promise<Result<Hop[], string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("run_traceroute", { ip }) };
+    return { status: "ok", data: await TAURI_INVOKE("run_traceroute", { prefs, roundUpdate }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -177,6 +177,7 @@ ready: boolean;
  * If the device is a wireless device.
  */
 wireless: boolean }
+export type Hop = { ips: string[]; location: LookupInfo | null }
 /**
  * Location metadata.
  */
@@ -198,6 +199,7 @@ devices: Device[];
  */
 capture: Device | null }
 export type TAURI_CHANNEL<TSend> = null
+export type TraceroutePreferences = { ip: string; maxRounds: number }
 
 /** tauri-specta globals **/
 

@@ -58,7 +58,7 @@
 
 <div class="flex grow">
   <MapView bind:map>
-    <div class="absolute top-2 right-2 z-[999]">
+    <div class="rounded-box bg-base-300 absolute top-2 right-2 z-[999] border">
       <IpSearchBox {search} />
     </div>
 

@@ -1,5 +1,5 @@
 import { message } from "@tauri-apps/plugin-dialog";
-import { type Result } from "./raw";
+import { commands, type Result } from "./raw";
 
 import database from "./database.svelte";
 export { database };
@@ -25,3 +25,6 @@ export const displayError = (messageText: string) => {
   console.error(messageText);
   message(messageText, { title: "Ipmap Error", kind: "error" });
 };
+
+export const netRawEnabled = commands.netRawAvailable;
+export const runTraceroute = commands.runTraceroute;
