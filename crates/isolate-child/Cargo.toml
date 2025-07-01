@@ -1,0 +1,13 @@
+[package]
+name = "isolate-child"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+serde_json.workspace = true
+isolate-ipc = { path = "../isolate-ipc" }
+pcap-dyn = { path = "../pcap-dyn" }
+trippy-core = "0.13.0"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+caps = "0.5.5"

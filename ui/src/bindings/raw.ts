@@ -79,48 +79,9 @@ async myLocation() : Promise<Result<LookupInfo, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-/**
- * Gets the initial libpcap connector state, and provides a channel for all future updates.
- */
-async initPcap() : Promise<Result<PcapStateInfo, string>> {
+async pcapStatus() : Promise<Result<Status, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("init_pcap") };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-/**
- * Starts capture on a given device, providing a connection channel for recieving statuses
- */
-async startCapture(device: Device, connectionChannel: TAURI_CHANNEL<Connections>) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("start_capture", { device, connectionChannel }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-/**
- * Stop the current capture.
- */
-async stopCapture() : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("stop_capture") };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-/**
- * Check to see if capture is even available
- */
-async netRawAvailable() : Promise<boolean> {
-    return await TAURI_INVOKE("net_raw_available");
-},
-async runTraceroute(prefs: TraceroutePreferences, roundUpdate: TAURI_CHANNEL<number>) : Promise<Result<Hop[], string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("run_traceroute", { prefs, roundUpdate }) };
+    return { status: "ok", data: await TAURI_INVOKE("pcap_status") };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -132,11 +93,9 @@ async runTraceroute(prefs: TraceroutePreferences, roundUpdate: TAURI_CHANNEL<num
 
 
 export const events = __makeEvents__<{
-dbStateChange: DbStateChange,
-pcapStateChange: PcapStateChange
+dbStateChange: DbStateChange
 }>({
-dbStateChange: "db-state-change",
-pcapStateChange: "pcap-state-change"
+dbStateChange: "db-state-change"
 })
 
 /** user-defined constants **/
@@ -145,8 +104,6 @@ pcapStateChange: "pcap-state-change"
 
 /** user-defined types **/
 
-export type ConnectionInfo = { up: MovingAverageInfo; down: MovingAverageInfo }
-export type Connections = { updates: Partial<{ [key in string]: ConnectionInfo }>; started: string[]; ended: string[]; stoppingCapture: boolean }
 /**
  * A latitude/longitude coordinate.
  */
@@ -177,29 +134,13 @@ ready: boolean;
  * If the device is a wireless device.
  */
 wireless: boolean }
-export type Hop = { ips: string[]; location: LookupInfo | null }
 /**
  * Location metadata.
  */
 export type Location = { city: string | null; region: string | null; countryCode: string }
 export type LookupInfo = { crd: Coordinate; loc: Location }
-export type MovingAverageInfo = { total: number; avgS: number }
-export type PcapStateChange = PcapStateInfo
-export type PcapStateInfo = { 
-/**
- * The version information about the currently loaded libpcap
- */
-version: string; 
-/**
- * The list of available network devices for capture
- */
-devices: Device[]; 
-/**
- * The currently-captured on device, if any
- */
-capture: Device | null }
+export type Status = { devices: Device[]; version: string }
 export type TAURI_CHANNEL<TSend> = null
-export type TraceroutePreferences = { ip: string; maxRounds: number }
 
 /** tauri-specta globals **/
 

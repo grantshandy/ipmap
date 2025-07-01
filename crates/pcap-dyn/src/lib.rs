@@ -7,11 +7,13 @@ use std::{
 
 use dlopen2::wrapper::Container;
 
+pub mod buf;
 mod cap;
 mod ffi;
 
 pub use cap::{Capture, Packet, PacketDirection};
 use ffi::{Raw, pcap_if_t};
+use isolate_ipc::Device;
 
 /// A static instance of the pcap library API, initialized when first used.
 pub const INSTANCE: LazyLock<Result<Api, dlopen2::Error>> = LazyLock::new(Api::init);
@@ -46,7 +48,7 @@ impl Api {
         let mut dev = all_devs;
         unsafe {
             while !dev.is_null() {
-                if let Some(device) = Device::from_raw(*dev) {
+                if let Some(device) = device_from_raw(*dev) {
                     devices.push(device);
                 }
 
@@ -65,32 +67,17 @@ impl Api {
     }
 }
 
-/// A network device, e.g. "wlp3s0".
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type)]
-pub struct Device {
-    /// Name, e.g. "wlp3s0"
-    pub name: String,
-    /// Note: for physical devices this is usually only on Windows.
-    pub description: Option<String>,
-    /// If the device is up and running.
-    pub ready: bool,
-    /// If the device is a wireless device.
-    pub wireless: bool,
-}
-
-impl Device {
-    unsafe fn from_raw(value: pcap_if_t) -> Option<Self> {
-        if value.flags & ffi::PCAP_IF_LOOPBACK != 0 {
-            return None;
-        }
-
-        Some(Self {
-            name: ffi::cstr_to_string(value.name)?,
-            description: ffi::cstr_to_string(value.description),
-            ready: value.flags & (ffi::PCAP_IF_RUNNING | ffi::PCAP_IF_UP) != 0,
-            wireless: value.flags & ffi::PCAP_IF_WIRELESS != 0,
-        })
+unsafe fn device_from_raw(value: pcap_if_t) -> Option<Device> {
+    if value.flags & ffi::PCAP_IF_LOOPBACK != 0 {
+        return None;
     }
+
+    Some(Device {
+        name: ffi::cstr_to_string(value.name)?,
+        description: ffi::cstr_to_string(value.description),
+        ready: value.flags & (ffi::PCAP_IF_RUNNING | ffi::PCAP_IF_UP) != 0,
+        wireless: value.flags & ffi::PCAP_IF_WIRELESS != 0,
+    })
 }
 
 /// Errors returned from the underlying C library.

@@ -9,9 +9,6 @@ use specta::Type;
 use tauri::{AppHandle, Manager};
 use tauri_specta::Event;
 
-mod buf;
-
-use buf::CaptureTimeBuffer;
 
 const EMIT_FREQ: Duration = Duration::from_millis(150);
 
@@ -19,7 +16,7 @@ pub struct PcapState {
     pcap: Api,
     version: String,
     devices: Vec<Device>,
-    capture: Arc<RwLock<Option<CaptureTimeBuffer>>>,
+    // capture: Arc<RwLock<Option<CaptureTimeBuffer>>>,
 }
 
 type ManagedPcapState = Result<PcapState, String>;

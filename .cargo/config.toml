@@ -1,2 +1,0 @@
-[target.'cfg(all(target_os = "linux", debug_assertions))']
-runner = ".cargo/setcap.sh"

@@ -6,20 +6,18 @@ use std::{
     time::{Duration, Instant},
 };
 
+use crate::{Capture, Packet, PacketDirection};
+use isolate_ipc::{ConnectionInfo, MovingAverageInfo, Connections};
 use dashmap::DashMap;
-use pcap_dyn::{Capture, Packet, PacketDirection};
-use serde::{Deserialize, Serialize};
-use specta::Type;
-
-const WINDOW_DURATION: Duration = Duration::from_secs(4);
 
 pub struct CaptureTimeBuffer {
     pub cap: Capture,
     buf: Arc<DashMap<IpAddr, Connection>>,
+    connection_timeout: Duration,
 }
 
 impl CaptureTimeBuffer {
-    pub fn start(cap: Capture) -> Self {
+    pub fn start(cap: Capture, connection_timeout: Duration) -> Self {
         let packet_recv = cap.start();
 
         let buf: Arc<DashMap<IpAddr, Connection>> = Arc::default();
@@ -33,7 +31,11 @@ impl CaptureTimeBuffer {
             }
         });
 
-        Self { cap, buf }
+        Self {
+            cap,
+            buf,
+            connection_timeout,
+        }
     }
 
     pub fn connections(&self) -> Connections {
@@ -42,7 +44,7 @@ impl CaptureTimeBuffer {
         let mut ended = Vec::new();
 
         for mut kv in self.buf.iter_mut() {
-            let (info, status) = kv.value_mut().info();
+            let (info, status) = kv.value_mut().info(self.connection_timeout);
 
             if status == ConnectionStatus::Started {
                 started.push(*kv.key());
@@ -63,27 +65,6 @@ impl CaptureTimeBuffer {
             updates,
             started,
             ended,
-            stopping_capture: false,
-        }
-    }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, Type)]
-#[serde(rename_all = "camelCase")]
-pub struct Connections {
-    updates: HashMap<IpAddr, ConnectionInfo>,
-    started: Vec<IpAddr>,
-    ended: Vec<IpAddr>,
-    stopping_capture: bool,
-}
-
-impl Connections {
-    pub fn stop() -> Self {
-        Self {
-            updates: HashMap::new(),
-            started: Vec::new(),
-            ended: Vec::new(),
-            stopping_capture: true,
         }
     }
 }
@@ -103,10 +84,10 @@ impl Connection {
         }
     }
 
-    pub fn info(&mut self) -> (ConnectionInfo, ConnectionStatus) {
+    pub fn info(&mut self, connection_timeout: Duration) -> (ConnectionInfo, ConnectionStatus) {
         let info = ConnectionInfo {
-            up: self.up.info(),
-            down: self.down.info(),
+            up: self.up.info(connection_timeout),
+            down: self.down.info(connection_timeout),
         };
 
         let status = if info.up.avg_s + info.down.avg_s == 0 {
@@ -147,8 +128,8 @@ impl MovingAverage {
         self.data.push_back((bytes, Instant::now()));
     }
 
-    pub fn info(&mut self) -> MovingAverageInfo {
-        self.clean();
+    pub fn info(&mut self, connection_timeout: Duration) -> MovingAverageInfo {
+        self.clean(connection_timeout);
 
         MovingAverageInfo {
             total: self.total_bytes,
@@ -157,12 +138,12 @@ impl MovingAverage {
     }
 
     /// Remove old samples outside the window
-    fn clean(&mut self) {
+    fn clean(&mut self, connection_timeout: Duration) {
         let now = Instant::now();
 
         // Since data is time-ordered, we can efficiently remove from the front.
         while let Some((old_bytes, timestamp)) = self.data.front() {
-            if now - *timestamp > WINDOW_DURATION {
+            if now - *timestamp > connection_timeout {
                 self.current_window_sum -= old_bytes;
                 self.data.pop_front();
             } else {
@@ -195,17 +176,4 @@ impl MovingAverage {
 
         self.current_window_sum as f64 / duration.as_secs_f64()
     }
-}
-
-#[derive(Copy, Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
-#[serde(rename_all = "camelCase")]
-pub struct MovingAverageInfo {
-    pub total: usize,
-    pub avg_s: usize,
-}
-
-#[derive(Copy, Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
-pub struct ConnectionInfo {
-    pub up: MovingAverageInfo,
-    pub down: MovingAverageInfo,
 }

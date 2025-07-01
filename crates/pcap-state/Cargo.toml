@@ -14,5 +14,3 @@ tokio.workspace = true
 
 pcap-dyn = { path = "../pcap-dyn" }
 
-[target.'cfg(target_os = "linux")'.dependencies]
-caps = "0.5.5"

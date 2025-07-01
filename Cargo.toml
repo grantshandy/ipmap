@@ -4,9 +4,11 @@ members = [
     "crates/ipgeo",
     "crates/desktop",
     "crates/pcap-dyn",
-    "crates/pcap-state",
+    # "crates/pcap-state",
     "crates/ipgeo-state",
-    "crates/trace",
+    "crates/isolate-parent",
+    "crates/isolate-child",
+    "crates/isolate-ipc",
 ]
 
 [workspace.dependencies]
@@ -19,6 +21,7 @@ tracing = "0.1.41"
 tauri-specta = { version = "2.0.0-rc.21", features = ["derive", "typescript"] }
 dashmap = "6.1.0"
 ip_rfc = "0.1.0"
+serde_json = "1.0.140"
 
 [profile.dev]
 opt-level = 0

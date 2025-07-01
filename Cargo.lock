@@ -1076,6 +1076,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "dlopen2"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b54f373ccf864bf587a89e880fb7610f8d73f3045f13580948ccbcaff26febff"
+dependencies = [
+ "dlopen2_derive",
+ "libc",
+ "once_cell",
+ "winapi",
+]
+
+[[package]]
 name = "dlopen2_derive"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2343,7 +2355,7 @@ version = "5.0.0"
 dependencies = [
  "ip_rfc",
  "ipgeo-state",
- "pcap-state",
+ "isolate-parent",
  "serde",
  "specta",
  "specta-typescript",
@@ -2353,7 +2365,6 @@ dependencies = [
  "tauri-plugin-dialog",
  "tauri-plugin-opener",
  "tauri-specta",
- "trace",
  "tracing",
  "tracing-subscriber",
 ]
@@ -2391,6 +2402,42 @@ checksum = "173609498df190136aa7dea1a91db051746d339e18476eed5ca40521f02d7aa5"
 dependencies = [
  "is-docker",
  "once_cell",
+]
+
+[[package]]
+name = "isolate-child"
+version = "0.1.0"
+dependencies = [
+ "caps",
+ "isolate-ipc",
+ "pcap-dyn",
+ "serde_json",
+ "trippy-core",
+]
+
+[[package]]
+name = "isolate-ipc"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "specta",
+ "thiserror 2.0.12",
+]
+
+[[package]]
+name = "isolate-parent"
+version = "0.1.0"
+dependencies = [
+ "ipgeo-state",
+ "isolate-ipc",
+ "pcap-dyn",
+ "serde",
+ "serde_json",
+ "specta",
+ "tauri",
+ "tauri-specta",
+ "tracing",
 ]
 
 [[package]]
@@ -3286,28 +3333,14 @@ checksum = "df94ce210e5bc13cb6651479fa48d14f601d9858cfe0467f43ae157023b938d3"
 name = "pcap-dyn"
 version = "0.1.0"
 dependencies = [
- "dlopen2",
+ "dashmap",
+ "dlopen2 0.8.0",
  "etherparse",
  "human_bytes",
  "ip_rfc",
+ "isolate-ipc",
  "libc",
- "serde",
  "specta",
- "tracing",
-]
-
-[[package]]
-name = "pcap-state"
-version = "0.1.0"
-dependencies = [
- "caps",
- "dashmap",
- "pcap-dyn",
- "serde",
- "specta",
- "tauri",
- "tauri-specta",
- "tokio",
  "tracing",
 ]
 
@@ -4665,7 +4698,7 @@ dependencies = [
  "core-graphics",
  "crossbeam-channel",
  "dispatch",
- "dlopen2",
+ "dlopen2 0.7.0",
  "dpi",
  "gdkwayland-sys",
  "gdkx11-sys",
@@ -5469,19 +5502,6 @@ name = "tower-service"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8df9b6e13f2d32c91b9bd719c00d1958837bc7dec474d94952798cc8e69eeec3"
-
-[[package]]
-name = "trace"
-version = "0.1.0"
-dependencies = [
- "ip_rfc",
- "ipgeo-state",
- "serde",
- "specta",
- "tauri",
- "tracing",
- "trippy-core",
-]
 
 [[package]]
 name = "tracing"

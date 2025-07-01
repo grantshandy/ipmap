@@ -1,0 +1,15 @@
+[package]
+name = "isolate-parent"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+isolate-ipc = { path = "../isolate-ipc" }
+ipgeo-state = { path = "../ipgeo-state" }
+pcap-dyn = { path = "../pcap-dyn" }
+serde_json.workspace = true
+tauri.workspace = true
+specta.workspace = true
+tracing.workspace = true
+tauri-specta.workspace = true
+serde.workspace = true

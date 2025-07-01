@@ -8,7 +8,7 @@ pub fn run() {
     let ts_export_builder = tauri_specta::Builder::<tauri::Wry>::new()
         .events(tauri_specta::collect_events![
             ipgeo_state::DbStateChange,
-            pcap_state::PcapStateChange
+            // pcap_state::PcapStateChange
         ])
         .commands(tauri_specta::collect_commands![
             ipgeo_state::commands::load_database,
@@ -19,11 +19,10 @@ pub fn run() {
             ipgeo_state::commands::lookup_dns,
             ipgeo_state::commands::lookup_host,
             ipgeo_state::commands::my_location,
-            pcap_state::commands::init_pcap,
-            pcap_state::commands::start_capture,
-            pcap_state::commands::stop_capture,
-            pcap_state::commands::net_raw_available,
-            trace::commands::run_traceroute,
+            isolate_parent::commands::init_pcap,
+            // pcap_state::commands::stop_capture,
+            // pcap_state::commands::net_raw_available,
+            // trace::commands::run_traceroute,
         ]);
 
     #[cfg(all(debug_assertions, not(mobile)))]
@@ -43,7 +42,7 @@ pub fn run() {
             ts_export_builder.mount_events(app);
 
             app.manage(ipgeo_state::DbState::default());
-            app.manage(pcap_state::PcapState::new());
+            // app.manage(pcap_state::PcapState::new());
 
             #[cfg(debug_assertions)]
             app.get_webview_window("main").unwrap().open_devtools();
