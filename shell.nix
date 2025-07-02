@@ -7,6 +7,10 @@ pkgs.mkShell.override {
   RUST_SRC_PATH = "${pkgs.rustPlatform.rustLibSrc}";
   LD_LIBRARY_PATH = "${pkgs.lib.makeLibraryPath [pkgs.libpcap]}:$LD_LIBRARY_PATH";
 
+  shellHook = ''
+    export PCAP_CHILD="$(pwd)/target/release/pcap-child"
+  '';
+
   buildInputs = with pkgs; [
     cargo
     rustc

@@ -7,7 +7,7 @@ import {
 } from "./raw";
 import * as dialog from "@tauri-apps/plugin-dialog";
 import { Channel } from "@tauri-apps/api/core";
-import { captureError, displayError } from ".";
+import { captureErrorBasic, displayError } from ".";
 
 class Database implements DbStateInfo {
   ipv4: DbCollectionInfo = $state({ loaded: [], selected: null });
@@ -20,15 +20,11 @@ class Database implements DbStateInfo {
   anyEnabled: boolean = $derived(this.ipv4Enabled || this.ipv6Enabled);
 
   constructor() {
-    console.log("database binding initialized");
-
     commands.databaseState().then(this.update);
     events.dbStateChange.listen((ev) => this.update(ev.payload));
   }
 
   private update = (state: DbStateInfo) => {
-    console.log("update from backend", state);
-
     this.loading = state.loading;
     this.ipv4 = state.ipv4;
     this.ipv6 = state.ipv6;
@@ -53,7 +49,9 @@ class Database implements DbStateInfo {
 
     console.log("opening database", file);
 
-    return captureError(commands.loadDatabase(file, new Channel(displayError)));
+    return captureErrorBasic(
+      commands.loadDatabase(file, new Channel(displayError)),
+    );
   };
 
   setSelected = (name: string | null | undefined) => {
@@ -61,13 +59,13 @@ class Database implements DbStateInfo {
   };
 
   unload = (name: string | null) => {
-    if (name) captureError(commands.unloadDatabase(name));
+    if (name) captureErrorBasic(commands.unloadDatabase(name));
   };
 
   lookupIp = commands.lookupIp;
   lookupDns = commands.lookupDns;
   lookupHost = commands.lookupHost;
-  myLocation = () => captureError(commands.myLocation());
+  myLocation = () => captureErrorBasic(commands.myLocation());
 }
 
 export default new Database();

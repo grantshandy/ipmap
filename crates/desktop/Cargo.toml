@@ -23,6 +23,5 @@ ip_rfc.workspace = true
 specta-typescript = "0.0.9"
 tauri-plugin-devtools = "2.0.0"
 
-# trace = { path = "../trace" }
-isolate-parent = { path = "../isolate-parent" }
+pcap-state = { path = "../pcap-state" }
 ipgeo-state = { path = "../ipgeo-state" }

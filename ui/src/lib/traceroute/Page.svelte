@@ -3,99 +3,129 @@
   import { Channel } from "@tauri-apps/api/core";
   import {
     database,
-    netRawEnabled,
+    isTracerouteEnabled,
     runTraceroute,
     type Coordinate,
     type Hop,
     type Result,
-    type TraceroutePreferences,
+    type TracerouteParams,
+    type Error,
+    isError,
+    printError,
   } from "../../bindings";
   import Results from "./Results.svelte";
+  import ErrorScreen from "$lib/ErrorScreen.svelte";
 
-  const DEFAULT_PREFS: TraceroutePreferences = {
+  const MAX_MAX_ROUNDS: number = 200;
+
+  const DEFAULT_PREFS: TracerouteParams = {
     maxRounds: 5,
     ip: "",
   };
 
   const resetPrefs = () => (prefs = DEFAULT_PREFS);
 
-  let prefs: TraceroutePreferences = $state(DEFAULT_PREFS);
+  let prefs: TracerouteParams = $state(DEFAULT_PREFS);
 
-  // string => error message
-  // number => loading round
   // null => inputting data
-  // array => viewing results
-  let pageState: Hop[] | string | number | null = $state(null);
+  // number => loading round
+  // Hop[] => viewing results
+  // Error => error message
+  let pageState: null | number | Hop[] | Error = $state(null);
 
   const search = async (input: Result<string, string> | null) => {
     if (input == null || input.status == "error") {
-      pageState = input?.error ?? null;
+      pageState = input?.error ? { t: "Ipc", c: input.error } : null;
       return;
     }
 
     pageState = 0;
     prefs.ip = input.data;
-    const trace = await runTraceroute(
-      prefs,
-      new Channel((p) => (pageState = p)),
-    );
-
-    if (trace.status == "error") {
-      pageState = trace.error;
-      return;
-    }
-
-    pageState = trace.data;
+    console.log("running traceroute for ", prefs.ip);
+    pageState = await runTraceroute(prefs, new Channel((p) => (pageState = p)));
   };
 
   let myLocation: Coordinate = $state({ lat: 0, lng: 0 });
   database.myLocation().then((l) => {
     if (l) myLocation = l.crd;
   });
+
+  let formInvalid = $derived(
+    prefs.maxRounds < 1 || prefs.maxRounds > MAX_MAX_ROUNDS,
+  );
 </script>
 
 <div class="flex h-full w-full grow flex-col">
-  {#await netRawEnabled() then enabled}
-    {#if !enabled}
-      <p>Privileges are not available to access traceroute</p>
+  {#await isTracerouteEnabled() then enabled}
+    <!-- Various Error Screens -->
+    {#if enabled.status == "error"}
+      <ErrorScreen error={enabled.error} />
+    {:else if enabled.data == false}
+      <ErrorScreen error={{ t: "InsufficientPermissions" }} />
+    {:else if isError(pageState)}
+      <ErrorScreen bind:error={pageState} exitable={true} />
+
+      <!-- Loading Screen -->
     {:else if pageState != null && typeof pageState == "number"}
-      <div
-        class="flex grow flex-col items-center justify-items-center space-y-3"
-      >
-        <span class="loading loading-spinner loading-2xl"></span>
-        <p>Round: {pageState}</p>
-      </div>
-    {:else if pageState != null && typeof pageState == "string"}
-      <p>Error: {pageState}</p>
-      <button class="btn btn-primary" onclick={() => (pageState = null)}
-        >Ok</button
-      >
-    {:else if pageState != null && typeof pageState == "object"}
+      {@render traceLoading(pageState)}
+
+      <!-- Traceroute Result -->
+    {:else if Array.isArray(pageState)}
       <Results
         hops={pageState}
         {myLocation}
         ip={prefs.ip}
         close={() => (pageState = null)}
       />
-    {:else}
-      <fieldset
-        class="fieldset bg-base-200 border-base-300 rounded-box w-xs self-center border p-4"
-      >
-        <legend class="fieldset-legend">Run a Traceroute</legend>
 
-        <label class="label" for="maxRounds">Rounds</label>
+      <!-- Input Form -->
+    {:else}
+      {@render tracerouteForm()}
+    {/if}
+  {/await}
+</div>
+
+{#snippet traceLoading(round: number)}
+  <div class="flex grow items-center justify-center select-none">
+    <div class="space-y-3 text-center">
+      <p>Tracing...</p>
+      <progress class="progress w-56" value={round} max={prefs.maxRounds}
+      ></progress>
+    </div>
+  </div>
+{/snippet}
+
+{#snippet tracerouteForm()}
+  <div class="flex grow items-center justify-center">
+    <fieldset
+      class="fieldset bg-base-200 border-base-300 rounded-box w-xs self-center border p-4"
+    >
+      <legend class="fieldset-legend">Run a Traceroute</legend>
+
+      <label class="label" for="maxRounds">Rounds</label>
+      <div>
         <input
           id="maxRounds"
           type="number"
           min="1"
-          max="100"
-          bind:value={prefs.maxRounds}
-          class="input input-sm"
-        />
+          max="200"
+          onkeypress={(e) => {
+            const isNum = (charValue: string) =>
+              charValue.length == 1 && "0123456789".indexOf(charValue) > -1;
 
-        <label class="label" for="ipsearchbox">IP Address or Domain</label>
-        <IpSearchBox {search} />
-      </fieldset>
-    {/if}
-  {/await}
-</div>
+            if (!isNum(e.key)) e.preventDefault();
+          }}
+          bind:value={prefs.maxRounds}
+          required
+          pattern="^[1-9]\d*$"
+          title="Only numbers between 1 and 200"
+          class="input input-sm validator"
+        />
+        <p class="validator-hint text-xs">Must be between 1 to 200</p>
+      </div>
+
+      <label class="label" for="ipsearchbox">IP Address or Domain</label>
+      <IpSearchBox {search} disabled={formInvalid} />
+    </fieldset>
+  </div>
+{/snippet}

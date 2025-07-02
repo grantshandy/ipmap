@@ -79,13 +79,51 @@ async myLocation() : Promise<Result<LookupInfo, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async pcapStatus() : Promise<Result<Status, string>> {
+async initPcap() : Promise<Result<PcapStateInfo, Error>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("pcap_status") };
+    return { status: "ok", data: await TAURI_INVOKE("init_pcap") };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async startCapture(params: CaptureParams, conns: TAURI_CHANNEL<Connections>) : Promise<Result<null, Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("start_capture", { params, conns }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Stop the current capture.
+ */
+async stopCapture() : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("stop_capture") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async tracerouteEnabled() : Promise<Result<boolean, Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("traceroute_enabled") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async runTraceroute(params: TracerouteParams, progress: TAURI_CHANNEL<number>) : Promise<Result<Hop[], Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("run_traceroute", { params, progress }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async platform() : Promise<Platform> {
+    return await TAURI_INVOKE("platform");
 }
 }
 
@@ -93,9 +131,11 @@ async pcapStatus() : Promise<Result<Status, string>> {
 
 
 export const events = __makeEvents__<{
-dbStateChange: DbStateChange
+dbStateChange: DbStateChange,
+pcapStateChange: PcapStateChange
 }>({
-dbStateChange: "db-state-change"
+dbStateChange: "db-state-change",
+pcapStateChange: "pcap-state-change"
 })
 
 /** user-defined constants **/
@@ -104,6 +144,9 @@ dbStateChange: "db-state-change"
 
 /** user-defined types **/
 
+export type CaptureParams = { device: Device; connectionTimeout: Duration; reportFrequency: Duration }
+export type ConnectionInfo = { up: MovingAverageInfo; down: MovingAverageInfo }
+export type Connections = { updates: Partial<{ [key in string]: ConnectionInfo }>; started: string[]; ended: string[]; stoppingCapture: boolean }
 /**
  * A latitude/longitude coordinate.
  */
@@ -134,13 +177,32 @@ ready: boolean;
  * If the device is a wireless device.
  */
 wireless: boolean }
+export type Duration = { secs: number; nanos: number }
+export type Error = { t: "InsufficientPermissions" } | { t: "LibLoading"; c: string } | { t: "Runtime"; c: string } | { t: "Ipc"; c: string }
+export type Hop = { ips: string[]; loc: LookupInfo | null }
 /**
  * Location metadata.
  */
 export type Location = { city: string | null; region: string | null; countryCode: string }
 export type LookupInfo = { crd: Coordinate; loc: Location }
-export type Status = { devices: Device[]; version: string }
+export type MovingAverageInfo = { total: number; avgS: number }
+export type PcapStateChange = ({ status: "Ok" } & PcapStateInfo) | ({ status: "Err" } & Error)
+export type PcapStateInfo = { 
+/**
+ * The version information about the currently loaded libpcap
+ */
+version: string; 
+/**
+ * The list of available network devices for capture
+ */
+devices: Device[]; 
+/**
+ * The currently-captured on device, if any
+ */
+capture: Device | null }
+export type Platform = "Linux" | "Windows" | "MacOS"
 export type TAURI_CHANNEL<TSend> = null
+export type TracerouteParams = { ip: string; maxRounds: number }
 
 /** tauri-specta globals **/
 

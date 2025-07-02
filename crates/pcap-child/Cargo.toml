@@ -1,11 +1,11 @@
 [package]
-name = "isolate-child"
+name = "pcap-child"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
 serde_json.workspace = true
-isolate-ipc = { path = "../isolate-ipc" }
+child-ipc = { path = "../child-ipc" }
 pcap-dyn = { path = "../pcap-dyn" }
 trippy-core = "0.13.0"
 

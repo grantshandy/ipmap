@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { Pcap, database, type Coordinate } from "$lib/../bindings";
   import MapView from "$lib/Map.svelte";
+
+  import { type Pcap, database, type Coordinate } from "$lib/../bindings";
   import { divIcon, type Map, marker, type Marker } from "leaflet";
   import { GeodesicLine } from "leaflet.geodesic";
   import { onDestroy } from "svelte";
@@ -9,6 +10,7 @@
 
   onDestroy(() => {
     pcap.stopCapture();
+    pcap.unlisten();
   });
 
   let map: Map | null = $state(null);

@@ -1,5 +1,12 @@
 import { Channel } from "@tauri-apps/api/core";
-import { captureError } from ".";
+import {
+  CAPTURE_CONNECTION_TIMEOUT,
+  CAPTURE_REPORT_FREQUENCY,
+  captureErrorBasic,
+  displayError,
+  durationFromMillis,
+  printError,
+} from ".";
 import {
   commands,
   events,
@@ -7,7 +14,12 @@ import {
   type ConnectionInfo,
   type Device,
   type PcapStateInfo,
+  type Duration,
+  type Error,
+  type Result,
+  type PcapStateChange,
 } from "./raw";
+import type { UnlistenFn, Event } from "@tauri-apps/api/event";
 
 type CaptureState = {
   version: string;
@@ -36,21 +48,20 @@ class ConnectionChangeEvents {
 export class Pcap {
   startCalled = false;
   device: Device | null = $state(null);
-  status: CaptureState = $state({
+  status: PcapStateInfo = $state({
     version: "",
     devices: [],
     capture: null,
   });
   connections: { [ip: string]: ConnectionInfo } = $state({});
-
+  public unlisten!: UnlistenFn;
   conn = new ConnectionChangeEvents();
 
   constructor(status: CaptureState) {
-    this.update(status);
-
-    events.pcapStateChange.listen((ev) => this.update(ev.payload));
-
     console.log("capture binding initialized");
+
+    this.update(status);
+    events.pcapStateChange.listen(this.update).then((u) => (this.unlisten = u));
   }
 
   private onConnectionRecv = (conns: Connections) => {
@@ -91,15 +102,43 @@ export class Pcap {
 
     const channel = new Channel(this.onConnectionRecv);
 
-    captureError(commands.startCapture(this.device, channel));
+    captureErrorBasic(
+      commands
+        .startCapture(
+          {
+            device: this.device,
+            connectionTimeout: CAPTURE_CONNECTION_TIMEOUT,
+            reportFrequency: CAPTURE_REPORT_FREQUENCY,
+          },
+          channel,
+        )
+        .then((c) =>
+          c.status == "error"
+            ? { status: "error", error: printError(c.error) }
+            : { status: "ok", data: null },
+        ),
+    );
   };
 
-  public stopCapture = () => captureError(commands.stopCapture());
+  public stopCapture = () => captureErrorBasic(commands.stopCapture());
 
-  private update = (state: PcapStateInfo) => {
-    console.log("new pcap update", state);
+  private update = (state: PcapStateInfo | Event<PcapStateChange>) => {
+    let info: PcapStateInfo;
 
-    this.status = state;
+    if ("payload" in state) {
+      if (state.payload.status == "Ok") {
+        info = state.payload;
+      } else {
+        displayError(printError(state.payload));
+        return;
+      }
+    } else {
+      info = state;
+    }
+
+    console.log("new pcap update", info);
+
+    this.status = info;
 
     if (this.status.capture != null && !this.startCalled) {
       console.warn("stopping previous page-load capture session");
@@ -125,7 +164,11 @@ export class Pcap {
   };
 }
 
-export const newPcapInstance = async (): Promise<Pcap | string> =>
+export const newPcapInstance = (): Promise<Result<Pcap, Error>> =>
   commands
     .initPcap()
-    .then((r) => (r.status === "ok" ? new Pcap(r.data) : r.error));
+    .then((p) =>
+      p.status == "ok"
+        ? { status: "ok", data: new Pcap(p.data) }
+        : { status: "error", error: p.error },
+    );

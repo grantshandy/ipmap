@@ -43,7 +43,10 @@
       const lookup = await database.lookupHost(trimmedInput);
 
       if (lookup.status == "error" || lookup.data == null) {
-        search({ status: "error", error: `No IP found for "${trimmedInput}"` });
+        search({
+          status: "error",
+          error: `Domain name "${trimmedInput}" not found`,
+        });
         return;
       }
 

@@ -1,0 +1,152 @@
+use std::net::IpAddr;
+
+use child_ipc::{CaptureParams, Command, Connections, Error, Response, TracerouteParams};
+use ipgeo_state::{DbState, LookupInfo};
+use serde::{Deserialize, Serialize};
+use specta::Type;
+use tauri::{AppHandle, State, ipc::Channel};
+
+use crate::{PcapState, PcapStateChange, PcapStateInfo, ipc};
+
+#[tauri::command]
+#[specta::specta]
+pub async fn start_capture(
+    app: AppHandle,
+    pcap: State<'_, PcapState>,
+    params: CaptureParams,
+    conns: Channel<Connections>,
+) -> Result<(), Error> {
+    let device = params.device.clone();
+
+    let (mut child, exit) = ipc::spawn_child_iterator(Command::Capture(params))
+        .map_err(|e| Error::Ipc(e.to_string()))?;
+
+    pcap.set_capture(device, exit);
+
+    PcapStateChange::emit(&app);
+
+    while let Some(resp) = child.next() {
+        match resp {
+            Ok(Response::CaptureSample(c)) => {
+                let _ = conns.send(c);
+            }
+            Ok(_) => {
+                return Err(Error::Ipc(
+                    "Child process returned unexpected type".to_string(),
+                ));
+            }
+            Err(e) => return Err(e),
+        }
+    }
+
+    let _ = conns.send(Connections::stop());
+    PcapStateChange::emit(&app);
+
+    Ok(())
+}
+
+/// Stop the current capture.
+#[tauri::command]
+#[specta::specta]
+pub async fn stop_capture(pcap: State<'_, PcapState>) -> Result<(), String> {
+    match pcap.stop_capture() {
+        Some(Err(e)) => Err(e.to_string()),
+        _ => Ok(()),
+    }
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn init_pcap(state: State<'_, PcapState>) -> Result<PcapStateInfo, Error> {
+    state.info()
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn traceroute_enabled() -> Result<bool, Error> {
+    match ipc::call_child_process(Command::TracerouteStatus)? {
+        Response::TracerouteStatus(s) => Ok(s),
+        _ => Err(Error::Ipc("Unexpected response from child".to_string())),
+    }
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn run_traceroute(
+    db: State<'_, DbState>,
+    params: TracerouteParams,
+    progress: Channel<usize>,
+) -> Result<Vec<Hop>, Error> {
+    let (mut child, exit) = ipc::spawn_child_iterator(Command::Traceroute(params))
+        .map_err(|e| Error::Ipc(e.to_string()))?;
+
+    let exit = || exit().map_err(|e| Error::Ipc(e.to_string()));
+
+    while let Some(message) = child.next() {
+        match message {
+            Ok(Response::TracerouteProgress(round)) => {
+                let _ = progress.send(round);
+            }
+            Ok(Response::TracerouteResponse(resp)) => {
+                let hops = resp
+                    .hops
+                    .into_iter()
+                    .map(|ips| Hop::new(ips, db.clone()))
+                    .collect();
+
+                exit()?;
+                return Ok(hops);
+            }
+            Ok(_) => {
+                exit()?;
+                return Err(Error::Ipc(
+                    "Child process returned unexpected type".to_string(),
+                ));
+            }
+            Err(e) => {
+                exit()?;
+                return Err(e);
+            }
+        }
+    }
+
+    Err(Error::Ipc(
+        "Child process terminated unexpectedly".to_string(),
+    ))
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn platform() -> Platform {
+    #[cfg(target_os = "linux")]
+    return Platform::Linux;
+
+    #[cfg(target_os = "windows")]
+    return Platform::Windows;
+
+    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
+    return Platform::MacOS;
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Type)]
+pub enum Platform {
+    Linux,
+    Windows,
+    MacOS,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Type)]
+pub struct Hop {
+    ips: Vec<IpAddr>,
+    loc: Option<LookupInfo>,
+}
+
+impl Hop {
+    pub fn new(ips: Vec<IpAddr>, db: State<'_, DbState>) -> Self {
+        let loc = ips
+            .iter()
+            .find_map(|ip| ipgeo_state::commands::lookup_ip(db.clone(), *ip));
+
+        Self { ips, loc }
+    }
+}

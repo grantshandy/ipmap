@@ -7,7 +7,7 @@ use std::{
 };
 
 use crate::{Capture, Packet, PacketDirection};
-use isolate_ipc::{ConnectionInfo, MovingAverageInfo, Connections};
+use child_ipc::{ConnectionInfo, Connections, MovingAverageInfo};
 use dashmap::DashMap;
 
 pub struct CaptureTimeBuffer {
@@ -65,6 +65,7 @@ impl CaptureTimeBuffer {
             updates,
             started,
             ended,
+            stopping_capture: false,
         }
     }
 }

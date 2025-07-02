@@ -4,11 +4,10 @@ members = [
     "crates/ipgeo",
     "crates/desktop",
     "crates/pcap-dyn",
-    # "crates/pcap-state",
     "crates/ipgeo-state",
-    "crates/isolate-parent",
-    "crates/isolate-child",
-    "crates/isolate-ipc",
+    "crates/pcap-state",
+    "crates/pcap-child",
+    "crates/child-ipc",
 ]
 
 [workspace.dependencies]

@@ -12,8 +12,8 @@ mod cap;
 mod ffi;
 
 pub use cap::{Capture, Packet, PacketDirection};
+use child_ipc::Device;
 use ffi::{Raw, pcap_if_t};
-use isolate_ipc::Device;
 
 /// A static instance of the pcap library API, initialized when first used.
 pub const INSTANCE: LazyLock<Result<Api, dlopen2::Error>> = LazyLock::new(Api::init);

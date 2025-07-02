@@ -13,7 +13,7 @@ tracing.workspace = true
 specta.workspace = true
 dashmap.workspace = true
 
-isolate-ipc = { path = "../isolate-ipc" }
+child-ipc = { path = "../child-ipc" }
 
 [dev-dependencies]
 human_bytes = "0.4.3"

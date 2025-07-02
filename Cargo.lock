@@ -608,6 +608,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "613afe47fcd5fac7ccf1db93babcb082c5994d996f20b8b159f2ad1658eb5724"
 
 [[package]]
+name = "child-ipc"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "specta",
+ "thiserror 2.0.12",
+]
+
+[[package]]
 name = "chrono"
 version = "0.4.40"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2355,7 +2364,7 @@ version = "5.0.0"
 dependencies = [
  "ip_rfc",
  "ipgeo-state",
- "isolate-parent",
+ "pcap-state",
  "serde",
  "specta",
  "specta-typescript",
@@ -2402,42 +2411,6 @@ checksum = "173609498df190136aa7dea1a91db051746d339e18476eed5ca40521f02d7aa5"
 dependencies = [
  "is-docker",
  "once_cell",
-]
-
-[[package]]
-name = "isolate-child"
-version = "0.1.0"
-dependencies = [
- "caps",
- "isolate-ipc",
- "pcap-dyn",
- "serde_json",
- "trippy-core",
-]
-
-[[package]]
-name = "isolate-ipc"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "specta",
- "thiserror 2.0.12",
-]
-
-[[package]]
-name = "isolate-parent"
-version = "0.1.0"
-dependencies = [
- "ipgeo-state",
- "isolate-ipc",
- "pcap-dyn",
- "serde",
- "serde_json",
- "specta",
- "tauri",
- "tauri-specta",
- "tracing",
 ]
 
 [[package]]
@@ -3330,17 +3303,42 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "df94ce210e5bc13cb6651479fa48d14f601d9858cfe0467f43ae157023b938d3"
 
 [[package]]
+name = "pcap-child"
+version = "0.1.0"
+dependencies = [
+ "caps",
+ "child-ipc",
+ "pcap-dyn",
+ "serde_json",
+ "trippy-core",
+]
+
+[[package]]
 name = "pcap-dyn"
 version = "0.1.0"
 dependencies = [
+ "child-ipc",
  "dashmap",
  "dlopen2 0.8.0",
  "etherparse",
  "human_bytes",
  "ip_rfc",
- "isolate-ipc",
  "libc",
  "specta",
+ "tracing",
+]
+
+[[package]]
+name = "pcap-state"
+version = "0.1.0"
+dependencies = [
+ "child-ipc",
+ "ipgeo-state",
+ "serde",
+ "serde_json",
+ "specta",
+ "tauri",
+ "tauri-specta",
  "tracing",
 ]
 

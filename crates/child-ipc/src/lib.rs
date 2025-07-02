@@ -5,9 +5,10 @@ use specta::Type;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum Command {
-    Status,
-    Traceroute(TracerouteParams),
+    PcapStatus,
     Capture(CaptureParams),
+    TracerouteStatus,
+    Traceroute(TracerouteParams),
 }
 
 #[derive(Copy, Clone, Debug, Type, Serialize, Deserialize)]
@@ -17,7 +18,8 @@ pub struct TracerouteParams {
     pub max_rounds: usize,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Type)]
+#[serde(rename_all = "camelCase")]
 pub struct CaptureParams {
     pub device: Device,
     pub connection_timeout: Duration,
@@ -26,10 +28,12 @@ pub struct CaptureParams {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum Response {
-    Traceroute(TracerouteResponse),
+    PcapStatus(PcapStatus),
+    CaptureSample(Connections),
+
+    TracerouteStatus(bool),
+    TracerouteResponse(TracerouteResponse),
     TracerouteProgress(usize),
-    Status(Status),
-    Connections(Connections),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -38,14 +42,15 @@ pub struct TracerouteResponse {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Type)]
-pub struct Status {
+pub struct PcapStatus {
     pub devices: Vec<Device>,
     pub version: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, thiserror::Error)]
+#[derive(Serialize, Deserialize, Debug, Clone, thiserror::Error, Type)]
+#[serde(tag = "t", content = "c")]
 pub enum Error {
-    #[error("Insufficient network permissions on isolate-child process")]
+    #[error("Insufficient network permissions on pcap-child process")]
     InsufficientPermissions,
     #[error("Libpcap loading error: {0}")]
     LibLoading(String),
@@ -54,7 +59,6 @@ pub enum Error {
     #[error("IPC error: {0}")]
     Ipc(String),
 }
-
 
 #[derive(Copy, Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
@@ -88,4 +92,14 @@ pub struct Connections {
     pub updates: HashMap<IpAddr, ConnectionInfo>,
     pub started: Vec<IpAddr>,
     pub ended: Vec<IpAddr>,
+    pub stopping_capture: bool,
+}
+
+impl Connections {
+    pub fn stop() -> Self {
+        Self {
+            stopping_capture: true,
+            ..Default::default()
+        }
+    }
 }

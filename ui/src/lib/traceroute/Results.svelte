@@ -24,25 +24,25 @@
 
     marker(myLocation).addTo(map);
 
-    const locations = hops.filter((hop) => hop.location != null);
+    const locations = hops.filter((hop) => hop.loc != null);
 
     if (locations.length > 0) {
-      const firstLocation = locations[0].location;
+      const firstLocation = locations[0].loc;
       if (firstLocation == null) return; // for ts
 
       new GeodesicLine([myLocation, firstLocation.crd]).addTo(map);
     }
 
     for (let i = 1; i < locations.length; i++) {
-      const from = locations[i - 1].location;
-      const to = locations[i].location;
+      const from = locations[i - 1].loc;
+      const to = locations[i].loc;
 
       if (!from || !to) continue; // shouldn't happen, for ts
 
       new GeodesicLine([from.crd, to.crd]).addTo(map);
     }
 
-    const endpoint = locations[locations.length - 1].location?.crd;
+    const endpoint = locations[locations.length - 1].loc?.crd;
     if (endpoint) marker(endpoint).addTo(map);
   });
 </script>
@@ -64,7 +64,6 @@
     <div class="max-h-96 overflow-y-scroll">
       {#each hops as hop, i}
         {@render renderHop(hop, i + 1)}
-
         <hr />
       {/each}
     </div>
@@ -75,11 +74,11 @@
   <div class="py-1">
     <div class="flex items-center">
       <h3 class="grow text-xl font-semibold">#{no}:</h3>
-      {#if hop.location != null}
+      {#if hop.loc != null}
         <button
           class="btn btn-xs float-right"
           onclick={() => {
-            if (hop.location) map?.flyTo(hop.location.crd, 7, { duration: 2 });
+            if (hop.loc) map?.flyTo(hop.loc.crd, 7, { duration: 2 });
           }}
         >
           View
@@ -109,11 +108,11 @@
         </ul>
       {/if}
 
-      {#if hop.location != null}
+      {#if hop.loc != null}
         <p>Location:</p>
         <p class="text-sm">
-          {`${hop.location.loc.city ?? "Unknown City"}${hop.location.loc.region ? `, ${hop.location.loc.region}` : ""}`},
-          {regionNames.of(hop.location.loc.countryCode)}
+          {`${hop.loc.loc.city ?? "Unknown City"}${hop.loc.loc.region ? `, ${hop.loc.loc.region}` : ""}`},
+          {regionNames.of(hop.loc.loc.countryCode)}
         </p>
       {:else}
         <p>Location not detected</p>
