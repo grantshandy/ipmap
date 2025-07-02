@@ -1,3 +1,5 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 use std::{
     io::{self, BufRead},
     net::IpAddr,
@@ -9,31 +11,18 @@ use child_ipc::{
 };
 use pcap_dyn::{Api, buf::CaptureTimeBuffer};
 
+/// A small child application spawned by the functions in pcap_state::ipc.
+/// It reads in a single child_ipc::Command on stdin at the start, then
+/// returns (a series of) Result<child_ipc::Response, child_ipc::Error>, all in JSON.
 fn main() {
-    let stdin = io::stdin();
-    let mut line = String::new();
-
-    if let Err(err) = stdin.lock().read_line(&mut line) {
-        eprintln!("Must provide command on stdin.\n{err}");
-        process::exit(1);
-    }
-
-    let cmd = match serde_json::from_str::<Command>(line.trim()) {
-        Ok(cmd) => cmd,
-        Err(err) => {
-            eprintln!("Failed to parse command.\n{err}");
-            process::exit(1);
-        }
-    };
-
-    let resp: Result<Response, Error> = match cmd {
+    let response: Result<Response, Error> = match get_command() {
         Command::PcapStatus => get_pcap_status().map(Response::PcapStatus),
         Command::Capture(params) => run_capture(params),
         Command::TracerouteStatus => has_traceroute_privileges().map(Response::TracerouteStatus),
         Command::Traceroute(params) => run_traceroute(params).map(Response::TracerouteResponse),
     };
 
-    send_response(resp);
+    send_response(response);
 }
 
 fn get_pcap_status() -> Result<PcapStatus, Error> {
@@ -117,6 +106,24 @@ fn has_traceroute_privileges() -> Result<bool, Error> {
     trippy_privilege::Privilege::discover()
         .map(|p| p.has_privileges())
         .map_err(|e| Error::Runtime(e.to_string()))
+}
+
+fn get_command() -> Command {
+    let stdin = io::stdin();
+    let mut line = String::new();
+
+    if let Err(err) = stdin.lock().read_line(&mut line) {
+        eprintln!("Must provide command on stdin.\n{err}");
+        process::exit(1);
+    }
+
+    match serde_json::from_str::<Command>(line.trim()) {
+        Ok(cmd) => cmd,
+        Err(err) => {
+            eprintln!("Failed to parse command.\n{err}");
+            process::exit(1);
+        }
+    }
 }
 
 fn exit_with_error(error: Error) -> ! {
