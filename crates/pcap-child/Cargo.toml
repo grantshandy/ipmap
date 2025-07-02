@@ -8,6 +8,7 @@ serde_json.workspace = true
 child-ipc = { path = "../child-ipc" }
 pcap-dyn = { path = "../pcap-dyn" }
 trippy-core = "0.13.0"
+trippy-privilege = "0.13.0"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 caps = "0.5.5"

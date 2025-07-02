@@ -27,28 +27,30 @@ fn main() {
     };
 
     let resp: Result<Response, Error> = match cmd {
-        Command::PcapStatus => get_pcap_status(),
+        Command::PcapStatus => get_pcap_status().map(Response::PcapStatus),
         Command::Capture(params) => run_capture(params),
-        Command::TracerouteStatus => Ok(Response::TracerouteStatus(has_privileges())),
-        Command::Traceroute(params) => run_traceroute(params),
+        Command::TracerouteStatus => has_traceroute_privileges().map(Response::TracerouteStatus),
+        Command::Traceroute(params) => run_traceroute(params).map(Response::TracerouteResponse),
     };
 
     send_response(resp);
 }
 
-fn get_pcap_status() -> Result<Response, Error> {
+fn get_pcap_status() -> Result<PcapStatus, Error> {
     let api = get_api();
 
-    if !has_privileges() {
+    #[cfg(target_os = "linux")]
+    if !caps::has_cap(None, caps::CapSet::Effective, caps::Capability::CAP_NET_RAW).unwrap_or(false)
+    {
         return Err(Error::InsufficientPermissions);
     }
 
     let devices = api.devices().map_err(|e| Error::Runtime(e.to_string()))?;
 
-    Ok(Response::PcapStatus(PcapStatus {
+    Ok(PcapStatus {
         devices,
         version: api.lib_version(),
-    }))
+    })
 }
 
 fn run_capture(params: CaptureParams) -> ! {
@@ -66,7 +68,7 @@ fn run_capture(params: CaptureParams) -> ! {
     }
 }
 
-fn run_traceroute(params: TracerouteParams) -> Result<Response, Error> {
+fn run_traceroute(params: TracerouteParams) -> Result<TracerouteResponse, Error> {
     let snapshot = std::panic::catch_unwind(|| {
         let tracer = trippy_core::Builder::new(params.ip)
             .max_rounds(Some(params.max_rounds))
@@ -101,7 +103,7 @@ fn run_traceroute(params: TracerouteParams) -> Result<Response, Error> {
         .map(|h| h.addrs().copied().collect::<Vec<IpAddr>>())
         .collect::<Vec<Vec<IpAddr>>>();
 
-    Ok(Response::TracerouteResponse(TracerouteResponse { hops }))
+    Ok(TracerouteResponse { hops })
 }
 
 fn get_api() -> Api {
@@ -111,18 +113,15 @@ fn get_api() -> Api {
     }
 }
 
-// TODO: how is it required on windows/macOS?
-fn has_privileges() -> bool {
-    #[cfg(target_os = "linux")]
-    return caps::has_cap(None, caps::CapSet::Effective, caps::Capability::CAP_NET_RAW)
-        .unwrap_or(false);
-
-    #[cfg(not(target_os = "linux"))]
-    return true;
+fn has_traceroute_privileges() -> Result<bool, Error> {
+    trippy_privilege::Privilege::discover()
+        .map(|p| p.has_privileges())
+        .map_err(|e| Error::Runtime(e.to_string()))
 }
 
 fn exit_with_error(error: Error) -> ! {
     send_response(Err(error));
+    // nonzero would be correct, but harder to handle in the IPC layer.
     process::exit(0);
 }
 

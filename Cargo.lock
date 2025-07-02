@@ -3311,6 +3311,7 @@ dependencies = [
  "pcap-dyn",
  "serde_json",
  "trippy-core",
+ "trippy-privilege",
 ]
 
 [[package]]

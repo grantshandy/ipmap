@@ -42,7 +42,8 @@
     pageState = 0;
     prefs.ip = input.data;
     console.log("running traceroute for ", prefs.ip);
-    pageState = await runTraceroute(prefs, new Channel((p) => (pageState = p)));
+    const res = await runTraceroute(prefs, new Channel((p) => (pageState = p)));
+    pageState = res.status == "ok" ? res.data : res.error;
   };
 
   let myLocation: Coordinate = $state({ lat: 0, lng: 0 });

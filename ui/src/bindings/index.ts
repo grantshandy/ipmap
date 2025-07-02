@@ -1,6 +1,7 @@
 import { message } from "@tauri-apps/plugin-dialog";
 import {
   commands,
+  type Device,
   type Duration,
   type Error,
   type Result,
@@ -72,10 +73,7 @@ export const displayError = (messageText: string) => {
 export const platform = commands.platform;
 export const isTracerouteEnabled = commands.tracerouteEnabled;
 
-export const runTraceroute = (
-  params: TracerouteParams,
-  channel: Channel<number>,
-) => captureError(commands.runTraceroute(params, channel));
+export const runTraceroute = commands.runTraceroute;
 
 export const durationFromMillis = (milliseconds: number): Duration => {
   const ONE_SECOND_IN_MILLIS = 1000;
@@ -93,3 +91,11 @@ export const durationFromMillis = (milliseconds: number): Duration => {
 
 export const CAPTURE_CONNECTION_TIMEOUT: Duration = { secs: 5, nanos: 0 };
 export const CAPTURE_REPORT_FREQUENCY: Duration = durationFromMillis(300);
+
+export const renderDeviceName = async (device: Device): Promise<string> => {
+  if (await platform() == "Windows") {
+    return device.description ?? device.name;
+  } else {
+      return `${device.name}${device.description ? (": (" + device.description + ")") : ""}`;
+  }
+}

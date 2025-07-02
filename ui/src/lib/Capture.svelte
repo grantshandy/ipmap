@@ -1,7 +1,7 @@
 <script lang="ts">
   import MapView from "$lib/Map.svelte";
 
-  import { type Pcap, database, type Coordinate } from "$lib/../bindings";
+  import { type Pcap, database, type Coordinate, renderDeviceName } from "$lib/../bindings";
   import { divIcon, type Map, marker, type Marker } from "leaflet";
   import { GeodesicLine } from "leaflet.geodesic";
   import { onDestroy } from "svelte";
@@ -105,10 +105,9 @@
       >
         {#each pcap.status.devices as device}
           <option value={device} disabled={!device.ready} selected>
-            {device.name}
-            {#if device.description}
-              : ({device.description})
-            {/if}
+            {#await renderDeviceName(device) then name}
+              {name}
+            {/await}
           </option>
         {/each}
       </select>

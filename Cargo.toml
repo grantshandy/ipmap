@@ -10,6 +10,8 @@ members = [
     "crates/child-ipc",
 ]
 
+package.rust-version = "1.86.0"
+
 [workspace.dependencies]
 tokio = { version = "1.45.1", features = ["time"] }
 tauri = { version = "2", features = ["tracing", "devtools"] }

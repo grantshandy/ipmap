@@ -8,7 +8,7 @@ use std::{
 use crate::StopCallback;
 use child_ipc::{Command, Error, Response};
 
-pub(crate) fn call_child_process(command: Command) -> Result<Response, Error> {
+pub fn call_child_process(command: Command) -> Result<Response, Error> {
     let (mut child, mut reader) =
         spawn_child_process(command).map_err(|e| Error::Ipc(e.to_string()))?;
 

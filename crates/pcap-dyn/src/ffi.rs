@@ -31,7 +31,7 @@ impl Raw {
             return try_pkg_config_path(FILE).unwrap_or_else(|| Err(err));
 
             #[cfg(not(unix))]
-            return err;
+            return Err(err);
         })
     }
 }

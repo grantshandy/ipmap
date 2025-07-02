@@ -10,7 +10,7 @@ use tauri::{AppHandle, Manager};
 use tauri_specta::Event;
 
 pub mod commands;
-mod ipc;
+pub mod ipc;
 
 pub type StopCallback = Box<dyn FnOnce() -> io::Result<()> + Send + Sync>;
 
