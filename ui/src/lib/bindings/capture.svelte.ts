@@ -1,25 +1,24 @@
 import { Channel } from "@tauri-apps/api/core";
+import type { Event, UnlistenFn } from "@tauri-apps/api/event";
 import {
   CAPTURE_CONNECTION_TIMEOUT,
   CAPTURE_REPORT_FREQUENCY,
+  captureError,
   captureErrorBasic,
   displayError,
-  durationFromMillis,
   printError,
 } from ".";
 import {
   commands,
   events,
-  type Connections,
   type ConnectionInfo,
+  type Connections,
   type Device,
-  type PcapStateInfo,
-  type Duration,
   type Error,
-  type Result,
   type PcapStateChange,
+  type PcapStateInfo,
+  type Result,
 } from "./raw";
-import type { UnlistenFn, Event } from "@tauri-apps/api/event";
 
 type CaptureState = {
   version: string;
@@ -29,21 +28,7 @@ type CaptureState = {
 
 type ConnectionStart = (ip: string, info: ConnectionInfo) => void;
 type ConnectionEnd = (ip: string) => void;
-
-class ConnectionChangeEvents {
-  private connStarts: ConnectionStart[] = [];
-  private connEnds: ConnectionEnd[] = [];
-
-  constructor() {}
-
-  onStart = (l: ConnectionStart) => this.connStarts.push(l);
-  onEnd = (l: ConnectionEnd) => this.connEnds.push(l);
-
-  fireConnStart = (ip: string, info: ConnectionInfo) =>
-    this.connStarts.forEach((cb) => cb(ip, info));
-
-  fireConnEnd = (ip: string) => this.connEnds.forEach((cb) => cb(ip));
-}
+type ConnectionUpdate = (ip: string, info: ConnectionInfo) => void;
 
 export class Pcap {
   startCalled = false;
@@ -54,8 +39,12 @@ export class Pcap {
     capture: null,
   });
   connections: { [ip: string]: ConnectionInfo } = $state({});
+
   public unlisten!: UnlistenFn;
-  conn = new ConnectionChangeEvents();
+
+  private connStarts: ConnectionStart[] = [];
+  private connEnds: ConnectionEnd[] = [];
+  private connUpdate: ConnectionUpdate[] = [];
 
   constructor(status: CaptureState) {
     console.log("capture binding initialized");
@@ -67,9 +56,9 @@ export class Pcap {
   private onConnectionRecv = (conns: Connections) => {
     const connUpdates = conns.updates as { [ip: string]: ConnectionInfo };
 
-    if (conns.stoppingCapture) {
+    if (conns.stopping) {
       for (const ip of Object.keys(this.connections)) {
-        this.conn.fireConnEnd(ip);
+        this.fireConnEnd(ip);
       }
 
       this.connections = {};
@@ -85,13 +74,17 @@ export class Pcap {
 
     for (const ip of conns.started) {
       // console.log(`${ip} started`);
-      this.conn.fireConnStart(ip, this.connections[ip]);
+      this.fireConnStart(ip, this.connections[ip]);
     }
 
     for (const ip of conns.ended) {
       // console.log(`${ip} ended`);
-      this.conn.fireConnEnd(ip);
+      this.fireConnEnd(ip);
       delete this.connections[ip];
+    }
+
+    for (const [ip, data] of Object.entries(this.connections)) {
+      this.fireConnUpdate(ip, data);
     }
   };
 
@@ -102,21 +95,15 @@ export class Pcap {
 
     const channel = new Channel(this.onConnectionRecv);
 
-    captureErrorBasic(
-      commands
-        .startCapture(
-          {
-            device: this.device,
-            connectionTimeout: CAPTURE_CONNECTION_TIMEOUT,
-            reportFrequency: CAPTURE_REPORT_FREQUENCY,
-          },
-          channel,
-        )
-        .then((c) =>
-          c.status == "error"
-            ? { status: "error", error: printError(c.error) }
-            : { status: "ok", data: null },
-        ),
+    captureError(
+      commands.startCapture(
+        {
+          device: this.device,
+          connectionTimeout: CAPTURE_CONNECTION_TIMEOUT,
+          reportFrequency: CAPTURE_REPORT_FREQUENCY,
+        },
+        channel,
+      ),
     );
   };
 
@@ -162,6 +149,16 @@ export class Pcap {
         this.status.devices.find((d) => d.name == captureName) ?? null;
     }
   };
+
+  onStart = (l: ConnectionStart) => this.connStarts.push(l);
+  onEnd = (l: ConnectionEnd) => this.connEnds.push(l);
+  onUpdate = (l: ConnectionUpdate) => this.connUpdate.push(l);
+
+  fireConnStart = (ip: string, info: ConnectionInfo) =>
+    this.connStarts.forEach((cb) => cb(ip, info));
+  fireConnEnd = (ip: string) => this.connEnds.forEach((cb) => cb(ip));
+  fireConnUpdate = (ip: string, info: ConnectionInfo) =>
+    this.connUpdate.forEach((cb) => cb(ip, info));
 }
 
 export const newPcapInstance = (): Promise<Result<Pcap, Error>> =>

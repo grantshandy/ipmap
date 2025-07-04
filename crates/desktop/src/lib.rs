@@ -2,8 +2,7 @@ use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // #[cfg(debug_assertions)] // only enable instrumentation in development builds
-    // let devtools = tauri_plugin_devtools::init();
+    tracing_subscriber::fmt::init();
 
     let ts_export_builder = tauri_specta::Builder::<tauri::Wry>::new()
         .events(tauri_specta::collect_events![
@@ -36,7 +35,7 @@ pub fn run() {
         )
         .expect("Failed to export typescript bindings");
 
-    let builder = tauri::Builder::default()
+    tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(ts_export_builder.invoke_handler())
@@ -50,14 +49,7 @@ pub fn run() {
             app.get_webview_window("main").unwrap().open_devtools();
 
             Ok(())
-        });
-
-    // #[cfg(debug_assertions)]
-    // {
-    //     builder = builder.plugin(devtools);
-    // }
-
-    builder
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

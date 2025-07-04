@@ -1,5 +1,5 @@
 [package]
-name = "pcap-child"
+name = "ipmap-child"
 version = "0.1.0"
 edition = "2024"
 
@@ -9,6 +9,3 @@ child-ipc = { path = "../child-ipc" }
 pcap-dyn = { path = "../pcap-dyn" }
 trippy-core = "0.13.0"
 trippy-privilege = "0.13.0"
-
-[target.'cfg(target_os = "linux")'.dependencies]
-caps = "0.5.5"

@@ -1,9 +1,6 @@
 #![doc = include_str!("../README.md")]
 
-use std::{
-    fmt, ptr,
-    sync::{Arc, LazyLock},
-};
+use std::{fmt, ptr, sync::Arc};
 
 use dlopen2::wrapper::Container;
 
@@ -14,9 +11,6 @@ mod ffi;
 pub use cap::{Capture, Packet, PacketDirection};
 use child_ipc::Device;
 use ffi::{Raw, pcap_if_t};
-
-/// A static instance of the pcap library API, initialized when first used.
-pub const INSTANCE: LazyLock<Result<Api, dlopen2::Error>> = LazyLock::new(Api::init);
 
 /// A handle to the libpcap library.
 #[derive(Clone)]

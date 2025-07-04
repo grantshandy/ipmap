@@ -8,7 +8,7 @@ pkgs.mkShell.override {
   LD_LIBRARY_PATH = "${pkgs.lib.makeLibraryPath [pkgs.libpcap]}:$LD_LIBRARY_PATH";
 
   shellHook = ''
-    export PCAP_CHILD="$(pwd)/target/release/pcap-child"
+    export IPMAP_CHILD="$(pwd)/target/release/ipmap-child"
   '';
 
   buildInputs = with pkgs; [
@@ -20,10 +20,6 @@ pkgs.mkShell.override {
     cargo-tauri
     cargo-bloat
     clippy
-
-    rust-analyzer
-    typescript-language-server
-    svelte-language-server
 
     pnpm
     nodejs-slim

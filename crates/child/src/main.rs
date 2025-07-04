@@ -18,7 +18,7 @@ fn main() {
     let response: Result<Response, Error> = match get_command() {
         Command::PcapStatus => get_pcap_status().map(Response::PcapStatus),
         Command::Capture(params) => run_capture(params),
-        Command::TracerouteStatus => has_traceroute_privileges().map(Response::TracerouteStatus),
+        Command::TracerouteStatus => has_net_raw_privileges().map(Response::TracerouteStatus),
         Command::Traceroute(params) => run_traceroute(params).map(Response::TracerouteResponse),
     };
 
@@ -29,8 +29,7 @@ fn get_pcap_status() -> Result<PcapStatus, Error> {
     let api = get_api();
 
     #[cfg(target_os = "linux")]
-    if !caps::has_cap(None, caps::CapSet::Effective, caps::Capability::CAP_NET_RAW).unwrap_or(false)
-    {
+    if !has_net_raw_privileges()? {
         return Err(Error::InsufficientPermissions);
     }
 
@@ -102,7 +101,7 @@ fn get_api() -> Api {
     }
 }
 
-fn has_traceroute_privileges() -> Result<bool, Error> {
+fn has_net_raw_privileges() -> Result<bool, Error> {
     trippy_privilege::Privilege::discover()
         .map(|p| p.has_privileges())
         .map_err(|e| Error::Runtime(e.to_string()))
@@ -113,16 +112,12 @@ fn get_command() -> Command {
     let mut line = String::new();
 
     if let Err(err) = stdin.lock().read_line(&mut line) {
-        eprintln!("Must provide command on stdin.\n{err}");
-        process::exit(1);
+        exit_with_error(Error::Ipc(format!("Must provide command on stdin: {err}")))
     }
 
     match serde_json::from_str::<Command>(line.trim()) {
         Ok(cmd) => cmd,
-        Err(err) => {
-            eprintln!("Failed to parse command.\n{err}");
-            process::exit(1);
-        }
+        Err(err) => exit_with_error(Error::Ipc(format!("Failed to parse command: {err}"))),
     }
 }
 

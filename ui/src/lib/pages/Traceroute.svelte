@@ -1,5 +1,8 @@
 <script lang="ts">
-  import IpSearchBox from "$lib/IpSearchBox.svelte";
+  import IpSearchBox from "$lib/components/IpSearchBox.svelte";
+  import TraceMap from "$lib/components/TraceMap.svelte";
+  import ErrorScreen from "$lib/components/ErrorScreen.svelte";
+
   import { Channel } from "@tauri-apps/api/core";
   import {
     database,
@@ -11,21 +14,14 @@
     type TracerouteParams,
     type Error,
     isError,
-    printError,
-  } from "../../bindings";
-  import Results from "./Results.svelte";
-  import ErrorScreen from "$lib/ErrorScreen.svelte";
+  } from "$lib/bindings";
 
   const MAX_MAX_ROUNDS: number = 200;
 
-  const DEFAULT_PREFS: TracerouteParams = {
+  let prefs: TracerouteParams = $state({
     maxRounds: 5,
     ip: "",
-  };
-
-  const resetPrefs = () => (prefs = DEFAULT_PREFS);
-
-  let prefs: TracerouteParams = $state(DEFAULT_PREFS);
+  });
 
   // null => inputting data
   // number => loading round
@@ -72,7 +68,7 @@
 
       <!-- Traceroute Result -->
     {:else if Array.isArray(pageState)}
-      <Results
+      <TraceMap
         hops={pageState}
         {myLocation}
         ip={prefs.ip}

@@ -8,6 +8,7 @@
     type LatLngExpression,
   } from "leaflet";
   import * as leaflet from "leaflet";
+  import "leaflet-edgebuffer";
   import type { Snippet } from "svelte";
 
   import markerIconUrl from "leaflet/dist/images/marker-icon.png";
@@ -38,14 +39,14 @@
       minZoom: 2,
       maxZoom: 13,
       zoomControl: false,
-      edgeBufferTiles: 1,
-    } as any);
+    });
     map.setView(DEFAULT_POS, DEFAULT_ZOOM);
     map.attributionControl.remove();
     map.setMaxBounds(new LatLngBounds([-150, -300], [150, 400]));
     leaflet
-      .tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      .tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         noWrap: true,
+        edgeBufferTiles: 3,
       })
       .addTo(map);
 

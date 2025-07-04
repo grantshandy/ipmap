@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { database, type DbCollectionInfo } from "../bindings";
+  import { database, type DbCollectionInfo } from "$lib/bindings";
   import { basename } from "@tauri-apps/api/path";
   import ArrowIntoBoxIcon from "$lib/../assets/arrow-into-box-symbolic.svg?raw";
   import UserTrashIcon from "$lib/../assets/user-trash-symbolic.svg?raw";

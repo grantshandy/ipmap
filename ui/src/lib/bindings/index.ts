@@ -1,15 +1,18 @@
 import { message } from "@tauri-apps/plugin-dialog";
 import {
   commands,
+  type Coordinate,
   type Device,
   type Duration,
   type Error,
+  type MovingAverageInfo,
   type Result,
-  type TracerouteParams,
 } from "./raw";
 
 import database from "./database.svelte";
 import type { Channel } from "@tauri-apps/api/core";
+import { GeodesicLine } from "leaflet.geodesic";
+import { geodesic } from "leaflet";
 export { database };
 
 export * from "./capture.svelte";
@@ -90,12 +93,57 @@ export const durationFromMillis = (milliseconds: number): Duration => {
 };
 
 export const CAPTURE_CONNECTION_TIMEOUT: Duration = { secs: 5, nanos: 0 };
-export const CAPTURE_REPORT_FREQUENCY: Duration = durationFromMillis(300);
+export const CAPTURE_REPORT_FREQUENCY: Duration = durationFromMillis(150);
 
 export const renderDeviceName = async (device: Device): Promise<string> => {
-  if (await platform() == "Windows") {
+  if ((await platform()) == "Windows") {
     return device.description ?? device.name;
   } else {
-      return `${device.name}${device.description ? (": (" + device.description + ")") : ""}`;
+    return `${device.name}${device.description ? ": (" + device.description + ")" : ""}`;
   }
-}
+};
+
+export type ConnectionDirection = "up" | "down" | "mixed";
+
+export const calculateConnectionDirection = (
+  up: number,
+  down: number,
+): ConnectionDirection => {
+  const CUTOFF = 0.7;
+
+  const ratio = Math.min(up, down) / Math.max(up, down);
+
+  if (ratio > CUTOFF) {
+    return "mixed";
+  } else if (up > down) {
+    return "up";
+  } else {
+    return "down";
+  }
+};
+
+export const arcFromDirection = (
+  from: Coordinate,
+  to: Coordinate,
+  direction: ConnectionDirection,
+): GeodesicLine =>
+  geodesic([from, to], {
+    weight: 2,
+    steps: 3,
+    opacity: 0.5,
+    className: direction,
+  });
+
+export const humanFileSize = (size: number) => {
+  const i = size == 0 ? 0 : Math.floor(Math.log(size) / Math.log(1024));
+  return (
+    +(size / Math.pow(1024, i)).toFixed(2) * 1 +
+    " " +
+    ["B", "kB", "MB", "GB", "TB"][i]
+  );
+};
+
+export const movingAverageInfo = (info: MovingAverageInfo): string =>
+  `${humanFileSize(info.total)} | ${humanFileSize(info.avgS)}/s`;
+
+export const regionNames = new Intl.DisplayNames(["en"], { type: "region" });

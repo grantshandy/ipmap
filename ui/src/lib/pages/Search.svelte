@@ -1,18 +1,18 @@
 <script lang="ts">
-  import MapView from "$lib/Map.svelte";
-  import IpSearchBox from "$lib/IpSearchBox.svelte";
+  import MapView from "$lib/components/Map.svelte";
+  import IpSearchBox from "$lib/components/IpSearchBox.svelte";
 
   import {
+    regionNames,
     database,
     type LookupInfo,
     type Location,
     type Result,
-  } from "../bindings";
+  } from "$lib/bindings";
   import { marker, Marker, type Map } from "leaflet";
   import { fade } from "svelte/transition";
 
   const SEARCH_ZOOM = 10;
-  const regionNames = new Intl.DisplayNames(["en"], { type: "region" });
 
   let map: Map | null = $state(null);
   let result: { info: LookupInfo; ip: string } | string | null = $state(null);

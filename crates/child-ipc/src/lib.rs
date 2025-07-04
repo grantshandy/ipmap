@@ -92,13 +92,13 @@ pub struct Connections {
     pub updates: HashMap<IpAddr, ConnectionInfo>,
     pub started: Vec<IpAddr>,
     pub ended: Vec<IpAddr>,
-    pub stopping_capture: bool,
+    pub stopping: bool,
 }
 
 impl Connections {
     pub fn stop() -> Self {
         Self {
-            stopping_capture: true,
+            stopping: true,
             ..Default::default()
         }
     }

@@ -12,16 +12,16 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { workspace = true, features = [] }
-tauri-plugin-opener = "2"
-tauri-plugin-dialog = "2"
 specta.workspace = true
 serde.workspace = true
 tracing.workspace = true
-tracing-subscriber = "0.3.19"
 tauri-specta.workspace = true
 ip_rfc.workspace = true
+tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+
+tauri-plugin-opener = "2"
+tauri-plugin-dialog = "2"
 specta-typescript = "0.0.9"
-tauri-plugin-devtools = "2.0.0"
 
 pcap-state = { path = "../pcap-state" }
 ipgeo-state = { path = "../ipgeo-state" }

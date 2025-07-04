@@ -12,30 +12,65 @@ use dashmap::DashMap;
 
 pub struct CaptureTimeBuffer {
     pub cap: Capture,
-    buf: Arc<DashMap<IpAddr, Connection>>,
-    connection_timeout: Duration,
+    buf: Arc<TimeBuffer>,
 }
 
 impl CaptureTimeBuffer {
-    pub fn start(cap: Capture, connection_timeout: Duration) -> Self {
+    pub fn start(cap: Capture, timeout: Duration) -> Self {
         let packet_recv = cap.start();
 
-        let buf: Arc<DashMap<IpAddr, Connection>> = Arc::default();
+        let buf = Arc::new(TimeBuffer::new(timeout));
 
         // Thread exits when the capture sender is dropped,
         // so this exits when Self is dropped.
         let buf_cum = buf.clone();
         thread::spawn(move || {
             for packet in packet_recv {
-                buf_cum.entry(packet.ip).or_default().add_sample(packet);
+                let start = Instant::now();
+                buf_cum.add_sample(packet);
+                println!("adding sample took {}ms", start.elapsed().as_millis());
             }
         });
 
+        Self { cap, buf }
+    }
+
+    pub fn connections(&self) -> Connections {
+        self.buf.connections()
+    }
+}
+
+struct TimeBuffer {
+    /// The current "active" connections
+    active: DashMap<IpAddr, ActiveConnection>,
+
+    /// Connections that are not currently active, just stores the total number of bytes.
+    inactive: DashMap<IpAddr, InactiveConnection>,
+
+    /// The amount of time since the last packet before a connection is labeled as inactive.
+    timeout: Duration,
+}
+
+impl TimeBuffer {
+    pub fn new(timeout: Duration) -> Self {
         Self {
-            cap,
-            buf,
-            connection_timeout,
+            active: DashMap::default(),
+            inactive: DashMap::default(),
+            timeout,
         }
+    }
+
+    pub fn add_sample(&self, packet: Packet) {
+        self.active
+            .entry(packet.ip)
+            .or_insert(
+                // try to recover inactive connection to keep totals
+                self.inactive
+                    .remove(&packet.ip)
+                    .map(|(_, v)| ActiveConnection::from(v))
+                    .unwrap_or_default(),
+            )
+            .add_sample(packet);
     }
 
     pub fn connections(&self) -> Connections {
@@ -43,8 +78,9 @@ impl CaptureTimeBuffer {
         let mut started = Vec::new();
         let mut ended = Vec::new();
 
-        for mut kv in self.buf.iter_mut() {
-            let (info, status) = kv.value_mut().info(self.connection_timeout);
+        // fill updates, started, and ended
+        for mut kv in self.active.iter_mut() {
+            let (info, status) = kv.value_mut().info(self.timeout);
 
             if status == ConnectionStatus::Started {
                 started.push(*kv.key());
@@ -57,27 +93,30 @@ impl CaptureTimeBuffer {
             }
         }
 
+        // move all ended connections from active to inactive
         for ip in &ended {
-            self.buf.remove(ip);
+            if let Some((ip, info)) = self.active.remove(ip) {
+                self.inactive.insert(ip, info.into());
+            };
         }
 
         Connections {
             updates,
             started,
             ended,
-            stopping_capture: false,
+            stopping: false,
         }
     }
 }
 
 #[derive(Default)]
-struct Connection {
+struct ActiveConnection {
     up: MovingAverage,
     down: MovingAverage,
     status: ConnectionStatus,
 }
 
-impl Connection {
+impl ActiveConnection {
     pub fn add_sample(&mut self, packet: Packet) {
         match packet.direction {
             PacketDirection::Up => self.up.add_sample(packet.len),
@@ -130,16 +169,6 @@ impl MovingAverage {
     }
 
     pub fn info(&mut self, connection_timeout: Duration) -> MovingAverageInfo {
-        self.clean(connection_timeout);
-
-        MovingAverageInfo {
-            total: self.total_bytes,
-            avg_s: self.get_average_bytes_per_second() as usize,
-        }
-    }
-
-    /// Remove old samples outside the window
-    fn clean(&mut self, connection_timeout: Duration) {
         let now = Instant::now();
 
         // Since data is time-ordered, we can efficiently remove from the front.
@@ -151,6 +180,11 @@ impl MovingAverage {
                 // The front element is within the window, so all others are too.
                 break;
             }
+        }
+
+        MovingAverageInfo {
+            total: self.total_bytes,
+            avg_s: self.get_average_bytes_per_second() as usize,
         }
     }
 
@@ -176,5 +210,35 @@ impl MovingAverage {
         }
 
         self.current_window_sum as f64 / duration.as_secs_f64()
+    }
+}
+
+struct InactiveConnection {
+    up: usize,
+    down: usize,
+}
+
+impl From<ActiveConnection> for InactiveConnection {
+    fn from(value: ActiveConnection) -> Self {
+        Self {
+            up: value.up.total_bytes,
+            down: value.down.total_bytes,
+        }
+    }
+}
+
+impl From<InactiveConnection> for ActiveConnection {
+    fn from(value: InactiveConnection) -> ActiveConnection {
+        ActiveConnection {
+            up: MovingAverage {
+                total_bytes: value.up,
+                ..Default::default()
+            },
+            down: MovingAverage {
+                total_bytes: value.down,
+                ..Default::default()
+            },
+            ..Default::default()
+        }
     }
 }

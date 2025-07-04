@@ -50,10 +50,53 @@
   --noise: 0;
 }
 
+:root {
+  --color-mixed: var(--color-warning);
+  --color-up: var(--color-error);
+  --color-down: var(--color-success);
+}
+
 body {
   font-family: "Inter";
 }
 
 .marker-icon {
-  @apply bg-primary text-primary-content h-full w-full rounded-full border text-center align-sub font-bold drop-shadow-lg;
+  @apply bg-primary text-primary-content rounded-full border text-center align-sub font-bold drop-shadow-lg;
+}
+
+.marker-icon-active {
+  @apply bg-primary text-primary-content rounded-full border-2 text-center align-sub text-lg font-bold drop-shadow-lg;
+}
+
+path.up {
+  stroke: var(--color-up);
+  stroke-dasharray: 10 20;
+  animation: dash 1s linear infinite;
+}
+
+path.down {
+  stroke: var(--color-down);
+  stroke-dasharray: 10 20;
+  animation: dash 1s linear infinite reverse;
+}
+
+path.mixed {
+  stroke: var(--color-mixed);
+  stroke-dasharray: 10 20;
+  animation: dash 1s linear infinite alternate;
+}
+
+path.trace {
+  stroke: var(--color-success);
+  stroke-dasharray: 10 20;
+  animation: dash 1s linear infinite;
+}
+
+@keyframes dash {
+  from {
+    stroke-dashoffset: 30;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
 }

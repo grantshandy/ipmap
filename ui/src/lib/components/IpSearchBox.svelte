@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { database, type Result } from "../bindings";
+  import { database, type Result } from "$lib/bindings";
   import { Address4, Address6 } from "ip-address";
 
   const validDomainName =

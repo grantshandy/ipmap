@@ -1,9 +1,13 @@
 <script lang="ts">
-  import MapView from "../Map.svelte";
+  import MapView from "./Map.svelte";
 
-  import { database, type Coordinate, type Hop } from "../../bindings";
-  import { marker, type Map } from "leaflet";
-  import { GeodesicLine } from "leaflet.geodesic";
+  import {
+    database,
+    regionNames,
+    type Coordinate,
+    type Hop,
+  } from "$lib/bindings";
+  import { geodesic, marker, type Map } from "leaflet";
 
   type Props = {
     myLocation: Coordinate;
@@ -13,11 +17,16 @@
   };
 
   let { myLocation, hops, close, ip }: Props = $props();
-  const regionNames = new Intl.DisplayNames(["en"], { type: "region" });
-
-  $inspect(hops);
 
   let map: Map | null = $state(null);
+
+  const addGeodesicLine = (from: Coordinate, to: Coordinate) => {
+    if (map)
+      geodesic([from, to], {
+        weight: 3,
+        className: "trace",
+      }).addTo(map);
+  };
 
   $effect(() => {
     if (!map) return;
@@ -30,7 +39,7 @@
       const firstLocation = locations[0].loc;
       if (firstLocation == null) return; // for ts
 
-      new GeodesicLine([myLocation, firstLocation.crd]).addTo(map);
+      addGeodesicLine(myLocation, firstLocation.crd);
     }
 
     for (let i = 1; i < locations.length; i++) {
@@ -39,7 +48,7 @@
 
       if (!from || !to) continue; // shouldn't happen, for ts
 
-      new GeodesicLine([from.crd, to.crd]).addTo(map);
+      addGeodesicLine(from.crd, to.crd);
     }
 
     const endpoint = locations[locations.length - 1].loc?.crd;

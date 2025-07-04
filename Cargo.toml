@@ -6,7 +6,7 @@ members = [
     "crates/pcap-dyn",
     "crates/ipgeo-state",
     "crates/pcap-state",
-    "crates/pcap-child",
+    "crates/child",
     "crates/child-ipc",
 ]
 
