@@ -20,8 +20,6 @@
 
   const { pcap }: { pcap: Pcap } = $props();
 
-  const BOTH_DIFF_CUTOFF = 100;
-
   onDestroy(() => {
     pcap.stopCapture();
     pcap.unlisten();

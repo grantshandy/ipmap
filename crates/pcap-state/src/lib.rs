@@ -54,7 +54,7 @@ impl PcapState {
             .ok()
             .and_then(|c| c.as_ref().map(|c| c.device.clone()));
 
-        match ipc::call_child_process(Command::PcapStatus)? {
+        match ipc::call_child_process(Command::PcapStatus, false)? {
             Response::PcapStatus(status) => Ok(PcapStateInfo {
                 version: status.version,
                 devices: status.devices,

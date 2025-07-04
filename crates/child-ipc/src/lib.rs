@@ -1,7 +1,13 @@
-use std::{collections::HashMap, net::IpAddr, time::Duration};
+use std::{
+    collections::HashMap, ffi::OsStr, net::IpAddr, os::windows::ffi::OsStrExt, time::Duration,
+};
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
+
+pub fn wide_null(s: impl AsRef<OsStr>) -> Vec<u16> {
+    s.as_ref().encode_wide().chain(Some(0)).collect()
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum Command {

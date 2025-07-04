@@ -1,7 +1,7 @@
 # Ipmap
 
 ```shell
- $ setcap cap_net_raw,cap_net_admin=eip target/release/pcap-child
+ $ setcap cap_net_raw,cap_net_admin=eip target/release/ipmap-child
 ```
 
 ## Contents
@@ -14,3 +14,14 @@
     - `ipgeo` - Data structures for representing ip-geolocation databases.
     - `ipgeo-state` - UI state and methods for loading and switching ip-geolocation databases.
  - `/ui` - The desktop UI, written with Svelte and Typescript.
+
+
+
+## Windows Traceroute Instructions
+```powershell
+New-NetFirewallRule -DisplayName "ICMPv4 Trippy Allow" -Name ICMPv4_TRIPPY_ALLOW -Protocol ICMPv4 -Action Allow
+New-NetFirewallRule -DisplayName "ICMPv6 Trippy Allow" -Name ICMPv6_TRIPPY_ALLOW -Protocol ICMPv6 -Action Allow
+
+Enable-NetFirewallRule ICMPv4_TRIPPY_ALLOW
+Enable-NetFirewallRule ICMPv6_TRIPPY_ALLOW
+```

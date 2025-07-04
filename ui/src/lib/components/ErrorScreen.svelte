@@ -3,8 +3,6 @@
 
   import { platform, type Error } from "$lib/bindings";
 
-  type CompoundError = Error | { t: "InsufficientPermissions" };
-
   let {
     error = $bindable(),
     exitable,

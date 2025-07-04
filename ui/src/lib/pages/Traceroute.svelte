@@ -14,6 +14,7 @@
     type TracerouteParams,
     type Error,
     isError,
+    platform,
   } from "$lib/bindings";
 
   const MAX_MAX_ROUNDS: number = 200;
@@ -54,33 +55,30 @@
 
 <div class="flex h-full w-full grow flex-col">
   {#await isTracerouteEnabled() then enabled}
-    <!-- Various Error Screens -->
     {#if enabled.status == "error"}
       <ErrorScreen error={enabled.error} />
     {:else if enabled.data == false}
       <ErrorScreen error={{ t: "InsufficientPermissions" }} />
     {:else if isError(pageState)}
       <ErrorScreen bind:error={pageState} exitable={true} />
-
-      <!-- Loading Screen -->
     {:else if pageState != null && typeof pageState == "number"}
       {@render traceLoading(pageState)}
-
-      <!-- Traceroute Result -->
     {:else if Array.isArray(pageState)}
-      <TraceMap
-        hops={pageState}
-        {myLocation}
-        ip={prefs.ip}
-        close={() => (pageState = null)}
-      />
-
-      <!-- Input Form -->
+      {@render result(pageState)}
     {:else}
       {@render tracerouteForm()}
     {/if}
   {/await}
 </div>
+
+{#snippet result(hops: Hop[])}
+  <TraceMap
+    {hops}
+    {myLocation}
+    ip={prefs.ip}
+    close={() => (pageState = null)}
+  />
+{/snippet}
 
 {#snippet traceLoading(round: number)}
   <div class="flex grow items-center justify-center select-none">

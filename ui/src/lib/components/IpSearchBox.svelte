@@ -70,6 +70,7 @@
     class="input input-sm join-item"
     placeholder="IP Address"
     {disabled}
+    autocomplete="off"
     class:input-error={trimmedInput.length != 0 && !validInput}
     bind:value={input}
   />
