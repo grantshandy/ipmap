@@ -6,16 +6,18 @@ use std::{
 };
 
 use dashmap::DashMap;
-use ipgeo::{Coordinate, Database, Location};
+use ipgeo::{Database, SteppedIp};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tauri::{AppHandle, Manager};
 use tauri_specta::Event;
 
-const DNS_LOOKUP_TIMEOUT: Duration = Duration::from_millis(300);
-
 pub mod commands;
 mod my_loc;
+
+pub use ipgeo::LookupInfo;
+
+const DNS_LOOKUP_TIMEOUT: Duration = Duration::from_millis(300);
 
 #[derive(Default)]
 pub struct DbState {
@@ -51,7 +53,7 @@ impl<B> Default for DbCollection<B> {
 impl<B> DbCollection<B>
 where
     B: Ord + Clone,
-    ipgeo::SteppedIp<B>: ipgeo::StepLite,
+    SteppedIp<B>: ipgeo::StepLite,
 {
     pub fn insert(&self, path: &PathBuf, db: Database<B>) {
         let db = Arc::new(db);
@@ -100,7 +102,6 @@ where
             .expect("read selected")
             .as_ref()
             .and_then(|(_, db)| db.get(ip))
-            .map(|(crd, loc)| LookupInfo { crd, loc })
     }
 
     pub fn set_selected(&self, path: &PathBuf) {
@@ -133,10 +134,4 @@ impl DbStateChange {
         let state = app.state::<DbState>().inner();
         let _ = Self(state.info()).emit(app);
     }
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
-pub struct LookupInfo {
-    pub crd: Coordinate,
-    pub loc: Location,
 }

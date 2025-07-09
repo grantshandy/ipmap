@@ -29,5 +29,6 @@ pkgs.mkShell.override {
     openssl
     libpcap
     xdg-utils
+    hyperfine
   ];
 }

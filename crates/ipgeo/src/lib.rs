@@ -1,128 +1,38 @@
 #![doc = include_str!("../README.md")]
 
 use std::{
-    collections::HashMap,
-    fmt,
     io::{Read, Seek, SeekFrom},
     net::{IpAddr, Ipv4Addr, Ipv6Addr},
-    num::NonZero,
 };
 
 use compact_str::CompactString;
-use csv::{ByteRecord, ReaderBuilder};
 use flate2::read::GzDecoder;
-use heck::ToTitleCase;
-use indexmap::IndexSet;
-use rangemap::RangeInclusiveMap;
-use serde::{Deserialize, Serialize};
-use specta::Type;
 
 #[doc(hidden)]
 pub use rangemap::StepLite;
 
-const GZIP_MAGIC: [u8; 2] = [0x1f, 0x8b];
+mod database;
+mod ip_parser;
+mod location;
 
-// CSV indexes for city-ipv[4/6][-num].csv format
-//
-//   https://github.com/sapics/ip-location-db?tab=readme-ov-file#city-csv-format
-//
-const IP_RANGE_START_IDX: usize = 0;
-const IP_RANGE_END_IDX: usize = 1;
-const COUNTRY_CODE_IDX: usize = 2;
-const STATE_IDX: usize = 3;
-const CITY_IDX: usize = 5;
-const LATITUDE_IDX: usize = 7;
-const LONGITUDE_IDX: usize = 8;
+pub use database::{Database, SteppedIp};
+pub use location::{Coordinate, Location, LookupInfo};
 
 /// Automatically detects the format of the GeoDatabase and parses it.
-pub fn from_read(mut source: impl Read + Seek) -> Result<GenericDatabase, Error> {
-    // Check for GZIP magic numbers
-    let mut head = [0; 2];
-    source.read_exact(&mut head).map_err(Error::Io)?;
-    source.seek(SeekFrom::Start(0)).map_err(Error::Io)?;
-    let is_gzip = head == GZIP_MAGIC;
+pub fn from_read(source: impl Read + Seek + 'static) -> Result<GenericDatabase, Error> {
+    let db = DatabaseFile::detect(source)?;
 
-    // Pull out the first IP to test the format
-    let mut scratch_buff = [0u8; 50];
-    if is_gzip {
-        let mut decoder = GzDecoder::new(source);
-        decoder.read_exact(&mut scratch_buff).map_err(Error::Io)?;
-        source = decoder.into_inner();
-    } else {
-        source.read_exact(&mut scratch_buff).map_err(Error::Io)?;
-    }
-    source.seek(SeekFrom::Start(0)).map_err(Error::Io)?;
+    use ip_parser::{num, str};
 
-    // Read the first line and check for IP range formats.
-    let test_ip = scratch_buff
-        .split(|&b| b == b',')
-        .next()
-        .and_then(|line| CompactString::from_utf8(line).ok())
-        .ok_or(Error::NoRecords)?;
-
-    let parsed_ip = test_ip.parse::<IpAddr>();
-
-    if parsed_ip.is_err() && test_ip.parse::<u128>().is_err() {
-        return Err(Error::InvalidFormat);
-    }
-
-    let is_num = parsed_ip.is_err();
-
-    let is_ipv6 = if is_num {
-        // *most* IPv6 addresses are not valid u32s (?), so we can use that to check for ipv6-num format??
-        test_ip.parse::<u32>().is_err()
-    } else {
-        parsed_ip.is_ok_and(|ip| ip.is_ipv6())
-    };
-
-    // is this too monomorphized? Should this be better with dyn dispatch...?
     #[rustfmt::skip]
-    let parsed = match (is_gzip, is_num, is_ipv6) {
-        (false, false, false) => Database::from_read::<StrParser>(source).map(GenericDatabase::Ipv4),
-        (false, true, false) => Database::from_read::<NumParser>(source).map(GenericDatabase::Ipv4),
-        (false, false, true) => Database::from_read::<StrParser>(source).map(GenericDatabase::Ipv6),
-        (false, true, true) => Database::from_read::<NumParser>(source).map(GenericDatabase::Ipv6),
-        (true, false, false) => Database::from_read::<StrParser>(GzDecoder::new(source)).map(GenericDatabase::Ipv4),
-        (true, true, false) => Database::from_read::<NumParser>(GzDecoder::new(source)).map(GenericDatabase::Ipv4),
-        (true, false, true) => Database::from_read::<StrParser>(GzDecoder::new(source)).map(GenericDatabase::Ipv6),
-        (true, true, true) => Database::from_read::<NumParser>(GzDecoder::new(source)).map(GenericDatabase::Ipv6),
+    let parsed = match (db.is_num, db.is_ipv6) {
+        (false, false) => Database::from_read(db.read, str::ipv4).map(GenericDatabase::Ipv4),
+        (true, false) => Database::from_read(db.read, num::ipv4).map(GenericDatabase::Ipv4),
+        (false, true) => Database::from_read(db.read, str::ipv6).map(GenericDatabase::Ipv6),
+        (true, true) => Database::from_read(db.read, num::ipv6).map(GenericDatabase::Ipv6),
     };
 
     parsed
-}
-
-/// A latitude/longitude coordinate.
-#[derive(Copy, Clone, Debug, PartialEq, Type, Serialize, Deserialize)]
-pub struct Coordinate {
-    pub lat: f32,
-    pub lng: f32,
-}
-
-/// Location metadata.
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Type, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Location {
-    pub city: Option<String>,
-    pub region: Option<String>,
-    pub country_code: String,
-}
-
-/// All errors that can occur when parsing the database.
-#[derive(thiserror::Error, Debug)]
-pub enum Error {
-    #[error("csv parsing error: {0}")]
-    ReadCsv(#[from] csv::Error),
-    #[error("IO error: {0}")]
-    Io(#[from] std::io::Error),
-    /// TODO: add line/column number to this error.
-    #[error("error parsing CSV contents")]
-    InvalidFormat,
-    /// Indexes into the string database are stored in u32s to save space.
-    /// I've never found a database where there aren't more than u32::MAX strings, If they're being generated, please contact me and I'll change this to u64.
-    #[error("database has more than u32::MAX unique strings, which is not supported")]
-    DatabaseMetadataOverflow,
-    #[error("no records found")]
-    NoRecords,
 }
 
 #[derive(PartialEq)]
@@ -141,256 +51,105 @@ impl GenericDatabase {
     }
 }
 
-/// IpAddr -(map)-> PackedCoordinate -(locations)-> LocationIndices -(strings)-> Location
-#[derive(PartialEq)]
-pub struct Database<B> {
-    map: RangeInclusiveMap<SteppedIp<B>, PackedCoordinate>,
-    locations: HashMap<PackedCoordinate, LocationIndices>,
-    strings: StringDict,
+/// CSV indexes for city-ipv[4/6][-num].csv format
+/// https://github.com/sapics/ip-location-db?tab=readme-ov-file#city-csv-format
+pub(crate) mod csv_format {
+    pub const IP_RANGE_START_IDX: usize = 0;
+    pub const IP_RANGE_END_IDX: usize = 1;
+    pub const COUNTRY_CODE_IDX: usize = 2;
+    pub const STATE_IDX: usize = 3;
+    pub const CITY_IDX: usize = 5;
+    pub const LATITUDE_IDX: usize = 7;
+    pub const LONGITUDE_IDX: usize = 8;
 }
 
-impl<B> Database<B>
-where
-    B: Ord + Clone,
-    SteppedIp<B>: StepLite,
-{
-    /// Internal generic implementation.
-    fn from_read<P: IpParser<B>>(file: impl Read) -> Result<Self, Error> {
-        let mut db = Self {
-            map: RangeInclusiveMap::new(),
-            locations: HashMap::new(),
-            strings: StringDict::default(),
+struct DatabaseFile {
+    read: Box<dyn Read>,
+    is_num: bool,
+    is_ipv6: bool,
+}
+
+impl DatabaseFile {
+    fn detect(mut source: impl Read + Seek + 'static) -> Result<Self, Error> {
+        let is_gzip = is_gzip(&mut source)?;
+        let ip_str = first_record(&mut source, is_gzip)?;
+
+        let parsed_ip = ip_str.parse::<IpAddr>();
+
+        let is_num = parsed_ip.is_err();
+        let is_u32 = ip_str.parse::<u32>().is_ok();
+        let is_u128 = ip_str.parse::<u128>().is_ok();
+
+        // all u32s can be parsed as u128s
+        if is_num && !is_u128 {
+            return Err(Error::InvalidFormat);
+        }
+
+        // *most* IPv6 addresses are not valid u32s (?), so we can use that to check for ipv6-num format??
+        let is_ipv6 = if is_num {
+            !is_u32
+        } else {
+            parsed_ip.is_ok_and(|ip| ip.is_ipv6())
         };
 
-        for record in ReaderBuilder::new()
-            .has_headers(false)
-            .from_reader(file)
-            .byte_records()
-        {
-            let record = record.map_err(Error::ReadCsv)?;
-            let coord = PackedCoordinate::from_byte_record(&record).ok_or(Error::InvalidFormat)?;
+        let read: Box<dyn Read> = if is_gzip {
+            Box::new(GzDecoder::new(source))
+        } else {
+            Box::new(source)
+        };
 
-            let start = P::parse(&record[IP_RANGE_START_IDX]).ok_or(Error::InvalidFormat)?;
-            let end = P::parse(&record[IP_RANGE_END_IDX]).ok_or(Error::InvalidFormat)?;
-
-            db.map.insert(start..=end, coord);
-
-            #[allow(clippy::map_entry)] // need mutable access to db in that time
-            if !db.locations.contains_key(&coord) {
-                db.locations.insert(
-                    coord,
-                    LocationIndices {
-                        city: db.strings.insert(&record[CITY_IDX]),
-                        region: db.strings.insert(&record[STATE_IDX]),
-                        country_code: CountryCode::from(&record[COUNTRY_CODE_IDX]),
-                    },
-                );
-            }
-        }
-
-        Ok(db)
-    }
-
-    /// Returns the coordinate in the database for a given IP address.
-    pub fn get_coordinate(&self, ip: B) -> Option<Coordinate> {
-        self.map.get(&SteppedIp::<B>(ip)).copied().map(Into::into)
-    }
-
-    /// Returns the coordinate and location metadata for a given IP address.
-    pub fn get(&self, ip: B) -> Option<(Coordinate, Location)> {
-        let coord = self.map.get(&SteppedIp::<B>(ip)).copied()?;
-
-        let location = self.locations.get(&coord).map(|loc| Location {
-            city: loc.city.and_then(|i| self.strings.get(i)),
-            region: loc.region.and_then(|i| self.strings.get(i)),
-            country_code: loc.country_code.to_string(),
-        })?;
-
-        Some((coord.into(), location))
+        Ok(DatabaseFile {
+            read,
+            is_num,
+            is_ipv6,
+        })
     }
 }
 
-#[derive(PartialEq, Eq, Default)]
-struct StringDict(IndexSet<CompactString>);
+fn is_gzip(mut source: impl Read + Seek) -> Result<bool, Error> {
+    const GZIP_MAGIC: [u8; 2] = [0x1f, 0x8b];
 
-impl StringDict {
-    pub fn insert(&mut self, item: &[u8]) -> Option<StringDictKey> {
-        if item.is_empty() {
-            return None;
-        }
+    let mut head = [0; 2];
+    source.read_exact(&mut head)?;
+    source.seek(SeekFrom::Start(0))?;
 
-        let s = CompactString::from_utf8_lossy(item).to_lowercase();
-
-        let (idx, _) = self.0.insert_full(s);
-
-        NonZero::new((idx + 1) as u32)
-    }
-
-    pub fn get(&self, idx: StringDictKey) -> Option<String> {
-        self.0
-            .get_index((idx.get() - 1) as usize)
-            .map(|c| c.to_title_case())
-    }
+    Ok(head == GZIP_MAGIC)
 }
 
-/// A wrapper around Ipv4Addr and Ipv6Addr to allow for a StepLite implementation.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd)]
-#[repr(transparent)]
-#[doc(hidden)]
-pub struct SteppedIp<B>(pub B);
-
-impl rangemap::StepLite for SteppedIp<Ipv4Addr> {
-    fn add_one(&self) -> Self {
-        Self(self.0.to_bits().add_one().into())
+fn first_record(mut source: impl Read + Seek, gzip: bool) -> Result<CompactString, Error> {
+    // fill scratch_buff and move to the beginning
+    let mut scratch_buff = [0u8; 50];
+    if gzip {
+        let mut decoder = GzDecoder::new(source);
+        decoder.read_exact(&mut scratch_buff)?;
+        source = decoder.into_inner();
+    } else {
+        source.read_exact(&mut scratch_buff)?;
     }
+    source.seek(SeekFrom::Start(0))?;
 
-    fn sub_one(&self) -> Self {
-        Self(self.0.to_bits().sub_one().into())
-    }
+    // Read the first record
+    scratch_buff
+        .split(|&b| b == b',')
+        .next()
+        .and_then(|line| CompactString::from_utf8(line).ok())
+        .ok_or(Error::NoRecords)
 }
 
-impl rangemap::StepLite for SteppedIp<Ipv6Addr> {
-    fn add_one(&self) -> Self {
-        Self(self.0.to_bits().add_one().into())
-    }
-
-    fn sub_one(&self) -> Self {
-        Self(self.0.to_bits().sub_one().into())
-    }
-}
-
-trait IpParser<B> {
-    fn parse(record: &[u8]) -> Option<SteppedIp<B>>;
-}
-
-/// Parses IP addresses from strings in their typical form.
-struct StrParser;
-
-impl IpParser<Ipv4Addr> for StrParser {
-    fn parse(record: &[u8]) -> Option<SteppedIp<Ipv4Addr>> {
-        CompactString::from_utf8(record)
-            .ok()
-            .and_then(|s| s.parse::<Ipv4Addr>().ok())
-            .map(SteppedIp)
-    }
-}
-
-impl IpParser<Ipv6Addr> for StrParser {
-    fn parse(record: &[u8]) -> Option<SteppedIp<Ipv6Addr>> {
-        CompactString::from_utf8(record)
-            .ok()
-            .and_then(|s| s.parse::<Ipv6Addr>().ok())
-            .map(SteppedIp)
-    }
-}
-
-/// Parses IP addresses from strings where IPs are converted to u32 to u128 integers.
-struct NumParser;
-
-impl IpParser<Ipv4Addr> for NumParser {
-    fn parse(record: &[u8]) -> Option<SteppedIp<Ipv4Addr>> {
-        CompactString::from_utf8(record)
-            .ok()
-            .and_then(|s| s.parse::<u32>().ok())
-            .map(Ipv4Addr::from_bits)
-            .map(SteppedIp)
-    }
-}
-
-impl IpParser<Ipv6Addr> for NumParser {
-    fn parse(record: &[u8]) -> Option<SteppedIp<Ipv6Addr>> {
-        CompactString::from_utf8(record)
-            .ok()
-            .and_then(|s| s.parse::<u128>().ok())
-            .map(Ipv6Addr::from_bits)
-            .map(SteppedIp)
-    }
-}
-
-/// A memory-packed representation of a lat/lng coordinate.
-///
-/// TODO: take advantage of info density of lat/lng to make this smaller in memory?
-#[derive(Debug, Clone, Copy)]
-struct PackedCoordinate {
-    lat: f32,
-    lng: f32,
-}
-
-impl PackedCoordinate {
-    pub fn from_byte_record(record: &ByteRecord) -> Option<Self> {
-        let lat = record
-            .get(LATITUDE_IDX)
-            .map(CompactString::from_utf8_lossy)
-            .and_then(|s| s.parse::<f32>().ok())?;
-
-        let lng = record
-            .get(LONGITUDE_IDX)
-            .map(CompactString::from_utf8_lossy)
-            .and_then(|s| s.parse::<f32>().ok())?;
-
-        Some(Self { lat, lng })
-    }
-}
-
-impl PartialEq for PackedCoordinate {
-    fn eq(&self, other: &Self) -> bool {
-        self.lat.to_ne_bytes() == other.lat.to_ne_bytes()
-            && self.lng.to_ne_bytes() == other.lng.to_ne_bytes()
-    }
-}
-impl Eq for PackedCoordinate {}
-
-impl std::hash::Hash for PackedCoordinate {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.lat.to_ne_bytes().hash(state);
-        self.lng.to_ne_bytes().hash(state);
-    }
-}
-
-impl From<PackedCoordinate> for Coordinate {
-    fn from(coord: PackedCoordinate) -> Self {
-        Self {
-            lat: coord.lat,
-            lng: coord.lng,
-        }
-    }
-}
-
-/// Number of strings in the database must be less than u32::MAX
-type StringDictKey = NonZero<u32>;
-
-/// The city and region are stored as indexes into a string database.
-
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-struct LocationIndices {
-    city: Option<StringDictKey>,
-    region: Option<StringDictKey>,
-    country_code: CountryCode,
-}
-
-/// An ISO 3166 2-digit ASCII country code.
-// Takes advantage of their compact representation.
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-#[repr(transparent)]
-struct CountryCode(u16);
-
-impl<A: AsRef<[u8]>> From<A> for CountryCode {
-    fn from(value: A) -> Self {
-        match value.as_ref() {
-            [a, b, ..] => Self(u16::from_ne_bytes([*a, *b])),
-            _ => Self(0),
-        }
-    }
-}
-
-impl fmt::Display for CountryCode {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self.0.to_ne_bytes() {
-            [0, 0] => "??".fmt(f),
-            [a, b] => unsafe {
-                char::from_u32_unchecked(a as u32).fmt(f)?;
-                char::from_u32_unchecked(b as u32).fmt(f)
-            },
-        }
-    }
+/// All errors that can occur when parsing the database.
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+    #[error("csv parsing error: {0}")]
+    ReadCsv(#[from] csv::Error),
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+    /// TODO: add line/column number to this error.
+    #[error("error parsing CSV contents")]
+    InvalidFormat,
+    /// Indexes into the string database are stored in u32s to save space.
+    /// I've never found a database where there aren't more than u32::MAX strings, If they're being generated, please contact me and I'll change this to u64.
+    #[error("database has more than u32::MAX unique strings, which is not supported")]
+    DatabaseMetadataOverflow,
+    #[error("no records found")]
+    NoRecords,
 }

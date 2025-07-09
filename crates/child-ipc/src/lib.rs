@@ -1,11 +1,12 @@
-use std::{
-    collections::HashMap, ffi::OsStr, net::IpAddr, os::windows::ffi::OsStrExt, time::Duration,
-};
+use std::{collections::HashMap, net::IpAddr, time::Duration};
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
-pub fn wide_null(s: impl AsRef<OsStr>) -> Vec<u16> {
+#[cfg(windows)]
+pub fn wide_null(s: impl AsRef<std::ffi::OsStr>) -> Vec<u16> {
+    use std::os::windows::ffi::OsStrExt;
+
     s.as_ref().encode_wide().chain(Some(0)).collect()
 }
 

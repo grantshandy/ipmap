@@ -1,9 +1,9 @@
-use ipgeo::GenericDatabase;
+use ipgeo::{GenericDatabase, LookupInfo};
 use std::{fs::File, net::IpAddr, path::PathBuf, thread};
 use tauri::{AppHandle, Manager, State, ipc::Channel};
 
 use crate::{
-    DNS_LOOKUP_TIMEOUT, DbState, DbStateChange, DbStateInfo, LookupInfo,
+    DNS_LOOKUP_TIMEOUT, DbState, DbStateChange, DbStateInfo,
     my_loc::{self, MyLocationResponse},
 };
 
