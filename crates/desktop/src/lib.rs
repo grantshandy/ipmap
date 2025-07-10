@@ -12,6 +12,7 @@ pub fn run() {
         .commands(tauri_specta::collect_commands![
             ipgeo_state::commands::load_database,
             ipgeo_state::commands::unload_database,
+            ipgeo_state::commands::load_internals,
             ipgeo_state::commands::database_state,
             ipgeo_state::commands::set_selected_database,
             ipgeo_state::commands::lookup_ip,

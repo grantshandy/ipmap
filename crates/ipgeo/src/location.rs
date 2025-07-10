@@ -1,11 +1,6 @@
-use std::fmt;
-
-use compact_str::CompactString;
-use csv::ByteRecord;
 use serde::{Deserialize, Serialize};
 use specta::Type;
-
-use crate::{Error, csv_format};
+use std::fmt;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
 pub struct LookupInfo {
@@ -29,26 +24,6 @@ pub struct Coordinate {
     pub lng: f32,
 }
 
-impl TryFrom<&ByteRecord> for Coordinate {
-    type Error = Error;
-
-    fn try_from(record: &ByteRecord) -> Result<Self, Self::Error> {
-        let lat = record
-            .get(csv_format::LATITUDE_IDX)
-            .map(CompactString::from_utf8_lossy)
-            .and_then(|s| s.parse::<f32>().ok())
-            .ok_or(Error::InvalidFormat)?;
-
-        let lng = record
-            .get(csv_format::LONGITUDE_IDX)
-            .map(CompactString::from_utf8_lossy)
-            .and_then(|s| s.parse::<f32>().ok())
-            .ok_or(Error::InvalidFormat)?;
-
-        Ok(Self { lat, lng })
-    }
-}
-
 impl PartialEq for Coordinate {
     fn eq(&self, other: &Self) -> bool {
         self.lat.to_ne_bytes() == other.lat.to_ne_bytes()
@@ -66,7 +41,7 @@ impl std::hash::Hash for Coordinate {
 
 /// An ISO 3166 2-digit ASCII country code.
 // Takes advantage of their compact representation.
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[repr(transparent)]
 pub struct CountryCode(u16);
 

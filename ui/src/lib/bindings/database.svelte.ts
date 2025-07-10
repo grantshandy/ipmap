@@ -6,8 +6,7 @@ import {
   type Coordinate,
 } from "./raw";
 import * as dialog from "@tauri-apps/plugin-dialog";
-import { Channel } from "@tauri-apps/api/core";
-import { captureErrorBasic, displayError } from ".";
+import { captureErrorBasic } from ".";
 
 class Database implements DbStateInfo {
   ipv4: DbCollectionInfo = $state({ loaded: [], selected: null });
@@ -48,10 +47,7 @@ class Database implements DbStateInfo {
     if (!file) return;
 
     console.log("opening database", file);
-
-    return captureErrorBasic(
-      commands.loadDatabase(file, new Channel(displayError)),
-    );
+    commands.loadDatabase(file);
   };
 
   setSelected = (name: string | null | undefined) => {
@@ -65,6 +61,8 @@ class Database implements DbStateInfo {
   lookupIp = commands.lookupIp;
   lookupDns = commands.lookupDns;
   lookupHost = commands.lookupHost;
+  loadInternals = commands.loadInternals;
+
   myLocation = () => captureErrorBasic(commands.myLocation());
 }
 

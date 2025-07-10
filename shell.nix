@@ -7,6 +7,8 @@ pkgs.mkShell.override {
   RUST_SRC_PATH = "${pkgs.rustPlatform.rustLibSrc}";
   LD_LIBRARY_PATH = "${pkgs.lib.makeLibraryPath [pkgs.libpcap]}:$LD_LIBRARY_PATH";
 
+  DB_PRELOADS = "/home/grant/Documents/ipdbs/dbip-city-ipv4.csv.gz";
+
   shellHook = ''
     export IPMAP_CHILD="$(pwd)/target/release/ipmap-child"
   '';

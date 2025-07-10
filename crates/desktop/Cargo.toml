@@ -20,7 +20,7 @@ ip_rfc.workspace = true
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 
 tauri-plugin-opener = "2"
-tauri-plugin-dialog = "2"
+tauri-plugin-dialog.workspace = true
 specta-typescript = "0.0.9"
 
 pcap-state = { path = "../pcap-state" }

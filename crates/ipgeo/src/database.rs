@@ -1,76 +1,105 @@
 use std::{
-    collections::HashMap,
-    io::Read,
-    net::{Ipv4Addr, Ipv6Addr},
-    num::NonZero,
+    collections::{HashMap, hash_map::Entry},
+    io::{BufReader, Read},
+    net::{AddrParseError, Ipv4Addr, Ipv6Addr},
+    num::{NonZero, ParseIntError},
     ops::RangeInclusive,
+    str::FromStr,
 };
 
 use compact_str::CompactString;
-use csv::{ByteRecord, ReaderBuilder};
+use csv::ReaderBuilder;
 use heck::ToTitleCase;
 use indexmap::IndexSet;
 use rangemap::{RangeInclusiveMap, StepLite};
+use rustc_hash::FxBuildHasher;
+use serde::{Deserialize, Serialize};
 
 use crate::{
-    Error, csv_format,
-    ip_parser::IpParser,
+    Error, Result,
     location::{Coordinate, CountryCode, Location, LookupInfo},
 };
+use csv_format::*;
+
+/// CSV indexes for city-ipv[4/6][-num].csv format
+/// https://github.com/sapics/ip-location-db?tab=readme-ov-file#city-csv-format
+pub(crate) mod csv_format {
+    pub const NUM_RECORDS: usize = 9;
+
+    pub const IP_RANGE_START_IDX: usize = 0;
+    pub const IP_RANGE_END_IDX: usize = 1;
+    pub const COUNTRY_CODE_IDX: usize = 2;
+    pub const REGION_IDX: usize = 3;
+    pub const CITY_IDX: usize = 5;
+    pub const LATITUDE_IDX: usize = 7;
+    pub const LONGITUDE_IDX: usize = 8;
+}
+
+pub type Ipv4Database = Database<Ipv4Addr>;
+pub type Ipv6Database = Database<Ipv6Addr>;
 
 /// IpAddr -(map)-> PackedCoordinate -(locations)-> LocationIndices -(strings)-> Location
-#[derive(PartialEq)]
-pub struct Database<B> {
-    map: RangeInclusiveMap<SteppedIp<B>, Coordinate>,
-    locations: HashMap<Coordinate, LocationIndices>,
+#[derive(PartialEq, Serialize, Deserialize)]
+pub struct Database<Ip: GenericIp> {
+    coordinates: RangeInclusiveMap<Ip::Bits, Coordinate>,
+    locations: HashMap<Coordinate, LocationIndices, FxBuildHasher>,
     strings: StringDict,
 }
 
-impl<B> Database<B>
-where
-    B: Ord + Clone,
-    SteppedIp<B>: StepLite,
-{
-    pub(crate) fn from_read(file: impl Read, parser: IpParser<B>) -> Result<Self, Error> {
+impl<Ip: GenericIp> Database<Ip> {
+    pub(crate) fn from_read(read: impl Read, is_num: bool) -> Result<Self> {
         let mut db = Self {
-            map: RangeInclusiveMap::new(),
-            locations: HashMap::new(),
+            coordinates: RangeInclusiveMap::new(),
+            locations: HashMap::default(),
             strings: StringDict::default(),
+        };
+
+        let ip_parser = if is_num {
+            Ip::bits_from_num_bytes
+        } else {
+            Ip::bits_from_str_bytes
         };
 
         for record in ReaderBuilder::new()
             .has_headers(false)
-            .from_reader(file)
+            .from_reader(BufReader::new(read))
             .byte_records()
         {
-            let record = record.map_err(Error::ReadCsv)?;
+            let record = record?;
+
+            if record.len() < NUM_RECORDS {
+                return Err(Error::NotEnoughColumns);
+            }
 
             let range = RangeInclusive::new(
-                parser(&record[csv_format::IP_RANGE_START_IDX]).ok_or(Error::InvalidFormat)?,
-                parser(&record[csv_format::IP_RANGE_END_IDX]).ok_or(Error::InvalidFormat)?,
+                ip_parser(&record[IP_RANGE_START_IDX])?,
+                ip_parser(&record[IP_RANGE_END_IDX])?,
             );
 
-            let coord = Coordinate::try_from(&record)?;
+            let coord = Coordinate {
+                lat: CompactString::from_utf8(&record[LATITUDE_IDX])?.parse::<f32>()?,
+                lng: CompactString::from_utf8(&record[LONGITUDE_IDX])?.parse::<f32>()?,
+            };
 
-            db.map.insert(range, coord);
-
-            #[allow(clippy::map_entry)] // need mutable access to db in that time
-            if !db.locations.contains_key(&coord) {
-                db.locations.insert(
-                    coord,
-                    LocationIndices::from_byte_record(&record, &mut db.strings),
-                );
+            if let Entry::Vacant(entry) = db.locations.entry(coord) {
+                entry.insert(LocationIndices {
+                    city: db.strings.insert(&record[CITY_IDX]),
+                    region: db.strings.insert(&record[REGION_IDX]),
+                    country_code: CountryCode::from(&record[COUNTRY_CODE_IDX]),
+                });
             }
+
+            db.coordinates.insert(range, coord);
         }
 
         Ok(db)
     }
 
-    pub fn get_coordinate(&self, ip: B) -> Option<Coordinate> {
-        self.map.get(&SteppedIp::<B>(ip)).copied()
+    pub fn get_coordinate(&self, ip: Ip) -> Option<Coordinate> {
+        self.coordinates.get(&ip.into()).copied()
     }
 
-    pub fn get(&self, ip: B) -> Option<LookupInfo> {
+    pub fn get(&self, ip: Ip) -> Option<LookupInfo> {
         let crd = self.get_coordinate(ip)?;
         let loc = self
             .locations
@@ -81,11 +110,40 @@ where
     }
 }
 
+/// A trait representing either Ipv4Addr or Ipv6Addr for the needs in the database.
+pub trait GenericIp: FromStr<Err = AddrParseError> + From<Self::Bits> + Into<Self::Bits> {
+    type Bits: FromStr<Err = ParseIntError>
+        + StepLite
+        + Ord
+        + Clone
+        + Copy
+        + Serialize
+        + for<'de> Deserialize<'de>;
+
+    fn bits_from_str_bytes(record: &[u8]) -> Result<Self::Bits> {
+        let bits = CompactString::from_utf8(record)?.parse::<Self>()?.into();
+        Ok(bits)
+    }
+
+    fn bits_from_num_bytes(record: &[u8]) -> Result<Self::Bits> {
+        let bits = CompactString::from_utf8(record)?.parse::<Self::Bits>()?;
+        Ok(bits)
+    }
+}
+
+impl GenericIp for Ipv4Addr {
+    type Bits = u32;
+}
+
+impl GenericIp for Ipv6Addr {
+    type Bits = u128;
+}
+
 type StringDictKey = NonZero<u32>;
 
 /// A compact database of strings that can store less than u32::MAX items.
-#[derive(PartialEq, Eq, Default)]
-struct StringDict(IndexSet<CompactString>);
+#[derive(PartialEq, Eq, Default, Serialize, Deserialize)]
+struct StringDict(IndexSet<CompactString, FxBuildHasher>);
 
 impl StringDict {
     pub fn insert(&mut self, item: &[u8]) -> Option<StringDictKey> {
@@ -93,8 +151,7 @@ impl StringDict {
             return None;
         }
 
-        let s = CompactString::from_utf8_lossy(item).to_lowercase();
-
+        let s = CompactString::from_utf8(item).ok()?.to_lowercase();
         let (idx, _) = self.0.insert_full(s);
 
         NonZero::new((idx + 1) as u32)
@@ -107,34 +164,8 @@ impl StringDict {
     }
 }
 
-/// A wrapper around Ipv4Addr and Ipv6Addr to allow for a StepLite implementation.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd)]
-#[repr(transparent)]
-#[doc(hidden)]
-pub struct SteppedIp<B>(pub B);
-
-impl rangemap::StepLite for SteppedIp<Ipv4Addr> {
-    fn add_one(&self) -> Self {
-        Self(self.0.to_bits().add_one().into())
-    }
-
-    fn sub_one(&self) -> Self {
-        Self(self.0.to_bits().sub_one().into())
-    }
-}
-
-impl rangemap::StepLite for SteppedIp<Ipv6Addr> {
-    fn add_one(&self) -> Self {
-        Self(self.0.to_bits().add_one().into())
-    }
-
-    fn sub_one(&self) -> Self {
-        Self(self.0.to_bits().sub_one().into())
-    }
-}
-
 /// The city and region are stored as indexes into a string database.
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 struct LocationIndices {
     city: Option<StringDictKey>,
     region: Option<StringDictKey>,
@@ -142,19 +173,7 @@ struct LocationIndices {
 }
 
 impl LocationIndices {
-    pub fn from_byte_record(record: &ByteRecord, strings: &mut StringDict) -> Self {
-        let city = strings.insert(&record[csv_format::CITY_IDX]);
-        let region = strings.insert(&record[csv_format::STATE_IDX]);
-        let country_code = CountryCode::from(&record[csv_format::COUNTRY_CODE_IDX]);
-
-        Self {
-            city,
-            region,
-            country_code,
-        }
-    }
-
-    pub fn populate(&self, strings: &StringDict) -> Location {
+    fn populate(&self, strings: &StringDict) -> Location {
         Location {
             city: self.city.and_then(|i| strings.get(i)),
             region: self.region.and_then(|i| strings.get(i)),

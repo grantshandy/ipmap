@@ -8,13 +8,8 @@ export const commands = {
 /**
  * Load a IP-Geolocation database into the program from the filename.
  */
-async loadDatabase(path: string, err: TAURI_CHANNEL<string>) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("load_database", { path, err }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
+async loadDatabase(path: string) : Promise<void> {
+    await TAURI_INVOKE("load_database", { path });
 },
 /**
  * Unload the database, freeing up memory.
@@ -22,6 +17,14 @@ async loadDatabase(path: string, err: TAURI_CHANNEL<string>) : Promise<Result<nu
 async unloadDatabase(path: string) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("unload_database", { path }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async loadInternals() : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("load_internals") };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -151,7 +154,8 @@ export type Connections = { updates: Partial<{ [key in string]: ConnectionInfo }
  * A latitude/longitude coordinate.
  */
 export type Coordinate = { lat: number; lng: number }
-export type DbCollectionInfo = { loaded: string[]; selected: string | null }
+export type DbCollectionInfo = { loaded: DbInfo[]; selected: string | null }
+export type DbInfo = { path: string; preloaded: boolean }
 /**
  * Fired any time the state of loaded or selected databases are changed on the backend.
  */

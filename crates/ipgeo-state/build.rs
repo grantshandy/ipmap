@@ -1,45 +1,58 @@
-// use std::{
-//     env,
-//     fs::{self, File},
-//     io::Read,
-//     path::PathBuf,
-// };
+use std::{
+    env,
+    fs::{self, File},
+    path::PathBuf,
+};
 
-// use ipgeo::GenericDatabase;
+use ipgeo::GenericDatabase;
 
-// const IN_ENV: &str = "DB_PRELOADS";
+#[path = "src/preloads/shared.rs"]
+mod shared;
 
-type StdError = Box<dyn std::error::Error>;
+const IN_ENV: &str = "DB_PRELOADS";
 
-fn main() -> Result<(), StdError> {
-    // println!("cargo:rerun-if-changed=build.rs");
-    // println!("cargo:rerun-if-env-changed={IN_ENV}");
+fn main() -> Result<()> {
+    println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-env-changed={IN_ENV}");
+    println!("cargo::rustc-check-cfg=cfg(db_preloads)");
 
-    // let Ok(db_preloads) = env::var(IN_ENV) else {
-    //     return Ok(());
-    // };
+    let Ok(db_preloads) = env::var(IN_ENV) else {
+        return Ok(());
+    };
 
-    // let dbs: Vec<GenericDatabase> = db_preloads
-    //     .split(":")
-    //     .map(parse_db_preload_path)
-    //     .collect::<Result<_, StdError>>()?;
+    let mut ipv4 = Vec::new();
+    let mut ipv6 = Vec::new();
 
-    // let encoded = postcard::to_allocvec(&dbs)?;
+    for db in db_preloads.split(":").map(parse_db_preload_path) {
+        let (path, db) = db?;
 
-    // let dest_path = PathBuf::from(env::var("OUT_DIR")?).join("db_preloads.bin");
-    // fs::write(&dest_path, encoded)?;
+        match db {
+            GenericDatabase::Ipv4(db) => ipv4.push((path, db)),
+            GenericDatabase::Ipv6(db) => ipv6.push((path, db)),
+        }
+    }
 
-    // println!("cargo:rustc-cfg=db_preloads");
-    // println!("cargo:rustc-env=DB_PRELOADS_BIN={dest_path:?}");
+    let encoded = postcard::to_allocvec::<shared::DiskDatabases>(&(ipv4, ipv6))?;
+
+    let dest_path = PathBuf::from(env::var("OUT_DIR")?).join("db_preloads.bin");
+    fs::write(&dest_path, encoded)?;
+
+    println!("cargo:rustc-cfg=db_preloads");
+    println!(
+        "cargo:rustc-env=DB_PRELOADS_BIN={}",
+        dest_path.to_string_lossy()
+    );
 
     Ok(())
 }
 
-// fn parse_db_preload_path(path: &str) -> Result<GenericDatabase, StdError> {
-//     let path = PathBuf::from(path).canonicalize()?;
-//     println!("cargo:rerun-if-changed={path:?}");
+fn parse_db_preload_path(path: &str) -> Result<(PathBuf, GenericDatabase)> {
+    let path = PathBuf::from(path).canonicalize()?;
+    println!("cargo:rerun-if-changed={}", path.to_string_lossy());
 
-//     let db = ipgeo::from_read(File::open(path)?)?;
+    let db = ipgeo::from_read(File::open(&path)?)?;
 
-//     Ok(db)
-// }
+    Ok((path, db))
+}
+
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;

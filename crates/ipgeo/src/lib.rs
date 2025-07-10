@@ -2,40 +2,38 @@
 
 use std::{
     io::{Read, Seek, SeekFrom},
-    net::{IpAddr, Ipv4Addr, Ipv6Addr},
+    net::{AddrParseError, IpAddr, Ipv4Addr, Ipv6Addr},
+    num::{ParseFloatError, ParseIntError},
+    str::Utf8Error,
 };
 
 use compact_str::CompactString;
 use flate2::read::GzDecoder;
 
-#[doc(hidden)]
-pub use rangemap::StepLite;
-
 mod database;
-mod ip_parser;
 mod location;
 
-pub use database::{Database, SteppedIp};
+pub use database::{Database, GenericIp, Ipv4Database, Ipv6Database};
 pub use location::{Coordinate, Location, LookupInfo};
+use serde::{Deserialize, Serialize};
 
-/// Automatically detects the format of the GeoDatabase and parses it.
-pub fn from_read(source: impl Read + Seek + 'static) -> Result<GenericDatabase, Error> {
-    let db = DatabaseFile::detect(source)?;
+/// Automatically detects the format of the database and parses it.
+pub fn from_read(mut source: impl Read + Seek + 'static) -> Result<GenericDatabase> {
+    let info = DatabaseType::detect(&mut source)?;
 
-    use ip_parser::{num, str};
-
-    #[rustfmt::skip]
-    let parsed = match (db.is_num, db.is_ipv6) {
-        (false, false) => Database::from_read(db.read, str::ipv4).map(GenericDatabase::Ipv4),
-        (true, false) => Database::from_read(db.read, num::ipv4).map(GenericDatabase::Ipv4),
-        (false, true) => Database::from_read(db.read, str::ipv6).map(GenericDatabase::Ipv6),
-        (true, true) => Database::from_read(db.read, num::ipv6).map(GenericDatabase::Ipv6),
+    let read: Box<dyn Read> = if info.is_gzip {
+        Box::new(GzDecoder::new(source))
+    } else {
+        Box::new(source)
     };
 
-    parsed
+    match info.is_ipv6 {
+        true => Database::from_read(read, info.is_num).map(GenericDatabase::Ipv6),
+        false => Database::from_read(read, info.is_num).map(GenericDatabase::Ipv4),
+    }
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Serialize, Deserialize)]
 pub enum GenericDatabase {
     Ipv4(Database<Ipv4Addr>),
     Ipv6(Database<Ipv6Addr>),
@@ -51,28 +49,39 @@ impl GenericDatabase {
     }
 }
 
-/// CSV indexes for city-ipv[4/6][-num].csv format
-/// https://github.com/sapics/ip-location-db?tab=readme-ov-file#city-csv-format
-pub(crate) mod csv_format {
-    pub const IP_RANGE_START_IDX: usize = 0;
-    pub const IP_RANGE_END_IDX: usize = 1;
-    pub const COUNTRY_CODE_IDX: usize = 2;
-    pub const STATE_IDX: usize = 3;
-    pub const CITY_IDX: usize = 5;
-    pub const LATITUDE_IDX: usize = 7;
-    pub const LONGITUDE_IDX: usize = 8;
-}
-
-struct DatabaseFile {
-    read: Box<dyn Read>,
+struct DatabaseType {
+    is_gzip: bool,
     is_num: bool,
     is_ipv6: bool,
 }
 
-impl DatabaseFile {
-    fn detect(mut source: impl Read + Seek + 'static) -> Result<Self, Error> {
-        let is_gzip = is_gzip(&mut source)?;
-        let ip_str = first_record(&mut source, is_gzip)?;
+impl DatabaseType {
+    fn detect(mut source: impl Read + Seek) -> Result<Self> {
+        const GZIP_MAGIC: [u8; 2] = [0x1f, 0x8b];
+
+        let mut head = [0; 2];
+        source.read_exact(&mut head)?;
+        source.seek(SeekFrom::Start(0))?;
+        let is_gzip = head == GZIP_MAGIC;
+
+        // fill scratch_buff and move to the beginning
+        let mut scratch_buff = [0u8; 50];
+        if is_gzip {
+            let mut decoder = GzDecoder::new(source);
+            decoder.read_exact(&mut scratch_buff)?;
+            source = decoder.into_inner();
+        } else {
+            source.read_exact(&mut scratch_buff)?;
+        }
+        source.seek(SeekFrom::Start(0))?;
+
+        // Read the first record
+        let ip_str = CompactString::from_utf8(
+            scratch_buff
+                .split(|&b| b == b',')
+                .next()
+                .ok_or(Error::NoRecords)?,
+        )?;
 
         let parsed_ip = ip_str.parse::<IpAddr>();
 
@@ -80,9 +89,8 @@ impl DatabaseFile {
         let is_u32 = ip_str.parse::<u32>().is_ok();
         let is_u128 = ip_str.parse::<u128>().is_ok();
 
-        // all u32s can be parsed as u128s
-        if is_num && !is_u128 {
-            return Err(Error::InvalidFormat);
+        if is_num && !is_u32 && !is_u128 {
+            return Err(Error::MalformedIp);
         }
 
         // *most* IPv6 addresses are not valid u32s (?), so we can use that to check for ipv6-num format??
@@ -92,64 +100,39 @@ impl DatabaseFile {
             parsed_ip.is_ok_and(|ip| ip.is_ipv6())
         };
 
-        let read: Box<dyn Read> = if is_gzip {
-            Box::new(GzDecoder::new(source))
-        } else {
-            Box::new(source)
-        };
-
-        Ok(DatabaseFile {
-            read,
+        Ok(Self {
+            is_gzip,
             is_num,
             is_ipv6,
         })
     }
 }
 
-fn is_gzip(mut source: impl Read + Seek) -> Result<bool, Error> {
-    const GZIP_MAGIC: [u8; 2] = [0x1f, 0x8b];
-
-    let mut head = [0; 2];
-    source.read_exact(&mut head)?;
-    source.seek(SeekFrom::Start(0))?;
-
-    Ok(head == GZIP_MAGIC)
-}
-
-fn first_record(mut source: impl Read + Seek, gzip: bool) -> Result<CompactString, Error> {
-    // fill scratch_buff and move to the beginning
-    let mut scratch_buff = [0u8; 50];
-    if gzip {
-        let mut decoder = GzDecoder::new(source);
-        decoder.read_exact(&mut scratch_buff)?;
-        source = decoder.into_inner();
-    } else {
-        source.read_exact(&mut scratch_buff)?;
-    }
-    source.seek(SeekFrom::Start(0))?;
-
-    // Read the first record
-    scratch_buff
-        .split(|&b| b == b',')
-        .next()
-        .and_then(|line| CompactString::from_utf8(line).ok())
-        .ok_or(Error::NoRecords)
-}
+pub type Result<T> = std::result::Result<T, Error>;
 
 /// All errors that can occur when parsing the database.
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("csv parsing error: {0}")]
+    #[error("CSV parsing error: {0}")]
     ReadCsv(#[from] csv::Error),
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
-    /// TODO: add line/column number to this error.
-    #[error("error parsing CSV contents")]
-    InvalidFormat,
+    #[error("IP addresses must either be represented as numbers or literal string representations")]
+    MalformedIp,
+    #[error("CSV file doesn't have enough columns")]
+    NotEnoughColumns,
+    #[error("Malformed coordinate: {0}")]
+    CoordinateParse(#[from] ParseFloatError),
+    #[error("Non-utf8 text found: {0}")]
+    Utf8Error(#[from] Utf8Error),
+    #[error("Parsing IP integer: {0}")]
+    IpNumParse(#[from] ParseIntError),
+    #[error("Parsing IP: {0}")]
+    IpStrParse(#[from] AddrParseError),
     /// Indexes into the string database are stored in u32s to save space.
     /// I've never found a database where there aren't more than u32::MAX strings, If they're being generated, please contact me and I'll change this to u64.
-    #[error("database has more than u32::MAX unique strings, which is not supported")]
+    #[error("Database has more than u32::MAX unique strings, which is not supported")]
     DatabaseMetadataOverflow,
-    #[error("no records found")]
+    #[error("No records found")]
     NoRecords,
 }

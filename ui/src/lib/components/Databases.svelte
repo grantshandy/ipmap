@@ -21,7 +21,6 @@
   >
     {#if database.loading}
       <span class="loading loading-spinner loading-xs"></span>
-      Loading...
     {:else}
       {@html ArrowIntoBoxIcon}
     {/if}
@@ -40,21 +39,23 @@
       disabled={dbs.loaded.length < 2}
       onchange={(ev) => database.setSelected(ev.currentTarget.value)}
     >
-      {#each dbs.loaded as name}
-        <option value={name} selected={name === dbs.selected}>
-          {#await basename(name) then filename}
-            {filename || name}
+      {#each dbs.loaded as db}
+        <option value={db.path} selected={db.path === dbs.selected}>
+          {#await basename(db.path) then filename}
+            {filename || db.path}
           {/await}
         </option>
       {/each}
     </select>
-    <button
-      disabled={dbs.selected == null}
-      onclick={() => database.unload(dbs.selected)}
-      class="btn btn-sm btn-error join-item"
-      aria-label="Unload Database"
-    >
-      {@html UserTrashIcon}
-    </button>
+    {#if !dbs.loaded.find((db) => db.path == dbs.selected)?.preloaded}
+      <button
+        disabled={dbs.selected == null}
+        onclick={() => database.unload(dbs.selected)}
+        class="btn btn-sm btn-error join-item"
+        aria-label="Unload Database"
+      >
+        {@html UserTrashIcon}
+      </button>
+    {/if}
   </div>
 {/snippet}

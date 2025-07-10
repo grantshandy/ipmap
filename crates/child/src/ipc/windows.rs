@@ -2,7 +2,7 @@ use std::{
     env,
     fs::File,
     io::{self, Write},
-    os::windows::{prelude::*},
+    os::windows::prelude::*,
     ptr,
 };
 

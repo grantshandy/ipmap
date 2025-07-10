@@ -5,8 +5,8 @@ use std::{
     time::Duration,
 };
 
-use dashmap::DashMap;
-use ipgeo::{Database, SteppedIp};
+use dashmap::{DashMap, Entry};
+use ipgeo::{Database, GenericIp};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tauri::{AppHandle, Manager};
@@ -14,6 +14,9 @@ use tauri_specta::Event;
 
 pub mod commands;
 mod my_loc;
+
+#[cfg(db_preloads)]
+mod preloads;
 
 pub use ipgeo::LookupInfo;
 
@@ -36,12 +39,18 @@ impl DbState {
     }
 }
 
-pub struct DbCollection<B> {
-    pub selected: RwLock<Option<(PathBuf, Arc<Database<B>>)>>,
-    pub loaded: DashMap<PathBuf, Arc<Database<B>>>,
+struct LoadedDb<Ip: GenericIp> {
+    path: PathBuf,
+    preloaded: bool,
+    db: Arc<Database<Ip>>,
 }
 
-impl<B> Default for DbCollection<B> {
+struct DbCollection<Ip: GenericIp> {
+    pub selected: RwLock<Option<Arc<LoadedDb<Ip>>>>,
+    pub loaded: DashMap<PathBuf, Arc<LoadedDb<Ip>>>,
+}
+
+impl<Ip: GenericIp> Default for DbCollection<Ip> {
     fn default() -> Self {
         Self {
             selected: RwLock::new(None),
@@ -50,32 +59,39 @@ impl<B> Default for DbCollection<B> {
     }
 }
 
-impl<B> DbCollection<B>
-where
-    B: Ord + Clone,
-    SteppedIp<B>: ipgeo::StepLite,
-{
-    pub fn insert(&self, path: &PathBuf, db: Database<B>) {
-        let db = Arc::new(db);
+impl<Ip: GenericIp> DbCollection<Ip> {
+    pub fn insert(&self, path: &PathBuf, db: Database<Ip>) {
+        self.insert_arc(path, Arc::new(db), false);
+    }
 
-        self.loaded.insert(path.clone(), db.clone());
+    pub fn insert_arc(&self, path: &PathBuf, db: Arc<Database<Ip>>, preloaded: bool) {
+        let loaded = Arc::new(LoadedDb {
+            path: path.clone(),
+            db,
+            preloaded,
+        });
+
+        self.loaded.insert(path.clone(), loaded.clone());
         self.selected
             .write()
             .expect("open selected")
-            .replace((path.clone(), db));
+            .replace(loaded);
     }
 
     pub fn remove(&self, path: &PathBuf) {
-        self.loaded.remove(path);
+        // remove the database if it isn't preloaded
+        if let Entry::Occupied(kv) = self.loaded.entry(path.clone()) {
+            if !kv.get().preloaded {
+                kv.remove();
+            } else {
+                return;
+            }
+        }
 
+        // set the selected as the next database, if it exists
         let mut selected = self.selected.write().expect("open selected");
-
-        if selected.as_ref().is_some_and(|(s, _)| s == path) {
-            *selected = self
-                .loaded
-                .iter()
-                .map(|kv| (kv.key().clone(), kv.value().clone()))
-                .next();
+        if selected.as_ref().is_some_and(|s| &s.path == path) {
+            *selected = self.loaded.iter().map(|kv| kv.value().clone()).next();
         }
     }
 
@@ -89,25 +105,31 @@ where
             .read()
             .expect("read selected")
             .as_ref()
-            .map(|(path, _)| path.clone());
+            .map(|selected| selected.path.clone());
 
-        let loaded: Vec<PathBuf> = self.loaded.iter().map(|kv| kv.key().clone()).collect();
+        let loaded: Vec<DbInfo> = self
+            .loaded
+            .iter()
+            .map(|kv| DbInfo {
+                path: kv.path.clone(),
+                preloaded: kv.preloaded,
+            })
+            .collect();
 
         DbCollectionInfo { selected, loaded }
     }
 
-    pub fn get(&self, ip: B) -> Option<LookupInfo> {
+    pub fn get(&self, ip: Ip) -> Option<LookupInfo> {
         self.selected
             .read()
             .expect("read selected")
             .as_ref()
-            .and_then(|(_, db)| db.get(ip))
+            .and_then(|selected| selected.db.get(ip))
     }
 
     pub fn set_selected(&self, path: &PathBuf) {
         if let Some(db) = self.loaded.get(path) {
-            *self.selected.write().expect("open selected") =
-                Some((db.key().clone(), db.value().clone()));
+            *self.selected.write().expect("open selected") = Some(db.value().clone());
         }
     }
 }
@@ -121,8 +143,14 @@ pub struct DbStateInfo {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub struct DbCollectionInfo {
-    pub loaded: Vec<PathBuf>,
+    pub loaded: Vec<DbInfo>,
     pub selected: Option<PathBuf>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+pub struct DbInfo {
+    path: PathBuf,
+    preloaded: bool,
 }
 
 /// Fired any time the state of loaded or selected databases are changed on the backend.

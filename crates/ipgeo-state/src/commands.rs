@@ -1,31 +1,54 @@
-use ipgeo::{GenericDatabase, LookupInfo};
 use std::{fs::File, net::IpAddr, path::PathBuf, thread};
-use tauri::{AppHandle, Manager, State, ipc::Channel};
+
+use ipgeo::{GenericDatabase, LookupInfo};
+use tauri::{AppHandle, Manager, State};
+use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
 
 use crate::{
     DNS_LOOKUP_TIMEOUT, DbState, DbStateChange, DbStateInfo,
     my_loc::{self, MyLocationResponse},
 };
 
+#[tauri::command]
+#[specta::specta]
+#[cfg_attr(not(db_preloads), allow(unused_variables))]
+pub async fn load_internals(app: AppHandle, state: State<'_, DbState>) -> Result<(), String> {
+    #[cfg(db_preloads)]
+    crate::preloads::load_builtins(&state);
+
+    DbStateChange::emit(&app);
+
+    Ok(())
+}
+
 /// Load a IP-Geolocation database into the program from the filename.
 #[tauri::command]
 #[specta::specta]
-pub async fn load_database(
+pub fn load_database(app: AppHandle, path: PathBuf) {
+    thread::spawn(move || {
+        if let Err(err) = load_database_internal(app.clone(), app.state(), path) {
+            tracing::error!("Error Loading Database: {err}");
+            app.dialog()
+                .message(&err)
+                .title("Error Loading Database")
+                .buttons(MessageDialogButtons::Ok)
+                .blocking_show();
+        }
+    });
+}
+
+fn load_database_internal(
     app: AppHandle,
     state: State<'_, DbState>,
     path: PathBuf,
-    err: Channel<String>,
 ) -> Result<(), String> {
     if state.ipv4_db.exists(&path) || state.ipv6_db.exists(&path) {
-        err.send("Database with the same name already loaded".to_string())
-            .ok();
+        return Err("Database with the same name already loaded".to_string());
     }
 
     if state.loading.read().expect("read loading").is_some() {
-        err.send("Database is already loading".to_string()).ok();
+        return Err("Database is already loading".to_string());
     }
-
-    tracing::info!("loading database from {path:?}");
 
     state
         .loading
@@ -34,34 +57,21 @@ pub async fn load_database(
         .replace(path.clone());
     DbStateChange::emit(&app);
 
-    thread::spawn(move || {
-        let state: State<'_, DbState> = app.try_state().unwrap();
+    tracing::info!("loading database from {path:?}");
 
-        let file = match File::open(&path) {
-            Ok(file) => file,
-            Err(e) => {
-                err.send(e.to_string()).ok();
-                return;
-            }
-        };
-        let db = match ipgeo::from_read(file) {
-            Ok(db) => db,
-            Err(e) => {
-                err.send(e.to_string()).ok();
-                return;
-            }
-        };
+    let db = File::open(&path)
+        .map_err(|e| e.to_string())
+        .and_then(|f| ipgeo::from_read(f).map_err(|e| e.to_string()))?;
 
-        match db {
-            GenericDatabase::Ipv4(db) => state.ipv4_db.insert(&path, db),
-            GenericDatabase::Ipv6(db) => state.ipv6_db.insert(&path, db),
-        }
+    match db {
+        GenericDatabase::Ipv4(db) => state.ipv4_db.insert(&path, db),
+        GenericDatabase::Ipv6(db) => state.ipv6_db.insert(&path, db),
+    }
 
-        tracing::info!("finished loading database {path:#?}");
+    tracing::info!("finished loading database {path:#?}");
 
-        state.loading.write().expect("write loading").take();
-        DbStateChange::emit(&app);
-    });
+    state.loading.write().expect("write loading").take();
+    DbStateChange::emit(&app);
 
     Ok(())
 }
