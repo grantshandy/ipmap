@@ -6,11 +6,15 @@
     /^((?!-))(xn--)?[a-z0-9][a-z0-9-_]{0,61}[a-z0-9]{0,1}\.(xn--)?([a-z0-9\-]{1,61}|[a-z0-9-]{1,30}\.[a-z]{2,})$/;
 
   type SearchCallback = (ip: Result<string, string> | null) => void;
+  type Props = {
+    search: SearchCallback;
+    disabled?: boolean;
+    defaultValue?: string;
+  };
 
-  let { search, disabled }: { search: SearchCallback; disabled?: boolean } =
-    $props();
+  let { search, disabled, defaultValue }: Props = $props();
 
-  let input = $state("");
+  let input = $state(defaultValue ?? "");
   let trimmedInput = $derived(input.replace(/\s/g, ""));
 
   let isDomainName: boolean = $derived(validDomainName.test(trimmedInput));

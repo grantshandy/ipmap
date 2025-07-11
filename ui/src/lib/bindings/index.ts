@@ -5,6 +5,7 @@ import {
   type Device,
   type Duration,
   type Error,
+  type Location,
   type MovingAverageInfo,
   type Result,
 } from "./raw";
@@ -147,3 +148,6 @@ export const movingAverageInfo = (info: MovingAverageInfo): string =>
   `${humanFileSize(info.total)} | ${humanFileSize(info.avgS)}/s`;
 
 export const regionNames = new Intl.DisplayNames(["en"], { type: "region" });
+
+export const renderLocationName = (l: Location) =>
+  `${l.city ?? "Unknown City"}${l.region ? `, ${l.region}` : ""}, ${regionNames.of(l.countryCode)}`;

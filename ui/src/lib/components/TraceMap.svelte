@@ -3,11 +3,12 @@
 
   import {
     database,
-    regionNames,
+    renderLocationName,
     type Coordinate,
     type Hop,
   } from "$lib/bindings";
   import { geodesic, marker, type Map } from "leaflet";
+  import { fade, fly } from "svelte/transition";
 
   type Props = {
     myLocation: Coordinate;
@@ -16,8 +17,10 @@
     close: () => void;
   };
 
-  let { myLocation, hops, close, ip }: Props = $props();
+  const VIEW_ZOOM = 10;
 
+  let { myLocation, hops, close, ip }: Props = $props();
+  let hopsOpen = $state(false);
   let map: Map | null = $state(null);
 
   const addGeodesicLine = (from: Coordinate, to: Coordinate) => {
@@ -56,76 +59,105 @@
   });
 </script>
 
-<div class="flex h-full grow space-x-2">
-  <MapView bind:map />
-  <div class="h-full w-64 space-y-3 overflow-hidden p-2">
-    <h1 class="text-xl font-bold underline">{ip}</h1>
+<div class="flex h-full grow space-x-2 overflow-hidden">
+  <MapView bind:map>
+    <button
+      onclick={close}
+      class="btn btn-sm join-item absolute top-2 left-14 z-[999] border-white text-xl select-none"
+    >
+      &#11148;
+    </button>
 
-    {#await database.lookupDns(ip) then host}
-      {#if host.status == "ok" && host.data != null}
-        <p>DNS: {host.data}</p>
-      {/if}
-    {/await}
+    <h1
+      class="bg-base-200 rounded-box absolute top-2 right-2 z-[999] px-2 py-1 text-xl font-semibold"
+    >
+      {ip}
+    </h1>
 
-    <button onclick={close} class="btn btn-sm">Back to Search</button>
-
-    <h2 class="text-lg font-semibold">Hops:</h2>
-    <div class="max-h-96 overflow-y-scroll">
-      {#each hops as hop, i}
-        {@render renderHop(hop, i + 1)}
-        <hr />
-      {/each}
-    </div>
-  </div>
+    {@render hopsPopup()}
+  </MapView>
 </div>
 
-{#snippet renderHop(hop: Hop, no: number)}
-  <div class="py-1">
-    <div class="flex items-center">
-      <h3 class="grow text-xl font-semibold">#{no}:</h3>
-      {#if hop.loc != null}
-        <button
-          class="btn btn-xs float-right"
-          onclick={() => {
-            if (hop.loc) map?.flyTo(hop.loc.crd, 7, { duration: 2 });
-          }}
-        >
-          View
-        </button>
-      {:else if hop.ips.length == 0}
-        <p class="text-sm italic">IP not detected</p>
-      {/if}
+{#snippet hopsPopup()}
+  {#if !hopsOpen}
+    <div
+      class="absolute right-2 bottom-0 z-[999] flex w-64 flex-col items-center select-none"
+    >
+      <button
+        in:fade={{ duration: 100 }}
+        onclick={() => (hopsOpen = true)}
+        class="btn btn-xs rounded-b-none border-b-0 border-white"
+      >
+        View Hops
+      </button>
     </div>
-    {#if hop.ips.length > 0}
-      {#if hop.ips.length == 1}
-        <p>
-          <span class="bg-base-300 bg-opacity-100 rounded-md p-0.5 font-mono">
-            {hop.ips[0]}
-          </span>
-        </p>
-      {:else}
-        <ul class="ml-5 list-disc">
-          {#each hop.ips as ip}
-            <li>
-              <span
-                class="bg-base-300 bg-opacity-100 rounded-md p-0.5 font-mono"
-              >
-                {ip}
-              </span>
-            </li>
+  {:else}
+    <div
+      transition:fly={{ y: 300, duration: 500 }}
+      class="absolute right-2 bottom-0 z-[999] flex w-64 flex-col select-none"
+    >
+      <button
+        onclick={() => (hopsOpen = false)}
+        class="btn btn-xs mx-auto translate-y-0.5 rounded-b-none border-b-0 border-white"
+      >
+        Close
+      </button>
+      <div
+        class="bg-base-200 rounded-t-box flex h-64 w-full border-x border-t p-3"
+      >
+        <div class="grow space-y-1 overflow-y-scroll">
+          {#each hops as hop, i}
+            {@render renderHop(hop, i)}
           {/each}
-        </ul>
-      {/if}
+        </div>
+      </div>
+    </div>
+  {/if}
+{/snippet}
 
-      {#if hop.loc != null}
-        <p>Location:</p>
-        <p class="text-sm">
-          {`${hop.loc.loc.city ?? "Unknown City"}${hop.loc.loc.region ? `, ${hop.loc.loc.region}` : ""}`},
-          {regionNames.of(hop.loc.loc.countryCode)}
-        </p>
-      {:else}
-        <p>Location not detected</p>
-      {/if}
+{#snippet renderHop(hop: Hop, num: number)}
+  {#if num != 0}
+    <hr />
+  {/if}
+
+  <div>
+    <h2 class="font-semibold">
+      #{num + 1}:
+      <span class="select-text">
+        {hop.ips.length > 0 ? hop.ips.join(", ") : "Not Detected"}
+      </span>
+    </h2>
+
+    {#if hop.loc}
+      <button
+        onclick={() => {
+          if (!map || !hop.loc) return;
+          map.setView(
+            hop.loc.crd,
+            map.getZoom() > VIEW_ZOOM ? map.getZoom() : VIEW_ZOOM,
+          );
+        }}
+        class="link text-left text-xs"
+      >
+        {renderLocationName(hop.loc.loc)}
+      </button>
+    {:else if hop.ips.length > 0}
+      <p class="text-xs">Location not detected</p>
     {/if}
   </div>
+{/snippet}
+
+{#snippet lookupDns(ip: string)}
+  <p>
+    DNS:
+    {#await database.lookupDns(ip)}
+      Loading...
+    {:then host}
+      {#if host.status == "ok" && host.data != null}
+        "{host.data}"
+      {:else}
+        Not Found
+      {/if}
+    {/await}
+  </p>
 {/snippet}

@@ -26,9 +26,7 @@ impl CaptureTimeBuffer {
         let buf_cum = buf.clone();
         thread::spawn(move || {
             for packet in packet_recv {
-                let start = Instant::now();
                 buf_cum.add_sample(packet);
-                println!("adding sample took {}ms", start.elapsed().as_millis());
             }
         });
 

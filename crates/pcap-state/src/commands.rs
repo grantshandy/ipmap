@@ -31,13 +31,19 @@ pub async fn start_capture(
                 let _ = conns.send(c);
             }
             Ok(_) => {
+                pcap.stop_capture();
                 return Err(Error::Ipc(
                     "Child process returned unexpected type".to_string(),
                 ));
             }
-            Err(e) => return Err(e),
+            Err(e) => {
+                pcap.stop_capture();
+                return Err(e);
+            }
         }
     }
+
+    pcap.stop_capture();
 
     let _ = conns.send(Connections::stop());
     PcapStateChange::emit(&app);
@@ -68,7 +74,7 @@ pub async fn traceroute_enabled() -> Result<bool, Error> {
     return Ok(true);
 
     #[cfg(not(windows))]
-    match ipc::call_child_process(Command::TracerouteStatus, true)? {
+    match ipc::call_child_process(Command::TracerouteStatus, false)? {
         Response::TracerouteStatus(s) => Ok(s),
         _ => Err(Error::Ipc("Unexpected response from child".to_string())),
     }

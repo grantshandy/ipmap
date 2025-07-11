@@ -14,6 +14,7 @@ pub fn spawn_child_process(
     _admin: bool,
 ) -> io::Result<(impl BufRead, StopCallback)> {
     let child_path = ipc::find_isolate_child()?;
+    tracing::debug!("spawning {child_path:?} with {command:?}");
 
     let mut child = ProcessCommand::new(child_path)
         .arg(super::command_to_string(command))

@@ -37,7 +37,7 @@
     map = leaflet.map(cont, {
       preferCanvas: false,
       minZoom: 2,
-      maxZoom: 13,
+      maxZoom: 15,
       zoomControl: false,
     });
     map.setView(DEFAULT_POS, DEFAULT_ZOOM);
@@ -46,7 +46,7 @@
     leaflet
       .tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         noWrap: true,
-        edgeBufferTiles: 3,
+        edgeBufferTiles: 2,
       })
       .addTo(map);
 

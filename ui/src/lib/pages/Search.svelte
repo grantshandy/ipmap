@@ -3,11 +3,11 @@
   import IpSearchBox from "$lib/components/IpSearchBox.svelte";
 
   import {
-    regionNames,
     database,
     type LookupInfo,
     type Location,
     type Result,
+    renderLocationName,
   } from "$lib/bindings";
   import { marker, Marker, type Map } from "leaflet";
   import { fade } from "svelte/transition";
@@ -81,10 +81,7 @@
     class="bg-base-200 rounded-box absolute right-2 bottom-2 z-[999] border p-2 text-right select-none"
   >
     <p class="underline">{ip}</p>
-    <p class="text-sm">
-      {`${loc.city ?? "Unknown City"}${loc.region ? `, ${loc.region}` : ""}`},
-      {regionNames.of(loc.countryCode)}
-    </p>
+    <p class="text-sm">{renderLocationName(loc)}</p>
     {#await database.lookupDns(ip) then host}
       {#if host.status == "ok" && host.data != null}
         <p class="font-mono text-xs">DNS: {host.data}</p>

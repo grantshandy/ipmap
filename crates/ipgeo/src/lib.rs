@@ -9,13 +9,13 @@ use std::{
 
 use compact_str::CompactString;
 use flate2::read::GzDecoder;
+use serde::{Deserialize, Serialize};
 
 mod database;
 mod location;
 
 pub use database::{Database, GenericIp, Ipv4Database, Ipv6Database};
 pub use location::{Coordinate, Location, LookupInfo};
-use serde::{Deserialize, Serialize};
 
 /// Automatically detects the format of the database and parses it.
 pub fn from_read(mut source: impl Read + Seek + 'static) -> Result<GenericDatabase> {

@@ -19,15 +19,15 @@ mod windows;
 use windows::*;
 
 pub fn call_child_process(command: Command, admin: bool) -> Result<Response, Error> {
-    tracing::debug!("calling {EXE_NAME} with {command:?}");
-
-    let (mut reader, _) =
+    let (mut reader, exit) =
         spawn_child_process(command, admin).map_err(|e| Error::Ipc(e.to_string()))?;
 
     let mut output: Vec<u8> = Vec::new();
     reader
         .read_to_end(&mut output)
         .map_err(|e| Error::Ipc(e.to_string()))?;
+
+    exit().map_err(|e| Error::Ipc(e.to_string()))?;
 
     serde_json::from_slice(&output).map_err(|e| Error::Ipc(e.to_string()))?
 }
@@ -36,8 +36,6 @@ pub fn spawn_child_iterator(
     command: Command,
     admin: bool,
 ) -> io::Result<(impl Iterator<Item = Result<Response, Error>>, StopCallback)> {
-    tracing::debug!("spawning {EXE_NAME} with {command:?}");
-
     let (reader, exit_signal) = spawn_child_process(command, admin)?;
 
     // Process should only emit Result<Response, Error> as JSON strings separated by newlines.

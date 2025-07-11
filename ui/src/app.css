@@ -71,25 +71,25 @@ body {
 path.up {
   stroke: var(--color-up);
   stroke-dasharray: 10 20;
-  animation: dash 1s linear infinite;
+  animation: dash 0.25s linear infinite;
 }
 
 path.down {
   stroke: var(--color-down);
   stroke-dasharray: 10 20;
-  animation: dash 1s linear infinite reverse;
+  animation: dash 0.25s linear infinite reverse;
 }
 
 path.mixed {
   stroke: var(--color-mixed);
   stroke-dasharray: 10 20;
-  animation: dash 1s linear infinite alternate;
+  animation: dash 0.25s linear infinite alternate;
 }
 
 path.trace {
   stroke: var(--color-success);
   stroke-dasharray: 10 20;
-  animation: dash 1s linear infinite;
+  animation: dash 0.25s linear infinite;
 }
 
 @keyframes dash {

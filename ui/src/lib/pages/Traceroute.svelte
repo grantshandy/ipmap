@@ -14,8 +14,8 @@
     type TracerouteParams,
     type Error,
     isError,
-    platform,
   } from "$lib/bindings";
+  import type { Action } from "svelte/action";
 
   const MAX_MAX_ROUNDS: number = 200;
 
@@ -38,7 +38,6 @@
 
     pageState = 0;
     prefs.ip = input.data;
-    console.log("running traceroute for ", prefs.ip);
     const res = await runTraceroute(prefs, new Channel((p) => (pageState = p)));
     pageState = res.status == "ok" ? res.data : res.error;
   };
@@ -51,6 +50,13 @@
   let formInvalid = $derived(
     prefs.maxRounds < 1 || prefs.maxRounds > MAX_MAX_ROUNDS,
   );
+
+  const loadingBar: Action = (elem) => {
+    $effect(() => {
+      if (pageState != null && typeof pageState == "number")
+        elem.style.width = `${(pageState / prefs.maxRounds) * 100}%`;
+    });
+  };
 </script>
 
 <div class="flex h-full w-full grow flex-col">
@@ -84,8 +90,13 @@
   <div class="flex grow items-center justify-center select-none">
     <div class="space-y-3 text-center">
       <p>Tracing...</p>
-      <progress class="progress w-56" value={round} max={prefs.maxRounds}
-      ></progress>
+
+      <div class="progress w-56 overflow-hidden rounded-full">
+        <div
+          class="h-full rounded-r-full bg-white transition-all duration-500 ease-in-out"
+          use:loadingBar
+        ></div>
+      </div>
     </div>
   </div>
 {/snippet}
