@@ -1,19 +1,36 @@
 {
-  pnpm_
-  rustPlatform
+  stdenv,
+  lib,
+  pnpm_9,
+  nodejs,
+  rustPlatform,
+  cargo-tauri,
+  pkg-config,
+  wrapGAppsHook3,
+  openssl,
+  dbus,
+  gdk-pixbuf,
+  glib,
+  gobject-introspection,
+  gtk3,
+  libsoup_3,
+  libayatana-appindicator,
+  webkitgtk_4_1,
+  zenity,
+  ...
 }: let
   version = "5.0.0";
 
-  frontend = pkgs.stdenv.mkDerivation rec {
+  frontend = stdenv.mkDerivation rec {
     pname = "ipmap-frontend";
     src = ./ui;
     inherit version;
 
-    nativeBuildInputs = with pkgs; [nodejs pnpm.configHook];
+    nativeBuildInputs = [nodejs pnpm_9.configHook];
 
-    pnpmDeps = pkgs.pnpm.fetchDeps {
+    pnpmDeps = pnpm_9.fetchDeps {
       inherit pname version src;
-      hash = "sha256-MWWe4NDg32jQySQCZ2KMCkVHXQrmLTEumQmcCnGHnOg=";
+      hash = "sha256-VTXS1ENa7t891h0I3nchNCnGzNq+Sumj/VjRcFy79eA=";
     };
 
     # The build phase, which now uses the pre-fetched dependencies.
@@ -36,22 +53,24 @@ in
     pname = "ipmap";
     inherit version;
 
-    src = pkgs.lib.cleanSourceWith {
+    src = lib.cleanSourceWith {
       src = ./.;
-      filter = path: _: baseNameOf path != "ui";
+      filter = name: _: name != "ui";
     };
 
     doCheck = false;
     useFetchCargoVendor = true;
     cargoLock.lockFile = ./Cargo.lock;
 
-    nativeBuildInputs = with pkgs; [
+    installTargets = [ "ipmap" "ipmap-child" ];
+
+    nativeBuildInputs = [
       cargo-tauri.hook
       pkg-config
       wrapGAppsHook3
     ];
 
-    buildInputs = with pkgs; [
+    buildInputs = [
       openssl
       dbus
       gdk-pixbuf
@@ -75,16 +94,8 @@ in
       gappsWrapperArgs+=(
         # Otherwise blank screen, see https://github.com/tauri-apps/tauri/issues/9304
         --set WEBKIT_DISABLE_DMABUF_RENDERER 1
-        --prefix PATH ":" ${
-        pkgs.lib.makeBinPath [
-          pkgs.zenity
-        ]
-      }
-        --prefix LD_LIBRARY_PATH ":" ${
-        pkgs.lib.makeLibraryPath [
-          pkgs.libayatana-appindicator
-        ]
-      }
+        --prefix PATH ":" ${lib.makeBinPath [ zenity ]}
+        --prefix LD_LIBRARY_PATH ":" ${lib.makeLibraryPath [ libayatana-appindicator ]}
       )
     '';
-  };
+  }
