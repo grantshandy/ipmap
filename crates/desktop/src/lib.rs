@@ -1,5 +1,7 @@
 use tauri::Manager;
 
+mod utils;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tracing_subscriber::fmt::init();
@@ -10,6 +12,10 @@ pub fn run() {
             pcap_state::PcapStateChange
         ])
         .commands(tauri_specta::collect_commands![
+            utils::open_settings_window,
+            utils::open_about_window,
+            utils::platform,
+            utils::version,
             ipgeo_state::commands::load_database,
             ipgeo_state::commands::unload_database,
             ipgeo_state::commands::load_internals,
@@ -24,7 +30,6 @@ pub fn run() {
             pcap_state::commands::stop_capture,
             pcap_state::commands::traceroute_enabled,
             pcap_state::commands::run_traceroute,
-            pcap_state::commands::platform,
         ]);
 
     #[cfg(all(debug_assertions, not(mobile)))]
@@ -45,9 +50,6 @@ pub fn run() {
 
             app.manage(ipgeo_state::DbState::default());
             app.manage(pcap_state::PcapState::new());
-
-            #[cfg(debug_assertions)]
-            app.get_webview_window("main").unwrap().open_devtools();
 
             Ok(())
         })

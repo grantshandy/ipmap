@@ -5,6 +5,18 @@
 
 
 export const commands = {
+async openSettingsWindow() : Promise<void> {
+    await TAURI_INVOKE("open_settings_window");
+},
+async openAboutWindow() : Promise<void> {
+    await TAURI_INVOKE("open_about_window");
+},
+async platform() : Promise<Platform> {
+    return await TAURI_INVOKE("platform");
+},
+async version() : Promise<string> {
+    return await TAURI_INVOKE("version");
+},
 /**
  * Load a IP-Geolocation database into the program from the filename.
  */
@@ -124,9 +136,6 @@ async runTraceroute(params: TracerouteParams, progress: TAURI_CHANNEL<number>) :
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
-},
-async platform() : Promise<Platform> {
-    return await TAURI_INVOKE("platform");
 }
 }
 
@@ -204,7 +213,7 @@ devices: Device[];
  * The currently-captured on device, if any
  */
 capture: Device | null }
-export type Platform = "Linux" | "Windows" | "MacOS"
+export type Platform = "linux" | "windows" | "macos"
 export type TAURI_CHANNEL<TSend> = null
 export type TracerouteParams = { ip: string; maxRounds: number }
 

@@ -6,7 +6,7 @@
   import Databases from "$lib/components/Databases.svelte";
   import ErrorScreen from "$lib/components/ErrorScreen.svelte";
 
-  import { newPcapInstance } from "$lib/bindings";
+  import { newPcapInstance, utils } from "$lib/bindings";
 
   type Page = "capture" | "search" | "trace";
 
@@ -18,6 +18,7 @@
 
 <main class="flex h-screen flex-col space-y-3 overscroll-none p-3">
   <div class="flow-root w-full select-none">
+    <button class="btn btn-sm" onclick={utils.openAboutWindow}> About </button>
     <select class="select select-sm max-w-40" bind:value={page}>
       <option value="search">Location Search</option>
       <option value="capture">Packet Capture</option>

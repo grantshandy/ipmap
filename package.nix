@@ -48,21 +48,27 @@
       runHook postInstall
     '';
   };
+
+  src = lib.cleanSourceWith {
+    src = ./.;
+    filter = name: _: name != "ui";
+  };
+
+  doCheck = false;
+  useFetchCargoVendor = true;
+
+  child = rustPlatform.buildRustPackage {
+    pname = "ipmap-child";
+    inherit version src doCheck useFetchCargoVendor;
+    cargoLock.lockFile = ./Cargo.lock;
+    cargoBuildFlags = "-p ipmap-child";
+  };
 in
   rustPlatform.buildRustPackage rec {
     pname = "ipmap";
-    inherit version;
+    inherit version src doCheck useFetchCargoVendor;
 
-    src = lib.cleanSourceWith {
-      src = ./.;
-      filter = name: _: name != "ui";
-    };
-
-    doCheck = false;
-    useFetchCargoVendor = true;
     cargoLock.lockFile = ./Cargo.lock;
-
-    installTargets = [ "ipmap" "ipmap-child" ];
 
     nativeBuildInputs = [
       cargo-tauri.hook
@@ -94,8 +100,8 @@ in
       gappsWrapperArgs+=(
         # Otherwise blank screen, see https://github.com/tauri-apps/tauri/issues/9304
         --set WEBKIT_DISABLE_DMABUF_RENDERER 1
-        --prefix PATH ":" ${lib.makeBinPath [ zenity ]}
-        --prefix LD_LIBRARY_PATH ":" ${lib.makeLibraryPath [ libayatana-appindicator ]}
+        --prefix PATH ":" ${lib.makeBinPath [zenity child]}
+        --prefix LD_LIBRARY_PATH ":" ${lib.makeLibraryPath [libayatana-appindicator]}
       )
     '';
   }

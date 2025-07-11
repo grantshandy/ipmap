@@ -11,7 +11,6 @@ import {
 } from "./raw";
 
 import database from "./database.svelte";
-import type { Channel } from "@tauri-apps/api/core";
 import { GeodesicLine } from "leaflet.geodesic";
 import { geodesic } from "leaflet";
 export { database };
@@ -19,6 +18,18 @@ export { database };
 export * from "./capture.svelte";
 
 export type * from "./raw";
+
+export const traceroute = {
+  run: commands.runTraceroute,
+  enabled: commands.tracerouteEnabled,
+};
+
+export const utils = {
+  openAboutWindow: commands.openAboutWindow,
+  openSettingsWindow: commands.openSettingsWindow,
+  version: commands.version,
+  platform: commands.platform,
+};
 
 export const isError = (err: any): err is Error =>
   err != null &&
@@ -74,11 +85,6 @@ export const displayError = (messageText: string) => {
   message(messageText, { title: "Ipmap Error", kind: "error" });
 };
 
-export const platform = commands.platform;
-export const isTracerouteEnabled = commands.tracerouteEnabled;
-
-export const runTraceroute = commands.runTraceroute;
-
 export const durationFromMillis = (milliseconds: number): Duration => {
   const ONE_SECOND_IN_MILLIS = 1000;
   const ONE_MILLI_IN_NANOS = 1_000_000; // 1 million nanoseconds in a millisecond
@@ -97,7 +103,7 @@ export const CAPTURE_CONNECTION_TIMEOUT: Duration = { secs: 5, nanos: 0 };
 export const CAPTURE_REPORT_FREQUENCY: Duration = durationFromMillis(150);
 
 export const renderDeviceName = async (device: Device): Promise<string> => {
-  if ((await platform()) == "Windows") {
+  if ((await utils.platform()) == "windows") {
     return device.description ?? device.name;
   } else {
     return `${device.name}${device.description ? ": (" + device.description + ")" : ""}`;

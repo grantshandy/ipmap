@@ -68,7 +68,12 @@ pub fn run_traceroute(params: TracerouteParams) -> Result<TracerouteResponse, Er
     let hops = snapshot
         .hops()
         .iter()
-        .map(|h| h.addrs().copied().collect::<Vec<IpAddr>>())
+        .map(|h| {
+            h.addrs()
+                .copied()
+                .filter(ip_rfc::global)
+                .collect::<Vec<IpAddr>>()
+        })
         .collect::<Vec<Vec<IpAddr>>>();
 
     Ok(TracerouteResponse { hops })

@@ -6,8 +6,7 @@
   import { Channel } from "@tauri-apps/api/core";
   import {
     database,
-    isTracerouteEnabled,
-    runTraceroute,
+    traceroute,
     type Coordinate,
     type Hop,
     type Result,
@@ -38,7 +37,10 @@
 
     pageState = 0;
     prefs.ip = input.data;
-    const res = await runTraceroute(prefs, new Channel((p) => (pageState = p)));
+    const res = await traceroute.run(
+      prefs,
+      new Channel((p) => (pageState = p)),
+    );
     pageState = res.status == "ok" ? res.data : res.error;
   };
 
@@ -60,7 +62,7 @@
 </script>
 
 <div class="flex h-full w-full grow flex-col">
-  {#await isTracerouteEnabled() then enabled}
+  {#await traceroute.enabled() then enabled}
     {#if enabled.status == "error"}
       <ErrorScreen error={enabled.error} />
     {:else if enabled.data == false}

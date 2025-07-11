@@ -1,7 +1,7 @@
 <script lang="ts">
   import Link from "./Link.svelte";
 
-  import { platform, type Error } from "$lib/bindings";
+  import { utils, type Error } from "$lib/bindings";
 
   let {
     error = $bindable(),
@@ -31,8 +31,8 @@
 
 {#snippet insufficientPermissionsInfo()}
   <h1 class="text-lg font-semibold">Child Process Insufficient Permissions</h1>
-  {#await platform() then platform}
-    {#if platform == "Linux"}
+  {#await utils.platform() then platform}
+    {#if platform == "linux"}
       <p class="text-sm">
         In order to perform this action, you must enable network capabilities on
         the child executable, which should be located next to this program.
@@ -47,16 +47,16 @@
 {/snippet}
 
 {#snippet libLoadingErrorInfo(message: string)}
-  {#await platform() then platform}
+  {#await utils.platform() then platform}
     <h1 class="text-lg font-semibold">
-      Failed to Load {platform == "Windows" ? "Npcap" : "libpcap"} Driver
+      Failed to Load {platform == "windows" ? "Npcap" : "libpcap"} Driver
     </h1>
     <p class="text-sm">
-      {#if platform == "Windows"}
+      {#if platform == "windows"}
         You should be able to fix this by installing
         <Link href="https://npcap.com/">Npcap</Link>
         from their website and restarting your computer.
-      {:else if platform == "Linux"}
+      {:else if platform == "linux"}
         Install
         <Link href="https://repology.org/project/libpcap/versions">libpcap</Link
         >

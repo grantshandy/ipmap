@@ -2166,6 +2166,7 @@ version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
  "child-ipc",
+ "ip_rfc",
  "pcap-dyn",
  "serde_json",
  "trippy-core",

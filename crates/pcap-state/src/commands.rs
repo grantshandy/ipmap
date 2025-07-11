@@ -125,26 +125,6 @@ pub async fn run_traceroute(
     ))
 }
 
-#[tauri::command]
-#[specta::specta]
-pub fn platform() -> Platform {
-    #[cfg(target_os = "linux")]
-    return Platform::Linux;
-
-    #[cfg(target_os = "windows")]
-    return Platform::Windows;
-
-    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
-    return Platform::MacOS;
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, Type)]
-pub enum Platform {
-    Linux,
-    Windows,
-    MacOS,
-}
-
 #[derive(Serialize, Deserialize, Clone, Debug, Type)]
 pub struct Hop {
     ips: Vec<IpAddr>,
