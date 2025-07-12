@@ -66,7 +66,9 @@
     {#if enabled.status == "error"}
       <ErrorScreen error={enabled.error} />
     {:else if enabled.data == false}
-      <ErrorScreen error={{ t: "InsufficientPermissions" }} />
+      <ErrorScreen
+        error={{ t: "InsufficientPermissions", c: "unknown path" }}
+      />
     {:else if isError(pageState)}
       <ErrorScreen bind:error={pageState} exitable={true} />
     {:else if pageState != null && typeof pageState == "number"}

@@ -15,7 +15,7 @@
         stdenv = pkgs.stdenvAdapters.useMoldLinker pkgs.clangStdenv;
       };
     in {
-      packages.default = pkgs.callPackage ./package.nix { };
+      packages.default = pkgs.callPackage ./package.nix {};
 
       devShells.default = pkgs.mkShell.override useMold {
         RUST_LOG = "debug";
@@ -23,10 +23,6 @@
         LD_LIBRARY_PATH = "${pkgs.lib.makeLibraryPath [pkgs.libpcap]}:$LD_LIBRARY_PATH";
 
         DB_PRELOADS = "/home/grant/Documents/ipdbs/dbip-city-ipv4.csv.gz";
-
-        shellHook = ''
-          export IPMAP_CHILD="$(pwd)/target/release/ipmap-child"
-        '';
 
         buildInputs = with pkgs; [
           cargo

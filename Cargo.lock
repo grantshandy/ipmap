@@ -2145,6 +2145,7 @@ dependencies = [
 name = "ipmap"
 version = "5.0.0"
 dependencies = [
+ "child-ipc",
  "ip_rfc",
  "ipgeo-state",
  "pcap-state",
@@ -3049,6 +3050,7 @@ dependencies = [
  "specta",
  "tauri",
  "tauri-specta",
+ "thiserror 2.0.12",
  "tracing",
  "windows-sys 0.60.2",
 ]

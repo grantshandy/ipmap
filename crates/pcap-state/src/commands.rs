@@ -1,12 +1,15 @@
 use std::net::IpAddr;
 
-use child_ipc::{CaptureParams, Command, Connections, Error, Response, TracerouteParams};
+use child_ipc::{CaptureParams, Command, Connections, Response, TracerouteParams};
 use ipgeo_state::{DbState, LookupInfo};
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tauri::{AppHandle, State, ipc::Channel};
+use tauri::{AppHandle, Manager, State, ipc::Channel};
 
-use crate::{PcapState, PcapStateChange, PcapStateInfo, ipc};
+use crate::{
+    PcapState, PcapStateChange, PcapStateInfo,
+    ipc::{self, Error},
+};
 
 #[tauri::command]
 #[specta::specta]
@@ -18,8 +21,12 @@ pub async fn start_capture(
 ) -> Result<(), Error> {
     let device = params.device.clone();
 
-    let (mut child, exit) = ipc::spawn_child_iterator(Command::Capture(params), false)
-        .map_err(|e| Error::Ipc(e.to_string()))?;
+    let (mut child, exit) = ipc::spawn_child_iterator(
+        ipc::resolve_child_path(app.path()).map_err(Error::Ipc)?,
+        Command::Capture(params),
+        false,
+    )
+    .map_err(|e| Error::Ipc(e.to_string()))?;
 
     pcap.set_capture(device, exit);
 
@@ -63,18 +70,22 @@ pub async fn stop_capture(pcap: State<'_, PcapState>) -> Result<(), String> {
 
 #[tauri::command]
 #[specta::specta]
-pub fn init_pcap(state: State<'_, PcapState>) -> Result<PcapStateInfo, Error> {
-    state.info()
+pub fn init_pcap(app: AppHandle, state: State<'_, PcapState>) -> Result<PcapStateInfo, Error> {
+    state.info(app)
 }
 
 #[tauri::command]
 #[specta::specta]
-pub async fn traceroute_enabled() -> Result<bool, Error> {
+pub async fn traceroute_enabled(app: AppHandle) -> Result<bool, Error> {
     #[cfg(windows)]
     return Ok(true);
 
     #[cfg(not(windows))]
-    match ipc::call_child_process(Command::TracerouteStatus, false)? {
+    match ipc::call_child_process(
+        ipc::resolve_child_path(app.path()).map_err(Error::Ipc)?,
+        Command::TracerouteStatus,
+        false,
+    )? {
         Response::TracerouteStatus(s) => Ok(s),
         _ => Err(Error::Ipc("Unexpected response from child".to_string())),
     }
@@ -83,11 +94,14 @@ pub async fn traceroute_enabled() -> Result<bool, Error> {
 #[tauri::command]
 #[specta::specta]
 pub async fn run_traceroute(
+    app: AppHandle,
     db: State<'_, DbState>,
     params: TracerouteParams,
     progress: Channel<usize>,
 ) -> Result<Vec<Hop>, Error> {
-    let (mut child, exit) = ipc::spawn_child_iterator(Command::Traceroute(params), true)
+    let child = ipc::resolve_child_path(app.path()).map_err(Error::Ipc)?;
+
+    let (mut child, exit) = ipc::spawn_child_iterator(child, Command::Traceroute(params), true)
         .map_err(|e| Error::Ipc(e.to_string()))?;
 
     let exit = || exit().map_err(|e| Error::Ipc(e.to_string()));

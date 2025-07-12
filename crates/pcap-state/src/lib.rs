@@ -3,7 +3,8 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use child_ipc::{Command, Device, Error, Response};
+use child_ipc::{Command, Device, Response};
+use ipc::{Error, resolve_child_path};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tauri::{AppHandle, Manager};
@@ -47,14 +48,16 @@ impl PcapState {
             .unwrap();
     }
 
-    pub fn info(&self) -> Result<PcapStateInfo, Error> {
+    pub fn info(&self, app: AppHandle) -> Result<PcapStateInfo, Error> {
         let capture: Option<Device> = self
             .capture
             .lock()
             .ok()
             .and_then(|c| c.as_ref().map(|c| c.device.clone()));
 
-        match ipc::call_child_process(Command::PcapStatus, false)? {
+        let child = resolve_child_path(app.path()).map_err(Error::Ipc)?;
+
+        match ipc::call_child_process(child, Command::PcapStatus, false)? {
             Response::PcapStatus(status) => Ok(PcapStateInfo {
                 version: status.version,
                 devices: status.devices,
@@ -84,7 +87,7 @@ pub enum PcapStateChange {
 
 impl PcapStateChange {
     pub fn emit(app: &AppHandle) {
-        let info = match app.state::<PcapState>().inner().info() {
+        let info = match app.state::<PcapState>().inner().info(app.clone()) {
             Ok(info) => Self::Ok(info),
             Err(err) => Self::Err(err),
         };

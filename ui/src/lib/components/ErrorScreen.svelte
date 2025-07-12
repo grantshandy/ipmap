@@ -13,7 +13,7 @@
   <div class="flex grow items-center justify-center">
     <div class="rounded-box bg-error max-w-110 space-y-2 px-3 py-2">
       {#if error.t == "InsufficientPermissions"}
-        {@render insufficientPermissionsInfo()}
+        {@render insufficientPermissionsInfo(error.c)}
       {:else if error.t == "LibLoading"}
         {@render libLoadingErrorInfo(error.c)}
       {:else}
@@ -29,7 +29,7 @@
   </div>
 {/if}
 
-{#snippet insufficientPermissionsInfo()}
+{#snippet insufficientPermissionsInfo(path: string)}
   <h1 class="text-lg font-semibold">Child Process Insufficient Permissions</h1>
   {#await utils.platform() then platform}
     {#if platform == "linux"}
@@ -37,9 +37,9 @@
         In order to perform this action, you must enable network capabilities on
         the child executable, which should be located next to this program.
       </p>
-      <code class="bg-base-100 bg-opacity-80 rounded-sm p-1 text-xs"
-        ># setcap cap_net_raw,cap_net_admin=eip ./ipmap-child</code
-      >
+      <code class="bg-base-100 bg-opacity-80 rounded-sm p-1 text-xs">
+        # setcap cap_net_raw,cap_net_admin=eip {path}
+      </code>
     {:else}
       <p class="text-sm">Try restarting the program as an administrator.</p>
     {/if}

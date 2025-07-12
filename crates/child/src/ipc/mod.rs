@@ -1,7 +1,7 @@
 use std::{env, process};
 
 use base64::prelude::*;
-use child_ipc::{Command, Error};
+use child_ipc::{ChildError, Command};
 
 #[cfg(unix)]
 mod unix;
@@ -13,7 +13,7 @@ mod windows;
 #[cfg(windows)]
 pub use windows::*;
 
-pub fn exit_with_error(error: Error) -> ! {
+pub fn exit_with_error(error: ChildError) -> ! {
     send_response(Err(error));
     // nonzero would be correct, but harder to handle in the IPC layer.
     process::exit(0)
@@ -21,7 +21,7 @@ pub fn exit_with_error(error: Error) -> ! {
 
 pub fn get_command() -> Command {
     let Some(message) = env::args().nth(1) else {
-        exit_with_error(Error::Ipc(format!(
+        exit_with_error(ChildError::Runtime(format!(
             "ipmap-child.exe must be provided with a command"
         )));
     };
@@ -30,6 +30,8 @@ pub fn get_command() -> Command {
 
     match serde_json::from_slice::<Command>(&decoded) {
         Ok(cmd) => cmd,
-        Err(err) => exit_with_error(Error::Ipc(format!("Failed to parse command: {err}"))),
+        Err(err) => exit_with_error(ChildError::Runtime(format!(
+            "Failed to parse command: {err}"
+        ))),
     }
 }

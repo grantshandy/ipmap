@@ -1,6 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use child_ipc::{Command, Error, Response};
+use child_ipc::{ChildError, Command, Response};
 
 mod command;
 mod ipc;
@@ -12,7 +12,7 @@ fn main() {
     #[cfg(windows)]
     ipc::init();
 
-    let response: Result<Response, Error> = match ipc::get_command() {
+    let response: Result<Response, ChildError> = match ipc::get_command() {
         Command::PcapStatus => command::get_pcap_status().map(Response::PcapStatus),
         Command::Capture(params) => command::run_capture(params),
         Command::TracerouteStatus => {

@@ -7,7 +7,7 @@ use std::{
 };
 
 use crate::{StopCallback, ipc};
-use child_ipc::Command;
+use child_ipc::{Command, EXE_NAME};
 
 use windows_sys::Win32::{
     Foundation::*,
@@ -16,9 +16,8 @@ use windows_sys::Win32::{
     UI::Shell::*,
 };
 
-pub const EXE_NAME: &str = "ipmap-child.exe";
-
 pub fn spawn_child_process(
+    child_path: &PathBuf,
     command: Command,
     admin: bool,
 ) -> io::Result<(impl BufRead, StopCallback)> {
@@ -43,9 +42,9 @@ pub fn spawn_child_process(
     }
 
     let exit_signal = if admin {
-        spawn_admin_process(&pipe_name, command)?
+        spawn_admin_process(child_path, &pipe_name, command)?
     } else {
-        spawn_normal_process(&pipe_name, command)?
+        spawn_normal_process(child_path, &pipe_name, command)?
     };
 
     let connected = unsafe { ConnectNamedPipe(pipe_handle, ptr::null_mut()) };
@@ -62,9 +61,11 @@ pub fn spawn_child_process(
     Ok((reader, exit_signal))
 }
 
-fn spawn_normal_process(pipe_name: &str, command: Command) -> io::Result<StopCallback> {
-    let child_path = ipc::find_isolate_child()?;
-
+fn spawn_normal_process(
+    child_path: &PathBuf,
+    pipe_name: &str,
+    command: Command,
+) -> io::Result<StopCallback> {
     let mut child = ProcessCommand::new(child_path)
         .arg(super::command_to_string(command))
         .arg(pipe_name)
@@ -78,8 +79,12 @@ fn spawn_normal_process(pipe_name: &str, command: Command) -> io::Result<StopCal
     }))
 }
 
-fn spawn_admin_process(pipe_name: &str, command: Command) -> io::Result<StopCallback> {
-    let exe_wide = child_ipc::wide_null(ipc::find_isolate_child()?);
+fn spawn_admin_process(
+    child_path: &PathBuf,
+    pipe_name: &str,
+    command: Command,
+) -> io::Result<StopCallback> {
+    let exe_wide = child_ipc::wide_null(child_path);
     let verb = child_ipc::wide_null("runas");
     let params = child_ipc::wide_null(format!(
         "{} {}",

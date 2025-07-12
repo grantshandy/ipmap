@@ -191,7 +191,7 @@ ready: boolean;
  */
 wireless: boolean }
 export type Duration = { secs: number; nanos: number }
-export type Error = { t: "InsufficientPermissions" } | { t: "LibLoading"; c: string } | { t: "Runtime"; c: string } | { t: "Ipc"; c: string }
+export type Error = { t: "InsufficientPermissions"; c: string } | { t: "LibLoading"; c: string } | { t: "Runtime"; c: string } | { t: "Ipc"; c: string } | { t: "NotFound"; c: string }
 export type Hop = { ips: string[]; loc: LookupInfo | null }
 /**
  * Location metadata.

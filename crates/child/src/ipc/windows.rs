@@ -6,7 +6,7 @@ use std::{
     ptr,
 };
 
-use crate::{Error, Response};
+use crate::{ChildError, Response};
 
 use windows_sys::Win32::{Foundation::*, Storage::FileSystem::*};
 
@@ -35,7 +35,7 @@ pub fn init() {
     }
 }
 
-pub fn send_response(resp: Result<Response, Error>) {
+pub fn send_response(resp: Result<Response, ChildError>) {
     let mut file = unsafe { File::from_raw_handle(PIPE as _) };
 
     serde_json::to_writer(&file, &resp).unwrap();

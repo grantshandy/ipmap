@@ -1,19 +1,23 @@
 use std::net::IpAddr;
 
-use child_ipc::{CaptureParams, Error, PcapStatus, Response, TracerouteParams, TracerouteResponse};
+use child_ipc::{
+    CaptureParams, ChildError, PcapStatus, Response, TracerouteParams, TracerouteResponse,
+};
 use pcap_dyn::{Api, buf::CaptureTimeBuffer};
 
 use crate::ipc;
 
-pub fn get_pcap_status() -> Result<PcapStatus, Error> {
+pub fn get_pcap_status() -> Result<PcapStatus, ChildError> {
     let api = get_api();
 
     #[cfg(target_os = "linux")]
     if !has_net_raw_privileges()? {
-        return Err(Error::InsufficientPermissions);
+        return Err(ChildError::InsufficientPermissions);
     }
 
-    let devices = api.devices().map_err(|e| Error::Runtime(e.to_string()))?;
+    let devices = api
+        .devices()
+        .map_err(|e| ChildError::Runtime(e.to_string()))?;
 
     Ok(PcapStatus {
         devices,
@@ -26,7 +30,7 @@ pub fn run_capture(params: CaptureParams) -> ! {
 
     let cap = match api.open_capture(params.device) {
         Ok(capture) => capture,
-        Err(e) => ipc::exit_with_error(Error::Runtime(e.to_string())),
+        Err(e) => ipc::exit_with_error(ChildError::Runtime(e.to_string())),
     };
     let buf = CaptureTimeBuffer::start(cap, params.connection_timeout);
 
@@ -36,12 +40,12 @@ pub fn run_capture(params: CaptureParams) -> ! {
     }
 }
 
-pub fn run_traceroute(params: TracerouteParams) -> Result<TracerouteResponse, Error> {
+pub fn run_traceroute(params: TracerouteParams) -> Result<TracerouteResponse, ChildError> {
     let snapshot = std::panic::catch_unwind(|| {
         let tracer = trippy_core::Builder::new(params.ip)
             .max_rounds(Some(params.max_rounds))
             .build()
-            .map_err(|e| Error::Runtime(e.to_string()))?;
+            .map_err(|e| ChildError::Runtime(e.to_string()))?;
 
         tracer
             .run_with(|round| {
@@ -59,11 +63,11 @@ pub fn run_traceroute(params: TracerouteParams) -> Result<TracerouteResponse, Er
                     ipc::send_response(Ok(Response::TracerouteProgress(round)));
                 }
             })
-            .map_err(|e| Error::Runtime(e.to_string()))?;
+            .map_err(|e| ChildError::Runtime(e.to_string()))?;
 
         Ok(tracer.snapshot())
     })
-    .map_err(|e| Error::Runtime(format!("trippy panicked: {e:?}")))??;
+    .map_err(|e| ChildError::Runtime(format!("trippy panicked: {e:?}")))??;
 
     let hops = snapshot
         .hops()
@@ -79,15 +83,15 @@ pub fn run_traceroute(params: TracerouteParams) -> Result<TracerouteResponse, Er
     Ok(TracerouteResponse { hops })
 }
 
-pub fn has_net_raw_privileges() -> Result<bool, Error> {
+pub fn has_net_raw_privileges() -> Result<bool, ChildError> {
     trippy_privilege::Privilege::discover()
         .map(|p| p.has_privileges())
-        .map_err(|e| Error::Runtime(e.to_string()))
+        .map_err(|e| ChildError::Runtime(e.to_string()))
 }
 
 fn get_api() -> Api {
     match Api::init() {
         Ok(api) => api,
-        Err(e) => ipc::exit_with_error(Error::LibLoading(e.to_string())),
+        Err(e) => ipc::exit_with_error(ChildError::LibLoading(e.to_string())),
     }
 }

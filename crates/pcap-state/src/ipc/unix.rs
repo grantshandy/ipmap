@@ -1,20 +1,19 @@
 use std::{
     io::{self, BufRead, BufReader},
+    path::PathBuf,
     process::{Command as ProcessCommand, Stdio},
 };
 
-use child_ipc::Command;
+use child_ipc::{Command, EXE_NAME};
 
-use crate::{StopCallback, ipc};
-
-pub const EXE_NAME: &str = "ipmap-child";
+use crate::StopCallback;
 
 pub fn spawn_child_process(
+    child_path: PathBuf,
     command: Command,
     _admin: bool,
 ) -> io::Result<(impl BufRead, StopCallback)> {
-    let child_path = ipc::find_isolate_child()?;
-    tracing::debug!("spawning {child_path:?} with {command:?}");
+    tracing::debug!("Calling {child_path:?} with {command:?}");
 
     let mut child = ProcessCommand::new(child_path)
         .arg(super::command_to_string(command))

@@ -3,6 +3,12 @@ use std::{collections::HashMap, net::IpAddr, time::Duration};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
+#[cfg(not(windows))]
+pub const EXE_NAME: &str = "ipmap-child";
+
+#[cfg(windows)]
+pub const EXE_NAME: &str = "ipmap-child.exe";
+
 #[cfg(windows)]
 pub fn wide_null(s: impl AsRef<std::ffi::OsStr>) -> Vec<u16> {
     use std::os::windows::ffi::OsStrExt;
@@ -56,15 +62,13 @@ pub struct PcapStatus {
 
 #[derive(Serialize, Deserialize, Debug, Clone, thiserror::Error, Type)]
 #[serde(tag = "t", content = "c")]
-pub enum Error {
+pub enum ChildError {
     #[error("Insufficient network permissions on pcap-child process")]
     InsufficientPermissions,
     #[error("Libpcap loading error: {0}")]
     LibLoading(String),
     #[error("Runtime error: {0}")]
     Runtime(String),
-    #[error("IPC error: {0}")]
-    Ipc(String),
 }
 
 #[derive(Copy, Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
