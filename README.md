@@ -1,5 +1,10 @@
 # Ipmap
 
+> [!NOTE]  
+> Old versions of ipmap are now located at [`grantshandy/ipmap-old`](https://github.com/grantshandy/ipmap-old).
+> 
+> This version of ipmap is not complete, but is nearly done. Release tarballs will be available soon.
+
 A GUI viewer for [`saphics/ip-location-db`](https://github.com/sapics/ip-location-db?tab=readme-ov-file#city) ip-geolocation databases, which can display your computer's live network traffic and perform trace routes.
 
 | Search                              | Capture                               | Traceroute                                  |
@@ -56,3 +61,18 @@ flowchart TD
 
     pcap-state <--child-ipc types--> child
 ```
+
+## TODO:
+ - [ ] Improve logging.
+ - [ ] Add file association.
+ - [ ] Simplify page UI.
+ - [ ] Find new name.
+ - [ ] Animated demo in readme.
+ - [ ] Unify error types (?).
+ - [ ] Document builtin database.
+ - [ ] Auto-build builtin database binaries with CI (?).
+ - [ ] Light/dark mode.
+ - [ ] Translate user interface.
+ - [ ] Add multi-lingual readmes (zh, es).
+ - [ ] Remove `public-ip-address` dependency.
+ - [ ] Add settings dialog for capture report frequency and connection timeout.
