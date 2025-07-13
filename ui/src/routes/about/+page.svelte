@@ -8,7 +8,12 @@
 </script>
 
 <div class="flex h-screen w-screen flex-col items-center space-y-3 p-4">
-  <h1 class="text-2xl">Ipmap</h1>
+  <h1 class="text-2xl">
+    Ipmap
+    {#await utils.version() then version}
+      v{version}
+    {/await}
+  </h1>
 
   <table class="table-xs border-base-200 table border">
     <tbody>

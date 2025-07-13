@@ -18,12 +18,13 @@
 
 <main class="flex h-screen flex-col space-y-3 overscroll-none p-3">
   <div class="flow-root w-full select-none">
-    <button class="btn btn-sm" onclick={utils.openAboutWindow}> About </button>
     <select class="select select-sm max-w-40" bind:value={page}>
       <option value="search">Location Search</option>
       <option value="capture">Packet Capture</option>
       <option value="trace">Traceroute</option>
     </select>
+
+    <button class="btn btn-sm" onclick={utils.openAboutWindow}>?</button>
 
     <Databases />
   </div>

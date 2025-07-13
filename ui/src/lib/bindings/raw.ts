@@ -5,9 +5,6 @@
 
 
 export const commands = {
-async openSettingsWindow() : Promise<void> {
-    await TAURI_INVOKE("open_settings_window");
-},
 async openAboutWindow() : Promise<void> {
     await TAURI_INVOKE("open_about_window");
 },
@@ -121,7 +118,7 @@ async stopCapture() : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async tracerouteEnabled() : Promise<Result<boolean, Error>> {
+async tracerouteEnabled() : Promise<Result<null, Error>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("traceroute_enabled") };
 } catch (e) {

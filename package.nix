@@ -1,12 +1,12 @@
 {
   stdenv,
   lib,
-  pnpm_9,
+  pnpm_10,
   nodejs,
   rustPlatform,
   cargo-tauri,
   pkg-config,
-  wrapGAppsHook3,
+  wrapGAppsHook4,
   openssl,
   dbus,
   gdk-pixbuf,
@@ -19,61 +19,32 @@
   zenity,
   ...
 }: let
-  version = "5.0.0";
-
-  frontend = stdenv.mkDerivation rec {
-    pname = "ipmap-frontend";
-    src = ./ui;
-    inherit version;
-
-    nativeBuildInputs = [nodejs pnpm_9.configHook];
-
-    pnpmDeps = pnpm_9.fetchDeps {
-      inherit pname version src;
-      hash = "sha256-VTXS1ENa7t891h0I3nchNCnGzNq+Sumj/VjRcFy79eA=";
-    };
-
-    # The build phase, which now uses the pre-fetched dependencies.
-    buildPhase = ''
-      runHook preBuild
-      pnpm run build
-      runHook postBuild
-    '';
-
-    # The install phase to copy the final build artifacts.
-    installPhase = ''
-      runHook preInstall
-      mkdir -p $out
-      cp -r build/* $out/
-      runHook postInstall
-    '';
-  };
-
-  src = lib.cleanSourceWith {
-    src = ./.;
-    filter = name: _: name != "ui";
-  };
-
-  doCheck = false;
-  useFetchCargoVendor = true;
-
-  child = rustPlatform.buildRustPackage {
-    pname = "ipmap-child";
-    inherit version src doCheck useFetchCargoVendor;
-    cargoLock.lockFile = ./Cargo.lock;
-    cargoBuildFlags = "-p ipmap-child";
-  };
+  pnpm = pnpm_10;
 in
   rustPlatform.buildRustPackage rec {
     pname = "ipmap";
-    inherit version src doCheck useFetchCargoVendor;
+    version = "5.0.0";
 
+    src = ./.;
+
+    pnpmRoot = "ui";
+    pnpmDeps = pnpm.fetchDeps {
+      inherit pname version src;
+      postPatch = "cd ${pnpmRoot}";
+      hash = "sha256-MWWe4NDg32jQySQCZ2KMCkVHXQrmLTEumQmcCnGHnOg=";
+    };
+
+    buildType = "debug";
+    doCheck = false;
+    useFetchCargoVendor = true;
     cargoLock.lockFile = ./Cargo.lock;
 
     nativeBuildInputs = [
       cargo-tauri.hook
       pkg-config
-      wrapGAppsHook3
+      nodejs
+      pnpm.configHook
+      wrapGAppsHook4
     ];
 
     buildInputs = [
@@ -84,24 +55,14 @@ in
       gobject-introspection
       gtk3
       libsoup_3
-      libayatana-appindicator
       webkitgtk_4_1
     ];
-
-    postPatch = ''
-      mkdir -p ui/
-      ln -s ${frontend} ui/build
-
-      substituteInPlace crates/desktop/tauri.conf.json \
-        --replace-fail "pnpm build" ""
-    '';
 
     preFixup = ''
       gappsWrapperArgs+=(
         # Otherwise blank screen, see https://github.com/tauri-apps/tauri/issues/9304
-        --set WEBKIT_DISABLE_DMABUF_RENDERER 1
-        --prefix PATH ":" ${lib.makeBinPath [zenity child]}
-        --prefix LD_LIBRARY_PATH ":" ${lib.makeLibraryPath [libayatana-appindicator]}
+        --set-default WEBKIT_DISABLE_DMABUF_RENDERER 1
+        --prefix PATH ":" ${lib.makeBinPath [zenity]}
       )
     '';
   }

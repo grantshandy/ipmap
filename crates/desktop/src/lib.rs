@@ -12,7 +12,6 @@ pub fn run() {
             pcap_state::PcapStateChange
         ])
         .commands(tauri_specta::collect_commands![
-            utils::open_settings_window,
             utils::open_about_window,
             utils::platform,
             utils::version,

@@ -9,10 +9,10 @@ import {
   type MovingAverageInfo,
   type Result,
 } from "./raw";
-
-import database from "./database.svelte";
 import { GeodesicLine } from "leaflet.geodesic";
 import { geodesic } from "leaflet";
+
+import database from "./database.svelte";
 export { database };
 
 export * from "./capture.svelte";
@@ -26,7 +26,6 @@ export const traceroute = {
 
 export const utils = {
   openAboutWindow: commands.openAboutWindow,
-  openSettingsWindow: commands.openSettingsWindow,
   version: commands.version,
   platform: commands.platform,
 };
@@ -34,10 +33,12 @@ export const utils = {
 export const isError = (err: any): err is Error =>
   err != null &&
   typeof err == "object" &&
+  "t" in err &&
   (err.t == "Runtime" ||
     err.t == "Ipc" ||
     err.t == "LibLoading" ||
-    err.t == "InsufficientPermissions");
+    err.t == "InsufficientPermissions" ||
+    err.t == "NotFound");
 
 export const printError = (err: Error): string => {
   if (err.t == "Runtime") {
@@ -48,6 +49,8 @@ export const printError = (err: Error): string => {
     return `Unable to load libpcap: ${err.c}`;
   } else if (err.t == "InsufficientPermissions") {
     return "Insufficient permissions for the child process";
+  } else if (err.t == "NotFound") {
+    return `Unable to find child process: '${err.c}'`;
   } else {
     return "Unknown Error Type";
   }

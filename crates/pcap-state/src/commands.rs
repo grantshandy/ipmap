@@ -76,18 +76,19 @@ pub fn init_pcap(app: AppHandle, state: State<'_, PcapState>) -> Result<PcapStat
 
 #[tauri::command]
 #[specta::specta]
-pub async fn traceroute_enabled(app: AppHandle) -> Result<bool, Error> {
+pub async fn traceroute_enabled(app: AppHandle) -> Result<(), Error> {
     #[cfg(windows)]
-    return Ok(true);
+    return Ok(());
 
     #[cfg(not(windows))]
-    match ipc::call_child_process(
-        ipc::resolve_child_path(app.path()).map_err(Error::Ipc)?,
-        Command::TracerouteStatus,
-        false,
-    )? {
-        Response::TracerouteStatus(s) => Ok(s),
-        _ => Err(Error::Ipc("Unexpected response from child".to_string())),
+    {
+        let path = ipc::resolve_child_path(app.path()).map_err(Error::Ipc)?;
+
+        match ipc::call_child_process(path.clone(), Command::TracerouteStatus, false)? {
+            Response::TracerouteStatus(true) => Ok(()),
+            Response::TracerouteStatus(false) => Err(Error::InsufficientPermissions(path)),
+            _ => Err(Error::Ipc("Unexpected response from child".to_string())),
+        }
     }
 }
 
@@ -99,10 +100,12 @@ pub async fn run_traceroute(
     params: TracerouteParams,
     progress: Channel<usize>,
 ) -> Result<Vec<Hop>, Error> {
-    let child = ipc::resolve_child_path(app.path()).map_err(Error::Ipc)?;
-
-    let (mut child, exit) = ipc::spawn_child_iterator(child, Command::Traceroute(params), true)
-        .map_err(|e| Error::Ipc(e.to_string()))?;
+    let (mut child, exit) = ipc::spawn_child_iterator(
+        ipc::resolve_child_path(app.path()).map_err(Error::Ipc)?,
+        Command::Traceroute(params),
+        true,
+    )
+    .map_err(|e| Error::Ipc(e.to_string()))?;
 
     let exit = || exit().map_err(|e| Error::Ipc(e.to_string()));
 

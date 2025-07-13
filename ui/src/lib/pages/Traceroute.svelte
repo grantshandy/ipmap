@@ -65,32 +65,24 @@
   {#await traceroute.enabled() then enabled}
     {#if enabled.status == "error"}
       <ErrorScreen error={enabled.error} />
-    {:else if enabled.data == false}
-      <ErrorScreen
-        error={{ t: "InsufficientPermissions", c: "unknown path" }}
-      />
     {:else if isError(pageState)}
       <ErrorScreen bind:error={pageState} exitable={true} />
-    {:else if pageState != null && typeof pageState == "number"}
-      {@render traceLoading(pageState)}
+    {:else if typeof pageState == "number"}
+      {@render traceLoading()}
     {:else if Array.isArray(pageState)}
-      {@render result(pageState)}
+      <TraceMap
+        hops={pageState}
+        {myLocation}
+        ip={prefs.ip}
+        close={() => (pageState = null)}
+      />
     {:else}
       {@render tracerouteForm()}
     {/if}
   {/await}
 </div>
 
-{#snippet result(hops: Hop[])}
-  <TraceMap
-    {hops}
-    {myLocation}
-    ip={prefs.ip}
-    close={() => (pageState = null)}
-  />
-{/snippet}
-
-{#snippet traceLoading(round: number)}
+{#snippet traceLoading()}
   <div class="flex grow items-center justify-center select-none">
     <div class="space-y-3 text-center">
       <p>Tracing...</p>

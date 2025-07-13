@@ -2,22 +2,23 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 
+const ABOUT_WINDOW_ID: &str = "about";
+
 #[specta::specta]
 #[tauri::command]
 pub async fn open_about_window(app: AppHandle) {
     if app
         .webview_windows()
         .keys()
-        .find(|label| label.as_str() == "about")
+        .find(|label| label.as_str() == ABOUT_WINDOW_ID)
         .is_some()
     {
-        tracing::debug!("About window already open");
         return;
     }
 
     let main = app.get_webview_window("main").unwrap();
 
-    WebviewWindowBuilder::new(&app, "about", WebviewUrl::App("about".into()))
+    WebviewWindowBuilder::new(&app, ABOUT_WINDOW_ID, WebviewUrl::App("about".into()))
         .title("About")
         .parent(&main)
         .unwrap()
@@ -28,10 +29,6 @@ pub async fn open_about_window(app: AppHandle) {
         .build()
         .unwrap();
 }
-
-#[specta::specta]
-#[tauri::command]
-pub fn open_settings_window() {}
 
 #[tauri::command]
 #[specta::specta]
