@@ -81,5 +81,7 @@ flowchart TD
  - [ ] Translate user interface.
  - [ ] Add multi-lingual readmes (zh, es).
  - [ ] Remove `public-ip-address` bloated dependency, create our own solution.
- - [ ] Add settings dialog for capture report frequency and connection timeout.
+ - [ ] Add settings dialog.
+   - [ ] Different map layers?
+   - [ ] Capture report frequency and connection timeout.
  - [ ] Fix button icons.
