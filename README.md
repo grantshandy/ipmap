@@ -5,7 +5,8 @@
 > 
 > This version of ipmap is not complete, but is nearly done. Release tarballs will be available soon.
 
-A GUI viewer for [`saphics/ip-location-db`](https://github.com/sapics/ip-location-db?tab=readme-ov-file#city) ip-geolocation databases, which can display your computer's live network traffic and perform trace routes.
+A GUI viewer for [`saphics/ip-location-db`](https://github.com/sapics/ip-location-db?tab=readme-ov-file#city) ip-geolocation databases,
+which can display your computer's live network traffic and perform trace routes.
 
 | Search                              | Capture                               | Traceroute                                  |
 | ----------------------------------- | ------------------------------------- | ------------------------------------------- |
@@ -63,18 +64,22 @@ flowchart TD
 ```
 
 ## TODO:
+ - [ ] Check MacOS compatibility.
  - [ ] Improve logging.
  - [ ] Improve error handling in `pcap-dev`, and windows `ipmap-child` IPC and add comments on unsafe blocks.
  - [ ] Add file association.
  - [ ] Simplify page UI.
- - [ ] Find new name.
+ - [ ] Reverse location-to-ip-block search
+ - [ ] Heatmap generation (custom webview protocol that serves leaflet tiles?)
+ - [ ] Find a new project name (?).
+ - [ ] Move `ipgeo-state` and `pcap-state` into `desktop` modules (does this impact compile time much?)
  - [ ] Animated demo in readme.
  - [ ] Unify error types (?).
- - [ ] Document builtin database.
+ - [ ] Document builtin databases (env var `DATABASE_PRELOADS`).
  - [ ] Auto-build builtin database binaries with CI (?).
- - [ ] Light/dark mode.
+ - [ ] Light/dark mode with system. Try to match native UI?
  - [ ] Translate user interface.
  - [ ] Add multi-lingual readmes (zh, es).
- - [ ] Remove `public-ip-address` dependency.
+ - [ ] Remove `public-ip-address` bloated dependency, create our own solution.
  - [ ] Add settings dialog for capture report frequency and connection timeout.
  - [ ] Fix button icons.
