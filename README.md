@@ -64,6 +64,7 @@ flowchart TD
 
 ## TODO:
  - [ ] Improve logging.
+ - [ ] Improve error handling in `pcap-dev`, and windows `ipmap-child` IPC and add comments on unsafe blocks.
  - [ ] Add file association.
  - [ ] Simplify page UI.
  - [ ] Find new name.
@@ -76,3 +77,4 @@ flowchart TD
  - [ ] Add multi-lingual readmes (zh, es).
  - [ ] Remove `public-ip-address` dependency.
  - [ ] Add settings dialog for capture report frequency and connection timeout.
+ - [ ] Fix button icons.
