@@ -5,10 +5,6 @@ use child_ipc::{ChildError, Command, Response, ipc};
 mod command;
 
 fn main() {
-    // initialize the named pipe between child and parent processes.
-    #[cfg(windows)]
-    ipc::init();
-
     let response: Result<Response, ChildError> = match ipc::get_command() {
         Command::PcapStatus => command::get_pcap_status().map(Response::PcapStatus),
         Command::Capture(params) => command::run_capture(params),

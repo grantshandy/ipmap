@@ -1,6 +1,6 @@
 use std::{
     net::{Ipv4Addr, Ipv6Addr},
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::{Arc, RwLock},
     time::Duration,
 };
@@ -60,18 +60,18 @@ impl<Ip: GenericIp> Default for DbCollection<Ip> {
 }
 
 impl<Ip: GenericIp> DbCollection<Ip> {
-    pub fn insert(&self, path: &PathBuf, db: Database<Ip>) {
+    pub fn insert(&self, path: &Path, db: Database<Ip>) {
         self.insert_arc(path, Arc::new(db), false);
     }
 
-    pub fn insert_arc(&self, path: &PathBuf, db: Arc<Database<Ip>>, preloaded: bool) {
+    pub fn insert_arc(&self, path: &Path, db: Arc<Database<Ip>>, preloaded: bool) {
         let loaded = Arc::new(LoadedDb {
-            path: path.clone(),
+            path: path.to_path_buf(),
             db,
             preloaded,
         });
 
-        self.loaded.insert(path.clone(), loaded.clone());
+        self.loaded.insert(path.to_path_buf(), loaded.clone());
         self.selected
             .write()
             .expect("open selected")

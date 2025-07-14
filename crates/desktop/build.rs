@@ -12,8 +12,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let from = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?)
-        .parent().unwrap()
-        .parent().unwrap()
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
         .join("target")
         .join("release")
         .join(platform_exe)

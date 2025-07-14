@@ -39,6 +39,8 @@ pub fn run_capture(params: CaptureParams) -> ! {
 }
 
 pub fn run_traceroute(params: TracerouteParams) -> Result<TracerouteResponse, ChildError> {
+    ipc::send_response(Ok(Response::TracerouteProgress(0)));
+
     let snapshot = std::panic::catch_unwind(|| {
         let tracer = trippy_core::Builder::new(params.ip)
             .max_rounds(Some(params.max_rounds))

@@ -48,7 +48,7 @@ pub fn run() {
             ts_export_builder.mount_events(app);
 
             app.manage(ipgeo_state::DbState::default());
-            app.manage(pcap_state::PcapState::new());
+            app.manage(pcap_state::PcapState::default());
 
             Ok(())
         })

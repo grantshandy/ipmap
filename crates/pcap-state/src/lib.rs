@@ -5,8 +5,8 @@ use std::{
 };
 
 use child_ipc::{
-    Command, Device, EXE_NAME, Response,
-    ipc::{self, Error, StopCallback},
+    Command, Device, EXE_NAME, Error, Response,
+    ipc::{self, StopCallback},
 };
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -23,17 +23,12 @@ struct CaptureSession {
     device: Device,
 }
 
+#[derive(Default)]
 pub struct PcapState {
     capture: Arc<Mutex<Option<CaptureSession>>>,
 }
 
 impl PcapState {
-    pub fn new() -> Self {
-        Self {
-            capture: Arc::default(),
-        }
-    }
-
     pub fn stop_capture(&self) -> Option<io::Result<()>> {
         match self.capture.lock().map(|mut guard| guard.take()) {
             Ok(Some(CaptureSession { stop, .. })) => Some(stop()),

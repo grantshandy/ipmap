@@ -26,13 +26,12 @@ pub struct Raw {
 
 impl Raw {
     pub fn load() -> Result<Container<Self>, dlopen2::Error> {
-        (unsafe { Container::load(FILE) }).or_else(|err| {
-            #[cfg(unix)]
-            return try_pkg_config_path(FILE).unwrap_or_else(|| Err(err));
+        #[cfg(windows)]
+        return unsafe { Container::load(FILE) };
 
-            #[cfg(not(unix))]
-            return Err(err);
-        })
+        #[cfg(unix)]
+        return (unsafe { Container::load(FILE) })
+            .or_else(|err| try_pkg_config_path(FILE).unwrap_or_else(|| Err(err)));
     }
 }
 

@@ -1,41 +1,42 @@
-use std::{
-    env,
-    fs::File,
-    io::{self, BufRead, BufReader, Write},
-    os::windows::{io::FromRawHandle, prelude::*},
-    path::PathBuf,
-    process::Command as ProcessCommand,
-    ptr,
-};
+use std::{ffi::OsStr, os::windows::ffi::OsStrExt};
 
-use crate::{
-    ChildError, Command, EXE_NAME, Response, StopCallback,
-    windows::{pipe_name, wide_null},
-};
-use windows_sys::Win32::{
-    Foundation::*,
-    Storage::FileSystem::*,
-    System::{Pipes::*, Threading::*},
-    UI::Shell::*,
-};
+fn wide_null(s: impl AsRef<OsStr>) -> Vec<u16> {
+    s.as_ref().encode_wide().chain(Some(0)).collect()
+}
 
+fn pipe_name(id: u64) -> String {
+    format!(r"\\.\pipe\ipmap-{id}")
+}
+
+#[cfg(feature = "child")]
 pub mod child {
-    use super::*;
+    use std::{
+        env,
+        fs::File,
+        io::{self, Write},
+        os::windows::io::FromRawHandle,
+        ptr,
+    };
+
+    use super::{pipe_name, wide_null};
+    use crate::{ChildError, Response};
+    use windows_sys::Win32::{Foundation::*, Storage::FileSystem::*};
 
     static mut PIPE: HANDLE = 0 as HANDLE;
 
-    pub fn init() {
-        unsafe {
-            let Some(pipe_name) = env::args()
-                .nth(2)
-                .and_then(|p| p.parse::<u64>().ok())
-                .map(pipe_name)
-            else {
-                super::exit_with_error(ChildError::Runtime("Invalid Pipe Name".into()))
-            };
-            let pipe_name_wide: Vec<u16> = wide_null(&pipe_name);
+    unsafe fn init_pipe() {
+        let Some(pipe_name) = env::args()
+            .nth(2)
+            .and_then(|p| p.parse::<u64>().ok())
+            .map(pipe_name)
+        else {
+            crate::ipc::exit_with_error(ChildError::Runtime("Invalid Pipe Name".into()))
+        };
 
-            let handle = CreateFileW(
+        let pipe_name_wide: Vec<u16> = wide_null(&pipe_name);
+
+        let handle = unsafe {
+            CreateFileW(
                 pipe_name_wide.as_ptr(),
                 GENERIC_WRITE,
                 0,
@@ -43,30 +44,58 @@ pub mod child {
                 OPEN_EXISTING,
                 0,
                 ptr::null_mut(),
-            );
+            )
+        };
 
-            if handle == INVALID_HANDLE_VALUE {
-                panic!("Failed to open named pipe: {}", io::Error::last_os_error());
-            }
+        if handle == INVALID_HANDLE_VALUE {
+            panic!("Failed to open named pipe: {}", io::Error::last_os_error());
+        }
 
+        unsafe {
             PIPE = handle;
         }
     }
 
     pub fn send_response(resp: Result<Response, ChildError>) {
+        unsafe {
+            if PIPE == 0 as HANDLE {
+                init_pipe();
+            }
+        }
+
         let mut file = unsafe { File::from_raw_handle(PIPE as _) };
 
         serde_json::to_writer(&file, &resp).unwrap();
         write!(file, "\r\n").unwrap();
-
         file.flush().unwrap();
 
         std::mem::forget(file);
     }
 }
 
+#[cfg(feature = "parent")]
 pub mod parent {
-    use super::*;
+    use std::{
+        fs::File,
+        io::{self, BufRead, BufReader},
+        os::windows::io::FromRawHandle,
+        path::PathBuf,
+        process::Command as ProcessCommand,
+        ptr,
+    };
+
+    use super::{pipe_name, wide_null};
+    use crate::{Command, EXE_NAME, ipc::StopCallback};
+
+    use windows_sys::{
+        Win32::{
+            Foundation::*,
+            Storage::FileSystem::*,
+            System::{Pipes::*, Threading::*},
+            UI::Shell::*,
+        },
+        w,
+    };
 
     pub fn spawn_child_process(
         child_path: PathBuf,
@@ -93,7 +122,7 @@ pub mod parent {
             return Err(io::Error::last_os_error());
         }
 
-        let exit_signal = if matches!(command, Command::Traceroute(_)) {
+        let exit_signal = if command.needs_admin() {
             spawn_admin_process(child_path, command, pipe_id)?
         } else {
             spawn_normal_process(child_path, command, pipe_id)?
@@ -137,18 +166,18 @@ pub mod parent {
         pipe_id: u64,
     ) -> io::Result<StopCallback> {
         let exe_wide = wide_null(child_path);
-        let verb = wide_null("runas");
         let params = wide_null(format!("{} {pipe_id}", command.to_arg_string()));
 
         let mut sei: SHELLEXECUTEINFOW = unsafe { std::mem::zeroed() };
         sei.cbSize = std::mem::size_of::<SHELLEXECUTEINFOW>() as u32;
-        sei.fMask = SEE_MASK_NOCLOSEPROCESS; // Important: Get the process handle
         sei.hwnd = 0 as HWND; // No parent window
-        sei.lpVerb = verb.as_ptr();
+        sei.lpVerb = w!("runas");
         sei.lpFile = exe_wide.as_ptr();
         sei.lpParameters = params.as_ptr();
-        sei.lpDirectory = std::ptr::null(); // Current directory
-        sei.nShow = 1; // SW_SHOWNORMAL (show the window normally)
+        sei.lpDirectory = ptr::null(); // Current directory
+        sei.nShow = 0; // SW_HIDE
+        sei.lpClass = w!("exefile");
+        sei.fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_CLASSNAME;
 
         let success = unsafe { ShellExecuteExW(&mut sei) };
 
@@ -161,10 +190,7 @@ pub mod parent {
         let process_handle: HANDLE = sei.hProcess;
 
         if process_handle.is_null() {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                "Process was not started.",
-            ));
+            return Err(io::Error::other("Process was not started."));
         }
 
         // SAFETY: HANDLE is a pointer, but we can cast it to usize for Send + Sync closure.

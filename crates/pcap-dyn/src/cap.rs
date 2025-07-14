@@ -42,9 +42,7 @@ impl Capture {
         // no longer a zero-length string.
 
         let handle = ffi::err_cap("pcap_open_live", |errbuf| unsafe {
-            let h = raw.pcap_open_live(device_name.as_ptr(), 128, 0, 0, errbuf);
-            // (!h.is_null()).then(|| h)
-            h
+            raw.pcap_open_live(device_name.as_ptr(), 128, 0, 0, errbuf)
         })?;
 
         // let (stop_tx, stop_rx) = mpsc::channel::<()>();

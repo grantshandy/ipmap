@@ -1,9 +1,6 @@
 use std::net::IpAddr;
 
-use child_ipc::{
-    CaptureParams, Command, Connections, Response, TracerouteParams,
-    ipc::{self, Error},
-};
+use child_ipc::{CaptureParams, Command, Connections, Error, Response, TracerouteParams, ipc};
 use ipgeo_state::{DbState, LookupInfo};
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -23,14 +20,14 @@ pub async fn start_capture(
 
     let child_path = crate::resolve_child_path(app.path()).map_err(Error::Ipc)?;
 
-    let (mut child, exit) = ipc::spawn_child_iterator(child_path, Command::Capture(params))
+    let (child, exit) = ipc::spawn_child_iterator(child_path, Command::Capture(params))
         .map_err(|e| Error::Ipc(e.to_string()))?;
 
     pcap.set_capture(device, exit);
 
     PcapStateChange::emit(&app);
 
-    while let Some(resp) = child.next() {
+    for resp in child {
         match resp {
             Ok(Response::CaptureSample(c)) => {
                 let _ = conns.send(c);
@@ -101,12 +98,12 @@ pub async fn run_traceroute(
 ) -> Result<Vec<Hop>, Error> {
     let child_path = crate::resolve_child_path(app.path()).map_err(Error::Ipc)?;
 
-    let (mut child, exit) = ipc::spawn_child_iterator(child_path, Command::Traceroute(params))
+    let (child, exit) = ipc::spawn_child_iterator(child_path, Command::Traceroute(params))
         .map_err(|e| Error::Ipc(e.to_string()))?;
 
     let exit = || exit().map_err(|e| Error::Ipc(e.to_string()));
 
-    while let Some(message) = child.next() {
+    for message in child {
         match message {
             Ok(Response::TracerouteProgress(round)) => {
                 let _ = progress.send(round);

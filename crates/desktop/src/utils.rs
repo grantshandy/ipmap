@@ -10,8 +10,7 @@ pub async fn open_about_window(app: AppHandle) {
     if app
         .webview_windows()
         .keys()
-        .find(|label| label.as_str() == ABOUT_WINDOW_ID)
-        .is_some()
+        .any(|label| label.as_str() == ABOUT_WINDOW_ID)
     {
         return;
     }

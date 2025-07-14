@@ -1,14 +1,33 @@
-use std::{collections::HashMap, net::IpAddr, path::PathBuf, time::Duration};
+use std::{
+    collections::HashMap,
+    net::IpAddr,
+    path::{Path, PathBuf},
+    time::Duration,
+};
 
 #[cfg(any(feature = "parent", feature = "child"))]
 use base64::prelude::*;
 
 use serde::{Deserialize, Serialize};
 
+#[cfg(any(feature = "parent", feature = "child"))]
 pub mod ipc;
-use ipc::Error;
 
 pub const EXE_NAME: &str = "ipmap-child";
+
+#[derive(Serialize, Deserialize, Debug, Clone, thiserror::Error)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(tag = "t", content = "c")]
+pub enum Error {
+    #[error("Insufficient network permissions on pcap-child process")]
+    InsufficientPermissions(PathBuf),
+    #[error("Libpcap loading error: {0}")]
+    LibLoading(String),
+    #[error("Runtime error: {0}")]
+    Runtime(String),
+    #[error("IPC error: {0}")]
+    Ipc(String),
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone, thiserror::Error)]
 #[serde(tag = "t", content = "c")]
@@ -22,9 +41,9 @@ pub enum ChildError {
 }
 
 impl ChildError {
-    pub fn to_error(self, child: &PathBuf) -> Error {
+    pub fn to_error(self, child: &Path) -> Error {
         match self {
-            Self::InsufficientPermissions => Error::InsufficientPermissions(child.clone()),
+            Self::InsufficientPermissions => Error::InsufficientPermissions(child.to_path_buf()),
             Self::LibLoading(e) => Error::LibLoading(e),
             Self::Runtime(e) => Error::Runtime(e),
         }
@@ -51,6 +70,15 @@ impl Command {
             .decode(s)
             .ok()
             .and_then(|s| serde_json::from_slice(&s).ok())
+    }
+
+    #[cfg(all(windows, feature = "parent"))]
+    #[allow(clippy::match_like_matches_macro)]
+    pub fn needs_admin(&self) -> bool {
+        match self {
+            Command::Traceroute(_) => true,
+            _ => false,
+        }
     }
 }
 

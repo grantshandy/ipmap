@@ -1,6 +1,4 @@
-use std::{io, path::PathBuf};
-
-use serde::{Deserialize, Serialize};
+use std::io;
 
 #[cfg(unix)]
 mod unix;
@@ -9,20 +7,6 @@ mod unix;
 mod windows;
 
 pub type StopCallback = Box<dyn FnOnce() -> io::Result<()> + Send + Sync>;
-
-#[derive(Serialize, Deserialize, Debug, Clone, thiserror::Error)]
-#[cfg_attr(feature = "specta", derive(specta::Type))]
-#[serde(tag = "t", content = "c")]
-pub enum Error {
-    #[error("Insufficient network permissions on pcap-child process")]
-    InsufficientPermissions(PathBuf),
-    #[error("Libpcap loading error: {0}")]
-    LibLoading(String),
-    #[error("Runtime error: {0}")]
-    Runtime(String),
-    #[error("IPC error: {0}")]
-    Ipc(String),
-}
 
 #[cfg(feature = "parent")]
 pub use parent::*;
@@ -34,8 +18,8 @@ mod parent {
     #[cfg(windows)]
     pub use super::windows::parent::*;
 
-    use super::{Error, StopCallback};
-    use crate::{ChildError, Command, EXE_NAME, Response};
+    use super::StopCallback;
+    use crate::{ChildError, Command, EXE_NAME, Error, Response};
     use std::{
         io::{self, BufRead},
         path::PathBuf,

@@ -91,7 +91,7 @@ flowchart TD
  - [ ] Auto-build builtin database binaries with CI (?).
  - [ ] Light/dark mode with system. Try to match native UI?
  - [ ] Translate user interface.
- - [ ] Kill child on parent exit.
+ - [ ] Get default network interfaces with native APIs.
  - [ ] Rename "packet capture" to something more non-technical?
  - [ ] Add multi-lingual readmes (zh, es).
  - [ ] Remove `public-ip-address` bloated dependency, create our own solution.
