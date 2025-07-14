@@ -1,10 +1,6 @@
 <script lang="ts">
   import { utils } from "$lib/bindings";
   import Link from "$lib/components/Link.svelte";
-
-  window.addEventListener("resize", () => {
-    console.log(window.innerWidth, window.innerHeight);
-  });
 </script>
 
 <div class="flex h-screen w-screen flex-col items-center space-y-3 p-4">
@@ -51,6 +47,7 @@
       <tr>
         <th>Special Thanks</th>
         <td>
+          <Link href="https://trippy.rs">Trippy</Link>,
           <Link href="https://leafletjs.com">LeafletJS</Link>,
           <Link href="https://osm.org">OpenStreetMap Contributors</Link>,
           <Link href="https://tauri.app">Tauri</Link>,
@@ -73,8 +70,8 @@
   <div class="grow"></div>
 
   <p class="italic">
-    <Link href="https://buymeacoffee.com/granthandy"
-      >Donate to help support the project!</Link
+    <Link href="https://buymeacoffee.com/granthandy">
+      Donate to help support the project!</Link
     >
   </p>
 </div>
