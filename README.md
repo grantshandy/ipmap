@@ -84,7 +84,6 @@ flowchart TD
  - [ ] Heatmap generation (custom webview protocol that serves leaflet tiles?)
  - [ ] MMDB database support.
  - [ ] Find a new project name (?).
- - [ ] Move `ipgeo-state` and `pcap-state` into `desktop` modules (does this impact compile time much?)
  - [ ] Animated demo in readme.
  - [ ] Unify error types (?).
  - [ ] Document builtin databases (env var `DATABASE_PRELOADS`).

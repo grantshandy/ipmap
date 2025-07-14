@@ -5,7 +5,6 @@ use std::{
 };
 
 use crate::StopCallback;
-use base64::prelude::*;
 use child_ipc::{ChildError, Command, EXE_NAME, Response};
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -67,10 +66,6 @@ pub fn spawn_child_iterator(
         });
 
     Ok((iter, exit_signal))
-}
-
-pub(crate) fn command_to_string(command: Command) -> String {
-    BASE64_STANDARD.encode(serde_json::to_string(&command).expect("Failed to serialize command"))
 }
 
 pub(crate) fn resolve_child_path(resolver: &PathResolver<impl Runtime>) -> Result<PathBuf, String> {

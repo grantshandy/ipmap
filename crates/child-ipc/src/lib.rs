@@ -1,20 +1,13 @@
 use std::{collections::HashMap, net::IpAddr, time::Duration};
 
+use base64::prelude::*;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
-#[cfg(not(windows))]
 pub const EXE_NAME: &str = "ipmap-child";
 
 #[cfg(windows)]
-pub const EXE_NAME: &str = "ipmap-child.exe";
-
-#[cfg(windows)]
-pub fn wide_null(s: impl AsRef<std::ffi::OsStr>) -> Vec<u16> {
-    use std::os::windows::ffi::OsStrExt;
-
-    s.as_ref().encode_wide().chain(Some(0)).collect()
-}
+pub mod windows;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum Command {
@@ -22,6 +15,19 @@ pub enum Command {
     Capture(CaptureParams),
     TracerouteStatus,
     Traceroute(TracerouteParams),
+}
+
+impl Command {
+    pub fn to_arg_string(&self) -> String {
+        BASE64_STANDARD.encode(serde_json::to_string(self).expect("encode Command as json"))
+    }
+
+    pub fn from_arg_string(s: impl AsRef<[u8]>) -> Option<Self> {
+        BASE64_STANDARD
+            .decode(s)
+            .ok()
+            .and_then(|s| serde_json::from_slice(&s).ok())
+    }
 }
 
 #[derive(Copy, Clone, Debug, Type, Serialize, Deserialize)]
@@ -63,7 +69,7 @@ pub struct PcapStatus {
 #[derive(Serialize, Deserialize, Debug, Clone, thiserror::Error, Type)]
 #[serde(tag = "t", content = "c")]
 pub enum ChildError {
-    #[error("Insufficient network permissions on pcap-child process")]
+    #[error("Insufficient network permissions on ipmap-child process")]
     InsufficientPermissions,
     #[error("Libpcap loading error: {0}")]
     LibLoading(String),

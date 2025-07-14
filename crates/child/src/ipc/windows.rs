@@ -7,14 +7,20 @@ use std::{
 };
 
 use crate::{ChildError, Response};
-
+use child_ipc::windows::pipe_name;
 use windows_sys::Win32::{Foundation::*, Storage::FileSystem::*};
 
 static mut PIPE: HANDLE = 0 as HANDLE;
 
 pub fn init() {
     unsafe {
-        let pipe_name = env::args().nth(2).expect("Missing pipe name argument");
+        let Some(pipe_name) = env::args()
+            .nth(2)
+            .and_then(|p| p.parse::<u64>().ok())
+            .map(pipe_name)
+        else {
+            super::exit_with_error(Err(Error::Ipc("Invalid Pipe Name".into())))
+        };
         let pipe_name_wide: Vec<u16> = child_ipc::wide_null(&pipe_name);
 
         let handle = CreateFileW(

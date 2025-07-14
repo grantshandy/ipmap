@@ -7,7 +7,10 @@ use std::{
 };
 
 use crate::{StopCallback, ipc};
-use child_ipc::{Command, EXE_NAME};
+use child_ipc::{
+    Command, EXE_NAME,
+    windows::{pipe_name, wide_null},
+};
 
 use windows_sys::Win32::{
     Foundation::*,
@@ -21,8 +24,8 @@ pub fn spawn_child_process(
     command: Command,
     admin: bool,
 ) -> io::Result<(impl BufRead, StopCallback)> {
-    let pipe_name = format!(r"\\.\pipe\ipmap-{}", fastrand::u64(..));
-    let pipe_name_wide = child_ipc::wide_null(&pipe_name);
+    let pipe_name = pipe_name(fastrand::u64(..));
+    let pipe_name_wide = wide_null(&pipe_name);
 
     let pipe_handle = unsafe {
         CreateNamedPipeW(
@@ -67,7 +70,7 @@ fn spawn_normal_process(
     command: Command,
 ) -> io::Result<StopCallback> {
     let mut child = ProcessCommand::new(child_path)
-        .arg(super::command_to_string(command))
+        .arg(command.to_arg_string())
         .arg(pipe_name)
         .spawn()?;
 
@@ -84,13 +87,9 @@ fn spawn_admin_process(
     pipe_name: &str,
     command: Command,
 ) -> io::Result<StopCallback> {
-    let exe_wide = child_ipc::wide_null(child_path);
-    let verb = child_ipc::wide_null("runas");
-    let params = child_ipc::wide_null(format!(
-        "{} {}",
-        super::command_to_string(command),
-        pipe_name
-    ));
+    let exe_wide = wide_null(child_path);
+    let verb = wide_null("runas");
+    let params = wide_null(format!("{} {}", command.to_arg_string(), pipe_name));
 
     let mut sei: SHELLEXECUTEINFOW = unsafe { std::mem::zeroed() };
     sei.cbSize = std::mem::size_of::<SHELLEXECUTEINFOW>() as u32;

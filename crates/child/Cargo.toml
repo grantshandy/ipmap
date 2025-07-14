@@ -5,7 +5,6 @@ edition = "2024"
 
 [dependencies]
 serde_json.workspace = true
-base64.workspace = true
 ip_rfc.workspace = true
 child-ipc = { path = "../child-ipc" }
 pcap-dyn = { path = "../pcap-dyn" }

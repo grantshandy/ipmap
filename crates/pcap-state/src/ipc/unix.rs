@@ -16,7 +16,7 @@ pub fn spawn_child_process(
     tracing::debug!("Calling {child_path:?} with {command:?}");
 
     let mut child = ProcessCommand::new(child_path)
-        .arg(super::command_to_string(command))
+        .arg(command.to_arg_string())
         .stdout(Stdio::piped())
         .spawn()?;
 

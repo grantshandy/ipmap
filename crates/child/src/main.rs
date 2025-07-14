@@ -5,12 +5,10 @@ use child_ipc::{ChildError, Command, Response};
 mod command;
 mod ipc;
 
-/// A small child application spawned by the functions in pcap_state::ipc.
-/// It reads in a single child_ipc::Command on stdin at the start, then
-/// returns (a series of) Result<child_ipc::Response, child_ipc::Error>, all in JSON.
 fn main() {
+    // initialize the named pipe between child and parent processes.
     #[cfg(windows)]
-    ipc::init();
+    ipc::windows::init();
 
     let response: Result<Response, ChildError> = match ipc::get_command() {
         Command::PcapStatus => command::get_pcap_status().map(Response::PcapStatus),
