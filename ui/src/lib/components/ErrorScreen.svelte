@@ -35,7 +35,7 @@
     {#if platform == "linux"}
       <p class="text-sm">
         In order to perform this action, you must enable network capabilities on
-        the child executable, which should be located next to this program.
+        the child executable.
       </p>
       <code class="bg-base-100 bg-opacity-80 rounded-sm p-1 text-xs">
         # setcap cap_net_raw,cap_net_admin=eip {path}
