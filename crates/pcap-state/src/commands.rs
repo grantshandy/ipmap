@@ -76,6 +76,7 @@ pub fn init_pcap(app: AppHandle, state: State<'_, PcapState>) -> Result<PcapStat
 
 #[tauri::command]
 #[specta::specta]
+#[cfg_attr(windows, allow(unused_variables))]
 pub async fn traceroute_enabled(app: AppHandle) -> Result<(), Error> {
     #[cfg(windows)]
     return Ok(());

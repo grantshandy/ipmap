@@ -8,7 +8,7 @@ mod unix;
 pub use unix::send_response;
 
 #[cfg(windows)]
-mod windows;
+pub mod windows;
 #[cfg(windows)]
 pub use windows::send_response;
 

@@ -39,6 +39,7 @@ Requirements:
 
 ```sh
  $ pnpm install -C ui
+ $ cargo build --release --package ipmap-child
  $ cargo tauri build
 ```
 

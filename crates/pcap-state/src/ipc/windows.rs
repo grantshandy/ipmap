@@ -3,6 +3,7 @@ use std::{
     io::{self, BufRead, BufReader},
     os::windows::io::FromRawHandle,
     process::Command as ProcessCommand,
+    path::PathBuf,
     ptr,
 };
 
@@ -20,11 +21,12 @@ use windows_sys::Win32::{
 };
 
 pub fn spawn_child_process(
-    child_path: &PathBuf,
+    child_path: PathBuf,
     command: Command,
     admin: bool,
 ) -> io::Result<(impl BufRead, StopCallback)> {
-    let pipe_name = pipe_name(fastrand::u64(..));
+    let pipe_id = fastrand::u64(..);
+    let pipe_name = pipe_name(pipe_id);
     let pipe_name_wide = wide_null(&pipe_name);
 
     let pipe_handle = unsafe {
@@ -45,9 +47,9 @@ pub fn spawn_child_process(
     }
 
     let exit_signal = if admin {
-        spawn_admin_process(child_path, &pipe_name, command)?
+        spawn_admin_process(child_path, pipe_id, command)?
     } else {
-        spawn_normal_process(child_path, &pipe_name, command)?
+        spawn_normal_process(child_path, pipe_id, command)?
     };
 
     let connected = unsafe { ConnectNamedPipe(pipe_handle, ptr::null_mut()) };
@@ -65,13 +67,13 @@ pub fn spawn_child_process(
 }
 
 fn spawn_normal_process(
-    child_path: &PathBuf,
-    pipe_name: &str,
+    child_path: PathBuf,
+    pipe_id: u64,
     command: Command,
 ) -> io::Result<StopCallback> {
     let mut child = ProcessCommand::new(child_path)
         .arg(command.to_arg_string())
-        .arg(pipe_name)
+        .arg(pipe_id.to_string())
         .spawn()?;
 
     Ok(Box::new(move || {
@@ -83,13 +85,13 @@ fn spawn_normal_process(
 }
 
 fn spawn_admin_process(
-    child_path: &PathBuf,
-    pipe_name: &str,
+    child_path: PathBuf,
+    pipe_id: u64,
     command: Command,
 ) -> io::Result<StopCallback> {
     let exe_wide = wide_null(child_path);
     let verb = wide_null("runas");
-    let params = wide_null(format!("{} {}", command.to_arg_string(), pipe_name));
+    let params = wide_null(format!("{} {pipe_id}", command.to_arg_string()));
 
     let mut sei: SHELLEXECUTEINFOW = unsafe { std::mem::zeroed() };
     sei.cbSize = std::mem::size_of::<SHELLEXECUTEINFOW>() as u32;

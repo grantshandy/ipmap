@@ -5,12 +5,18 @@ use child_ipc::EXE_NAME;
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("cargo:rerun-if-changed=build.rs");
 
+    let platform_exe = if cfg!(target_os = "windows") {
+        format!("{EXE_NAME}.exe")
+    } else {
+        EXE_NAME.to_string()
+    };
+
     let from = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?)
-        .join("..")
-        .join("..")
+        .parent().unwrap()
+        .parent().unwrap()
         .join("target")
         .join("release")
-        .join(EXE_NAME)
+        .join(platform_exe)
         .canonicalize()?;
 
     let to = PathBuf::new().join("resources").join(EXE_NAME);
