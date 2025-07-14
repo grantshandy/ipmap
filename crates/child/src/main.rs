@@ -1,14 +1,13 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use child_ipc::{ChildError, Command, Response};
+use child_ipc::{ChildError, Command, Response, ipc};
 
 mod command;
-mod ipc;
 
 fn main() {
     // initialize the named pipe between child and parent processes.
     #[cfg(windows)]
-    ipc::windows::init();
+    ipc::init();
 
     let response: Result<Response, ChildError> = match ipc::get_command() {
         Command::PcapStatus => command::get_pcap_status().map(Response::PcapStatus),

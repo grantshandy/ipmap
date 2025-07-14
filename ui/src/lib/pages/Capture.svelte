@@ -13,6 +13,7 @@
     type ConnectionInfo,
     type ConnectionDirection,
     type Location,
+    humanFileSize,
   } from "$lib/bindings";
   import { divIcon, marker, type Map, type Marker } from "leaflet";
   import { GeodesicLine } from "leaflet.geodesic";
@@ -237,12 +238,13 @@
     {/if}
 
     {#if pcap.status.capture != null}
-      <div
-        class="bg-base-200 rounded-box absolute right-2 bottom-2 z-[999] flex divide-x border"
-      >
-        {@render directionIndicator("Up", "--color-up")}
-        {@render directionIndicator("Down", "--color-down")}
-        {@render directionIndicator("Mixed", "--color-mixed")}
+      <div class="absolute right-2 bottom-2 z-[999] space-y-2">
+        <!-- TODO: Add network up/down speed -->
+        <div class="bg-base-200 rounded-box flex divide-x border py-0.5">
+          {@render directionIndicator("Up", "--color-up")}
+          {@render directionIndicator("Down", "--color-down")}
+          {@render directionIndicator("Mixed", "--color-mixed")}
+        </div>
       </div>
     {/if}
   </MapView>

@@ -1,19 +1,22 @@
 use std::{
     io,
+    path::PathBuf,
     sync::{Arc, Mutex},
 };
 
-use child_ipc::{Command, Device, Response};
-use ipc::{Error, resolve_child_path};
+use child_ipc::{
+    Command, Device, EXE_NAME, Response,
+    ipc::{self, Error, StopCallback},
+};
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tauri::{AppHandle, Manager};
+use tauri::{
+    AppHandle, Manager, Runtime,
+    path::{BaseDirectory, PathResolver},
+};
 use tauri_specta::Event;
 
 pub mod commands;
-pub mod ipc;
-
-pub type StopCallback = Box<dyn FnOnce() -> io::Result<()> + Send + Sync>;
 
 struct CaptureSession {
     stop: StopCallback,
@@ -57,7 +60,7 @@ impl PcapState {
 
         let child = resolve_child_path(app.path()).map_err(Error::Ipc)?;
 
-        match ipc::call_child_process(child, Command::PcapStatus, false)? {
+        match ipc::call_child_process(child, Command::PcapStatus)? {
             Response::PcapStatus(status) => Ok(PcapStateInfo {
                 version: status.version,
                 devices: status.devices,
@@ -94,4 +97,13 @@ impl PcapStateChange {
 
         let _ = info.emit(app);
     }
+}
+
+pub(crate) fn resolve_child_path(resolver: &PathResolver<impl Runtime>) -> Result<PathBuf, String> {
+    resolver
+        .resolve(
+            PathBuf::from("resources").join(EXE_NAME),
+            BaseDirectory::Resource,
+        )
+        .map_err(|e| format!("{EXE_NAME} not found: {e}"))
 }

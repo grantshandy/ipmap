@@ -541,10 +541,13 @@ name = "child-ipc"
 version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
+ "fastrand",
  "serde",
  "serde_json",
  "specta",
  "thiserror 2.0.12",
+ "tracing",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -3046,7 +3049,6 @@ name = "pcap-state"
 version = "0.1.0"
 dependencies = [
  "child-ipc",
- "fastrand",
  "ipgeo-state",
  "serde",
  "serde_json",
@@ -3055,7 +3057,6 @@ dependencies = [
  "tauri-specta",
  "thiserror 2.0.12",
  "tracing",
- "windows-sys 0.60.2",
 ]
 
 [[package]]

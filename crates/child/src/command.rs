@@ -1,11 +1,9 @@
 use std::net::IpAddr;
 
 use child_ipc::{
-    CaptureParams, ChildError, PcapStatus, Response, TracerouteParams, TracerouteResponse,
+    CaptureParams, ChildError, PcapStatus, Response, TracerouteParams, TracerouteResponse, ipc,
 };
 use pcap_dyn::{Api, buf::CaptureTimeBuffer};
-
-use crate::ipc;
 
 pub fn get_pcap_status() -> Result<PcapStatus, ChildError> {
     let api = get_api();

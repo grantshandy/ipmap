@@ -6,7 +6,7 @@ edition = "2024"
 [dependencies]
 serde_json.workspace = true
 ip_rfc.workspace = true
-child-ipc = { path = "../child-ipc" }
+child-ipc = { path = "../child-ipc", features = ["child"] }
 pcap-dyn = { path = "../pcap-dyn" }
 trippy-core = "0.13.0"
 trippy-privilege = "0.13.0"

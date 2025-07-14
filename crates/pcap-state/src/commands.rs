@@ -1,15 +1,15 @@
 use std::net::IpAddr;
 
-use child_ipc::{CaptureParams, Command, Connections, Response, TracerouteParams};
+use child_ipc::{
+    CaptureParams, Command, Connections, Response, TracerouteParams,
+    ipc::{self, Error},
+};
 use ipgeo_state::{DbState, LookupInfo};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tauri::{AppHandle, Manager, State, ipc::Channel};
 
-use crate::{
-    PcapState, PcapStateChange, PcapStateInfo,
-    ipc::{self, Error},
-};
+use crate::{PcapState, PcapStateChange, PcapStateInfo};
 
 #[tauri::command]
 #[specta::specta]
@@ -21,12 +21,10 @@ pub async fn start_capture(
 ) -> Result<(), Error> {
     let device = params.device.clone();
 
-    let (mut child, exit) = ipc::spawn_child_iterator(
-        ipc::resolve_child_path(app.path()).map_err(Error::Ipc)?,
-        Command::Capture(params),
-        false,
-    )
-    .map_err(|e| Error::Ipc(e.to_string()))?;
+    let child_path = crate::resolve_child_path(app.path()).map_err(Error::Ipc)?;
+
+    let (mut child, exit) = ipc::spawn_child_iterator(child_path, Command::Capture(params))
+        .map_err(|e| Error::Ipc(e.to_string()))?;
 
     pcap.set_capture(device, exit);
 
@@ -83,9 +81,9 @@ pub async fn traceroute_enabled(app: AppHandle) -> Result<(), Error> {
 
     #[cfg(not(windows))]
     {
-        let path = ipc::resolve_child_path(app.path()).map_err(Error::Ipc)?;
+        let path = crate::resolve_child_path(app.path()).map_err(Error::Ipc)?;
 
-        match ipc::call_child_process(path.clone(), Command::TracerouteStatus, false)? {
+        match ipc::call_child_process(path.clone(), Command::TracerouteStatus)? {
             Response::TracerouteStatus(true) => Ok(()),
             Response::TracerouteStatus(false) => Err(Error::InsufficientPermissions(path)),
             _ => Err(Error::Ipc("Unexpected response from child".to_string())),
@@ -101,12 +99,10 @@ pub async fn run_traceroute(
     params: TracerouteParams,
     progress: Channel<usize>,
 ) -> Result<Vec<Hop>, Error> {
-    let (mut child, exit) = ipc::spawn_child_iterator(
-        ipc::resolve_child_path(app.path()).map_err(Error::Ipc)?,
-        Command::Traceroute(params),
-        true,
-    )
-    .map_err(|e| Error::Ipc(e.to_string()))?;
+    let child_path = crate::resolve_child_path(app.path()).map_err(Error::Ipc)?;
+
+    let (mut child, exit) = ipc::spawn_child_iterator(child_path, Command::Traceroute(params))
+        .map_err(|e| Error::Ipc(e.to_string()))?;
 
     let exit = || exit().map_err(|e| Error::Ipc(e.to_string()));
 
