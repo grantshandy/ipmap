@@ -63,7 +63,7 @@
     );
   };
 
-  pcap.onStart(async (ip, info) => {
+  pcap.start.on(async (ip, info) => {
     if (!map || !myLocation) return;
 
     const lookupResp = await database.lookupIp(ip);
@@ -104,7 +104,7 @@
     updateIcon(locations[locKey]);
   });
 
-  pcap.onEnd((ip: string) => {
+  pcap.end.on((ip: string) => {
     if (!coordinates[ip] || !map) return;
 
     const locRecord = locations[coordinates[ip]];
@@ -129,7 +129,7 @@
     updateIcon(locRecord);
   });
 
-  pcap.onUpdate(async (ip, info) => {
+  pcap.update.on(async (ip, info) => {
     const coord = coordinates[ip];
     if (!coord || !map) return;
 

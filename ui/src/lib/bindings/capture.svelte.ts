@@ -20,80 +20,61 @@ import {
   type Result,
 } from "./raw";
 
-type CaptureState = {
-  version: string;
-  devices: Device[];
-  capture: Device | null;
-};
-
-type ConnectionStart = (ip: string, info: ConnectionInfo) => void;
-type ConnectionEnd = (ip: string) => void;
-type ConnectionUpdate = (ip: string, info: ConnectionInfo) => void;
+let startCalled = false;
 
 export class Pcap {
-  startCalled = false;
+  /** The currently selected device for capturing. */
   device: Device | null = $state(null);
+
+  /** Current status of the capture state on the backend. */
   status: PcapStateInfo = $state({
     version: "",
     devices: [],
     capture: null,
   });
+
+  /** Active connections the computer is currently engaged in. */
   connections: { [ip: string]: ConnectionInfo } = $state({});
 
+  /** Call this to stop listening to the backend */
   public unlisten!: UnlistenFn;
 
-  private connStarts: ConnectionStart[] = [];
-  private connEnds: ConnectionEnd[] = [];
-  private connUpdate: ConnectionUpdate[] = [];
+  /** An event that is triggered when a connection with a given IP address starts */
+  public start: EventDispatcher<ConnectionStart> = new EventDispatcher();
 
-  constructor(status: CaptureState) {
+  /** An event that is triggered when a connection with a given IP address ends */
+  public end: EventDispatcher<ConnectionEnd> = new EventDispatcher();
+
+  /** An event that is triggered when the backend reports new data for the connection */
+  public update: EventDispatcher<ConnectionUpdate> = new EventDispatcher();
+
+  /** Initialize a new Pcap instance */
+  public static init = (): Promise<Result<Pcap, Error>> =>
+    commands
+      .initPcap()
+      .then((p) =>
+        p.status == "ok"
+          ? { status: "ok", data: new Pcap(p.data) }
+          : { status: "error", error: p.error },
+      );
+
+  /** Initialize with initial data and start listening to state change events. */
+  constructor(status: PcapStateInfo) {
     console.log("capture binding initialized");
 
-    this.update(status);
-    events.pcapStateChange.listen(this.update).then((u) => (this.unlisten = u));
+    this.updateState(status);
+    events.pcapStateChange
+      .listen(this.updateState)
+      .then((u) => (this.unlisten = u));
   }
 
-  private onConnectionRecv = (conns: Connections) => {
-    const connUpdates = conns.updates as { [ip: string]: ConnectionInfo };
-
-    if (conns.stopping) {
-      for (const ip of Object.keys(this.connections)) {
-        this.fireConnEnd(ip);
-      }
-
-      this.connections = {};
-      return;
-    }
-
-    for (const [ip, data] of Object.entries(connUpdates)) {
-      this.connections[ip] = data;
-    }
-
-    // if (conns.started.length > 0) console.log(conns.started.length, "connections added");
-    // if (conns.ended.length > 0) console.log(conns.ended.length, "connections ended");
-
-    for (const ip of conns.started) {
-      // console.log(`${ip} started`);
-      this.fireConnStart(ip, this.connections[ip]);
-    }
-
-    for (const ip of conns.ended) {
-      // console.log(`${ip} ended`);
-      this.fireConnEnd(ip);
-      delete this.connections[ip];
-    }
-
-    for (const [ip, data] of Object.entries(this.connections)) {
-      this.fireConnUpdate(ip, data);
-    }
-  };
-
+  /** Start capturing on this.device */
   public startCapture = () => {
     if (this.device == null) return;
 
-    this.startCalled = true;
+    startCalled = true;
 
-    const channel = new Channel(this.onConnectionRecv);
+    const channel = new Channel(this.updateConnections);
 
     captureError(
       commands.startCapture(
@@ -107,9 +88,11 @@ export class Pcap {
     );
   };
 
+  /** Stop the current packet capture, if capturing. */
   public stopCapture = () => captureErrorBasic(commands.stopCapture());
 
-  private update = (state: PcapStateInfo | Event<PcapStateChange>) => {
+  /** Runs when the backend fires the pcap update state event */
+  private updateState = (state: PcapStateInfo | Event<PcapStateChange>) => {
     let info: PcapStateInfo;
 
     if ("payload" in state) {
@@ -127,14 +110,13 @@ export class Pcap {
 
     this.status = info;
 
-    if (this.status.capture != null && !this.startCalled) {
+    if (this.status.capture != null && !startCalled) {
       console.warn("stopping previous page-load capture session");
       this.stopCapture();
     }
 
     // **this.device must be a reference to a device in the status.devices array**
     // because of the obj equivalence check in the device <select>
-
     if (this.device == null) {
       this.device = this.status.devices[0];
     } else {
@@ -150,22 +132,52 @@ export class Pcap {
     }
   };
 
-  onStart = (l: ConnectionStart) => this.connStarts.push(l);
-  onEnd = (l: ConnectionEnd) => this.connEnds.push(l);
-  onUpdate = (l: ConnectionUpdate) => this.connUpdate.push(l);
+  /** Runs when the capture channel returns updates. Fires events. */
+  private updateConnections = (conns: Connections) => {
+    const connUpdates = conns.updates as { [ip: string]: ConnectionInfo };
 
-  fireConnStart = (ip: string, info: ConnectionInfo) =>
-    this.connStarts.forEach((cb) => cb(ip, info));
-  fireConnEnd = (ip: string) => this.connEnds.forEach((cb) => cb(ip));
-  fireConnUpdate = (ip: string, info: ConnectionInfo) =>
-    this.connUpdate.forEach((cb) => cb(ip, info));
+    if (conns.stopping) {
+      for (const ip of Object.keys(this.connections)) {
+        this.end.fire(ip);
+      }
+
+      this.connections = {};
+      return;
+    }
+
+    for (const [ip, data] of Object.entries(connUpdates)) {
+      this.connections[ip] = data;
+    }
+
+    for (const ip of conns.started) {
+      this.start.fire(ip, this.connections[ip]);
+    }
+
+    for (const ip of conns.ended) {
+      this.end.fire(ip);
+      delete this.connections[ip];
+    }
+
+    for (const [ip, data] of Object.entries(this.connections)) {
+      this.update.fire(ip, data);
+    }
+  };
 }
 
-export const newPcapInstance = (): Promise<Result<Pcap, Error>> =>
-  commands
-    .initPcap()
-    .then((p) =>
-      p.status == "ok"
-        ? { status: "ok", data: new Pcap(p.data) }
-        : { status: "error", error: p.error },
-    );
+/** A generic event dispatcher for connection events */
+class EventDispatcher<T extends (...args: any[]) => void> {
+  private handlers: T[] = [];
+
+  constructor() {}
+
+  /** Register an event handler */
+  public on = (l: T) => this.handlers.push(l);
+
+  /** Dispatch this event */
+  public fire = (...args: Parameters<T>) =>
+    this.handlers.forEach((handler) => handler(...args));
+}
+
+type ConnectionStart = (ip: string, info: ConnectionInfo) => void;
+type ConnectionEnd = (ip: string) => void;
+type ConnectionUpdate = (ip: string, info: ConnectionInfo) => void;

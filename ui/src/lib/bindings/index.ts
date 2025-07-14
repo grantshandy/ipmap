@@ -102,7 +102,7 @@ export const durationFromMillis = (milliseconds: number): Duration => {
   };
 };
 
-export const CAPTURE_CONNECTION_TIMEOUT: Duration = { secs: 5, nanos: 0 };
+export const CAPTURE_CONNECTION_TIMEOUT: Duration = { secs: 1, nanos: 0 };
 export const CAPTURE_REPORT_FREQUENCY: Duration = durationFromMillis(150);
 
 export const renderDeviceName = async (device: Device): Promise<string> => {
