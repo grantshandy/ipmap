@@ -1,8 +1,8 @@
 # Ipmap
 
-> [!NOTE]  
+> [!NOTE]
 > Old versions of ipmap are now located at [`grantshandy/ipmap-old`](https://github.com/grantshandy/ipmap-old).
-> 
+>
 > This version of ipmap is not complete, but is nearly done. Release tarballs will be available soon.
 
 A GUI viewer for [`saphics/ip-location-db`](https://github.com/sapics/ip-location-db?tab=readme-ov-file#city) ip-geolocation databases,
@@ -29,6 +29,17 @@ New-NetFirewallRule -DisplayName "ICMPv6 Ipmap Allow" -Name ICMPv6_IPMAP_ALLOW -
 
 Enable-NetFirewallRule ICMPv4_IPMAP_ALLOW
 Enable-NetFirewallRule ICMPv6_IPMAP_ALLOW
+```
+
+## Building
+Requirements:
+ - [Rust](https://rust-lang.org)
+ - [`tauri-cli`](https://v2.tauri.app/reference/cli/)
+ - [`pnpm`](https://pnpm.io/)
+
+```sh
+ $ pnpm install -C ui
+ $ cargo tauri build
 ```
 
 ## Source Contents
@@ -71,6 +82,7 @@ flowchart TD
  - [ ] Simplify page UI.
  - [ ] Reverse location-to-ip-block search
  - [ ] Heatmap generation (custom webview protocol that serves leaflet tiles?)
+ - [ ] MMDB database support.
  - [ ] Find a new project name (?).
  - [ ] Move `ipgeo-state` and `pcap-state` into `desktop` modules (does this impact compile time much?)
  - [ ] Animated demo in readme.
@@ -79,6 +91,8 @@ flowchart TD
  - [ ] Auto-build builtin database binaries with CI (?).
  - [ ] Light/dark mode with system. Try to match native UI?
  - [ ] Translate user interface.
+ - [ ] Kill child on parent exit.
+ - [ ] Rename "packet capture" to something more non-technical?
  - [ ] Add multi-lingual readmes (zh, es).
  - [ ] Remove `public-ip-address` bloated dependency, create our own solution.
  - [ ] Add settings dialog.
