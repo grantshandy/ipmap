@@ -182,9 +182,7 @@ pub mod parent {
         let success = unsafe { ShellExecuteExW(&mut sei) };
 
         if success == 0 {
-            return Err(io::Error::from_raw_os_error(
-                unsafe { GetLastError() } as i32
-            ));
+            return Err(io::Error::last_os_error());
         }
 
         let process_handle: HANDLE = sei.hProcess;

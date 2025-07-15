@@ -18,7 +18,7 @@ pub const EXE_NAME: &str = "ipmap-child";
 #[derive(Serialize, Deserialize, Debug, Clone, thiserror::Error)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(tag = "t", content = "c")]
-pub enum Error {
+pub enum IpcError {
     #[error("Insufficient network permissions on pcap-child process")]
     InsufficientPermissions(PathBuf),
     #[error("Libpcap loading error: {0}")]
@@ -41,11 +41,11 @@ pub enum ChildError {
 }
 
 impl ChildError {
-    pub fn to_error(self, child: &Path) -> Error {
+    pub fn to_error(self, child: &Path) -> IpcError {
         match self {
-            Self::InsufficientPermissions => Error::InsufficientPermissions(child.to_path_buf()),
-            Self::LibLoading(e) => Error::LibLoading(e),
-            Self::Runtime(e) => Error::Runtime(e),
+            Self::InsufficientPermissions => IpcError::InsufficientPermissions(child.to_path_buf()),
+            Self::LibLoading(e) => IpcError::LibLoading(e),
+            Self::Runtime(e) => IpcError::Runtime(e),
         }
     }
 }

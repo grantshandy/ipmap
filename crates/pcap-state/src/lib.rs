@@ -5,7 +5,7 @@ use std::{
 };
 
 use child_ipc::{
-    Command, Device, EXE_NAME, Error, Response,
+    Command, Device, EXE_NAME, IpcError, Response,
     ipc::{self, StopCallback},
 };
 use serde::{Deserialize, Serialize};
@@ -46,14 +46,14 @@ impl PcapState {
             .unwrap();
     }
 
-    pub fn info(&self, app: AppHandle) -> Result<PcapStateInfo, Error> {
+    pub fn info(&self, app: AppHandle) -> Result<PcapStateInfo, IpcError> {
         let capture: Option<Device> = self
             .capture
             .lock()
             .ok()
             .and_then(|c| c.as_ref().map(|c| c.device.clone()));
 
-        let child = resolve_child_path(app.path()).map_err(Error::Ipc)?;
+        let child = resolve_child_path(app.path()).map_err(IpcError::Ipc)?;
 
         match ipc::call_child_process(child, Command::PcapStatus)? {
             Response::PcapStatus(status) => Ok(PcapStateInfo {
@@ -61,7 +61,7 @@ impl PcapState {
                 devices: status.devices,
                 capture,
             }),
-            _ => Err(Error::Ipc("Unexpected response type".to_string())),
+            _ => Err(IpcError::Ipc("Unexpected response type".to_string())),
         }
     }
 }
@@ -80,7 +80,7 @@ pub struct PcapStateInfo {
 #[serde(tag = "status")]
 pub enum PcapStateChange {
     Ok(PcapStateInfo),
-    Err(Error),
+    Err(IpcError),
 }
 
 impl PcapStateChange {

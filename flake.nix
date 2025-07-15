@@ -91,7 +91,7 @@
         RUST_SRC_PATH = "${pkgs.rustPlatform.rustLibSrc}";
         LD_LIBRARY_PATH = "${pkgs.lib.makeLibraryPath [pkgs.libpcap]}:$LD_LIBRARY_PATH";
         WEBKIT_DISABLE_DMABUF_RENDERER = "1";
-        DB_PRELOADS = "/home/grant/Documents/ipdbs/dbip-city-ipv4.csv.gz";
+        DB_PRELOADS = "/home/grant/Documents/ipdbs/dbip-city-ipv4.csv.gz:/home/grant/Documents/ipdbs/dbip-city-ipv6.csv.gz";
 
         buildInputs = with pkgs; [
           cargo

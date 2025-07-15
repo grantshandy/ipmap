@@ -3,10 +3,10 @@ import {
   commands,
   type DbStateInfo,
   type DbCollectionInfo,
-  type Coordinate,
+  type LookupInfo,
 } from "./raw";
 import * as dialog from "@tauri-apps/plugin-dialog";
-import { captureErrorBasic } from ".";
+import { captureError } from ".";
 
 class Database implements DbStateInfo {
   ipv4: DbCollectionInfo = $state({ loaded: [], selected: null });
@@ -55,7 +55,7 @@ class Database implements DbStateInfo {
   };
 
   unload = (name: string | null) => {
-    if (name) captureErrorBasic(commands.unloadDatabase(name));
+    if (name) captureError(commands.unloadDatabase, name);
   };
 
   lookupIp = commands.lookupIp;
@@ -63,7 +63,8 @@ class Database implements DbStateInfo {
   lookupHost = commands.lookupHost;
   loadInternals = commands.loadInternals;
 
-  myLocation = () => captureErrorBasic(commands.myLocation());
+  myLocation = (): Promise<LookupInfo | null> =>
+    captureError(commands.myLocation);
 }
 
 export default new Database();

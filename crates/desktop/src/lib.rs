@@ -29,6 +29,7 @@ pub fn run() {
             pcap_state::commands::stop_capture,
             pcap_state::commands::traceroute_enabled,
             pcap_state::commands::run_traceroute,
+            pcap_state::commands::print_ipc_error,
         ]);
 
     #[cfg(all(debug_assertions, not(mobile)))]

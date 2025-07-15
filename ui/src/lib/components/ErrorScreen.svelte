@@ -1,12 +1,12 @@
 <script lang="ts">
   import Link from "./Link.svelte";
 
-  import { utils, type Error } from "$lib/bindings";
+  import { printIpcError, utils, type IpcError } from "$lib/bindings";
 
   let {
     error = $bindable(),
     exitable,
-  }: { error: Error | null; exitable?: boolean } = $props();
+  }: { error: IpcError | null; exitable?: boolean } = $props();
 </script>
 
 {#if error}
@@ -17,11 +17,11 @@
       {:else if error.t == "LibLoading"}
         {@render libLoadingErrorInfo(error.c)}
       {:else}
-        <h1 class="text-lg font-semibold">Child Process Error</h1>
+        <h1 class="text-lg font-semibold">Error</h1>
         {#if "c" in error}
-          <p class="text-sm">
-            <code>{error.c}</code>
-          </p>
+          {#await printIpcError(error) then error}
+            <pre class="overflow-x-auto text-sm">{error}</pre>
+          {/await}
         {/if}
         {@render exitButton()}
       {/if}
@@ -30,16 +30,20 @@
 {/if}
 
 {#snippet insufficientPermissionsInfo(path: string)}
-  <h1 class="text-lg font-semibold">Child Process Insufficient Permissions</h1>
+  <h1 class="text-lg font-semibold">
+    Child Process Has Insufficient Network Permissions
+  </h1>
   {#await utils.platform() then platform}
     {#if platform == "linux"}
       <p class="text-sm">
         In order to perform this action, you must enable network capabilities on
         the child executable.
       </p>
-      <code class="bg-base-100 bg-opacity-80 rounded-sm p-1 text-xs">
-        # setcap cap_net_raw,cap_net_admin=eip {path}
-      </code>
+      <pre
+        class="bg-base-100 bg-opacity-80 overflow-x-auto rounded-sm px-2 py-3 text-xs"># setcap cap_net_raw,cap_net_admin=eip {path}</pre>
+      <button class="btn btn-sm" onclick={() => window.location.reload()}
+        >Retry</button
+      >
     {:else}
       <p class="text-sm">Try restarting the program as an administrator.</p>
     {/if}

@@ -4,7 +4,7 @@ import {
   type Coordinate,
   type Device,
   type Duration,
-  type Error,
+  type IpcError,
   type Location,
   type MovingAverageInfo,
   type Result,
@@ -30,56 +30,36 @@ export const utils = {
   platform: commands.platform,
 };
 
-export const isError = (err: any): err is Error =>
+export const isIpcError = (err: any): err is IpcError =>
   err != null &&
   typeof err == "object" &&
   "t" in err &&
   (err.t == "Runtime" ||
     err.t == "Ipc" ||
     err.t == "LibLoading" ||
-    err.t == "InsufficientPermissions" ||
-    err.t == "NotFound");
+    err.t == "InsufficientPermissions");
 
-export const printError = (err: Error): string => {
-  if (err.t == "Runtime") {
-    return `Error in child process: ${err.c}`;
-  } else if (err.t == "Ipc") {
-    return `Failure to connect to child process: ${err.c}`;
-  } else if (err.t == "LibLoading") {
-    return `Unable to load libpcap: ${err.c}`;
-  } else if (err.t == "InsufficientPermissions") {
-    return "Insufficient permissions for the child process";
-  } else if (err.t == "NotFound") {
-    return `Unable to find child process: '${err.c}'`;
-  } else {
-    return "Unknown Error Type";
-  }
-};
+export const printIpcError = commands.printIpcError;
 
-export const captureErrorBasic = async <T>(
-  f: Promise<Result<T, string>>,
+export const captureError = async <
+  T,
+  F extends (...args: any[]) => Promise<Result<T, string>>,
+>(
+  f: F,
+  ...args: Parameters<F>
 ): Promise<T | null> => {
-  const r = await f;
+  try {
+    const r = await f(...args);
 
-  if (r.status == "error") {
-    displayError(r.error);
+    if (r.status === "error") {
+      displayError(r.error);
+      return null;
+    } else {
+      return r.data;
+    }
+  } catch (error) {
+    displayError(`An unexpected error occurred: ${error}`);
     return null;
-  } else {
-    return r.data;
-  }
-};
-
-export const captureError = async <T>(
-  f: Promise<Result<T, Error>>,
-): Promise<T | null> => {
-  const r = await f;
-
-  if (r.status == "error") {
-    console.error(r.error);
-    displayError(printError(r.error));
-    return null;
-  } else {
-    return r.data;
   }
 };
 

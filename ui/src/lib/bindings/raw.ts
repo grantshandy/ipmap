@@ -91,7 +91,7 @@ async myLocation() : Promise<Result<LookupInfo, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async initPcap() : Promise<Result<PcapStateInfo, Error>> {
+async initPcap() : Promise<Result<PcapStateInfo, IpcError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("init_pcap") };
 } catch (e) {
@@ -99,7 +99,7 @@ async initPcap() : Promise<Result<PcapStateInfo, Error>> {
     else return { status: "error", error: e  as any };
 }
 },
-async startCapture(params: CaptureParams, conns: TAURI_CHANNEL<Connections>) : Promise<Result<null, Error>> {
+async startCapture(params: CaptureParams, conns: TAURI_CHANNEL<Connections>) : Promise<Result<null, IpcError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("start_capture", { params, conns }) };
 } catch (e) {
@@ -118,7 +118,7 @@ async stopCapture() : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async tracerouteEnabled() : Promise<Result<null, Error>> {
+async tracerouteEnabled() : Promise<Result<null, IpcError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("traceroute_enabled") };
 } catch (e) {
@@ -126,13 +126,16 @@ async tracerouteEnabled() : Promise<Result<null, Error>> {
     else return { status: "error", error: e  as any };
 }
 },
-async runTraceroute(params: TracerouteParams, progress: TAURI_CHANNEL<number>) : Promise<Result<Hop[], Error>> {
+async runTraceroute(params: TracerouteParams, progress: TAURI_CHANNEL<number>) : Promise<Result<Hop[], IpcError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("run_traceroute", { params, progress }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async printIpcError(error: IpcError) : Promise<string> {
+    return await TAURI_INVOKE("print_ipc_error", { error });
 }
 }
 
@@ -188,15 +191,15 @@ ready: boolean;
  */
 wireless: boolean }
 export type Duration = { secs: number; nanos: number }
-export type Error = { t: "InsufficientPermissions"; c: string } | { t: "LibLoading"; c: string } | { t: "Runtime"; c: string } | { t: "Ipc"; c: string }
 export type Hop = { ips: string[]; loc: LookupInfo | null }
+export type IpcError = { t: "InsufficientPermissions"; c: string } | { t: "LibLoading"; c: string } | { t: "Runtime"; c: string } | { t: "Ipc"; c: string }
 /**
  * Location metadata.
  */
 export type Location = { city: string | null; region: string | null; countryCode: string }
 export type LookupInfo = { crd: Coordinate; loc: Location }
 export type MovingAverageInfo = { total: number; avgS: number }
-export type PcapStateChange = ({ status: "Ok" } & PcapStateInfo) | ({ status: "Err" } & Error)
+export type PcapStateChange = ({ status: "Ok" } & PcapStateInfo) | ({ status: "Err" } & IpcError)
 export type PcapStateInfo = { 
 /**
  * The version information about the currently loaded libpcap

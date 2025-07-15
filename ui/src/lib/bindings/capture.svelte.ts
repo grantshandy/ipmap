@@ -4,9 +4,8 @@ import {
   CAPTURE_CONNECTION_TIMEOUT,
   CAPTURE_REPORT_FREQUENCY,
   captureError,
-  captureErrorBasic,
   displayError,
-  printError,
+  printIpcError,
 } from ".";
 import {
   commands,
@@ -14,7 +13,7 @@ import {
   type ConnectionInfo,
   type Connections,
   type Device,
-  type Error,
+  type IpcError,
   type PcapStateChange,
   type PcapStateInfo,
   type Result,
@@ -49,7 +48,7 @@ export class Pcap {
   public update: EventDispatcher<ConnectionUpdate> = new EventDispatcher();
 
   /** Initialize a new Pcap instance */
-  public static init = (): Promise<Result<Pcap, Error>> =>
+  public static init = (): Promise<Result<Pcap, IpcError>> =>
     commands
       .initPcap()
       .then((p) =>
@@ -69,27 +68,29 @@ export class Pcap {
   }
 
   /** Start capturing on this.device */
-  public startCapture = () => {
+  public startCapture = async () => {
     if (this.device == null) return;
 
     startCalled = true;
 
     const channel = new Channel(this.updateConnections);
 
-    captureError(
-      commands.startCapture(
-        {
-          device: this.device,
-          connectionTimeout: CAPTURE_CONNECTION_TIMEOUT,
-          reportFrequency: CAPTURE_REPORT_FREQUENCY,
-        },
-        channel,
-      ),
+    const res = await commands.startCapture(
+      {
+        device: this.device,
+        connectionTimeout: CAPTURE_CONNECTION_TIMEOUT,
+        reportFrequency: CAPTURE_REPORT_FREQUENCY,
+      },
+      channel,
     );
+
+    if (res.status == "error") {
+      displayError(await printIpcError(res.error));
+    }
   };
 
   /** Stop the current packet capture, if capturing. */
-  public stopCapture = () => captureErrorBasic(commands.stopCapture());
+  public stopCapture = () => captureError(commands.stopCapture);
 
   /** Runs when the backend fires the pcap update state event */
   private updateState = (state: PcapStateInfo | Event<PcapStateChange>) => {
@@ -99,7 +100,7 @@ export class Pcap {
       if (state.payload.status == "Ok") {
         info = state.payload;
       } else {
-        displayError(printError(state.payload));
+        printIpcError(state.payload).then(displayError);
         return;
       }
     } else {

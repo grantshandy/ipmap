@@ -7,12 +7,12 @@
   import {
     database,
     traceroute,
+    isIpcError,
     type Coordinate,
     type Hop,
     type Result,
     type TracerouteParams,
-    type Error,
-    isError,
+    type IpcError,
   } from "$lib/bindings";
   import type { Action } from "svelte/action";
 
@@ -27,11 +27,11 @@
   // number => loading round
   // Hop[] => viewing results
   // Error => error message
-  let pageState: null | number | Hop[] | Error = $state(null);
+  let pageState: null | number | Hop[] | IpcError = $state(null);
 
   const search = async (input: Result<string, string> | null) => {
     if (input == null || input.status == "error") {
-      pageState = input?.error ? { t: "Ipc", c: input.error } : null;
+      pageState = input?.error ? { t: "Runtime", c: input.error } : null;
       return;
     }
 
@@ -65,7 +65,7 @@
   {#await traceroute.enabled() then enabled}
     {#if enabled.status == "error"}
       <ErrorScreen error={enabled.error} />
-    {:else if isError(pageState)}
+    {:else if isIpcError(pageState)}
       <ErrorScreen bind:error={pageState} exitable={true} />
     {:else if typeof pageState == "number"}
       {@render traceLoading()}

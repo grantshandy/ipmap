@@ -19,22 +19,22 @@ mod parent {
     pub use super::windows::parent::*;
 
     use super::StopCallback;
-    use crate::{ChildError, Command, EXE_NAME, Error, Response};
+    use crate::{ChildError, Command, EXE_NAME, IpcError, Response};
     use std::{
         io::{self, BufRead},
         path::PathBuf,
         rc::Rc,
     };
 
-    pub fn call_child_process(child_path: PathBuf, command: Command) -> Result<Response, Error> {
+    pub fn call_child_process(child_path: PathBuf, command: Command) -> Result<Response, IpcError> {
         let (mut iter, stop) =
-            spawn_child_iterator(child_path, command).map_err(|e| Error::Ipc(e.to_string()))?;
+            spawn_child_iterator(child_path, command).map_err(|e| IpcError::Ipc(e.to_string()))?;
 
         let res = iter
             .next()
-            .ok_or(Error::Ipc(format!("No response from {EXE_NAME}")))?;
+            .ok_or(IpcError::Ipc(format!("No response from {EXE_NAME}")))?;
 
-        stop().map_err(|e| Error::Ipc(format!("Failed to stop {EXE_NAME}: {e}")))?;
+        stop().map_err(|e| IpcError::Ipc(format!("Failed to stop {EXE_NAME}: {e}")))?;
 
         res
     }
@@ -42,7 +42,10 @@ mod parent {
     pub fn spawn_child_iterator(
         child_path: PathBuf,
         command: Command,
-    ) -> io::Result<(impl Iterator<Item = Result<Response, Error>>, StopCallback)> {
+    ) -> io::Result<(
+        impl Iterator<Item = Result<Response, IpcError>>,
+        StopCallback,
+    )> {
         tracing::debug!("Calling {child_path:?} with {command:?}");
 
         let (reader, exit_signal) = spawn_child_process(child_path.clone(), command)?;
@@ -52,12 +55,12 @@ mod parent {
         // Process should only emit Result<Response, Error> as JSON strings separated by newlines.
         let iter = reader
             .lines()
-            .map(|line| line.map_err(|e| Error::Ipc(e.to_string())))
+            .map(|line| line.map_err(|e| IpcError::Ipc(e.to_string())))
             .map(move |line| {
                 line.and_then(
                     |l| match serde_json::from_str::<Result<Response, ChildError>>(&l) {
                         Ok(resp) => resp.map_err(|e| e.to_error(&path.clone())),
-                        Err(err) => Err(Error::Ipc(err.to_string())),
+                        Err(err) => Err(IpcError::Ipc(err.to_string())),
                     },
                 )
             });
