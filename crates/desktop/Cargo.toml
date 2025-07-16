@@ -17,7 +17,6 @@ specta.workspace = true
 serde.workspace = true
 tracing.workspace = true
 tauri-specta.workspace = true
-ip_rfc.workspace = true
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 
 tauri-plugin-opener = "2"

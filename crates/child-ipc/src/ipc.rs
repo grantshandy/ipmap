@@ -128,13 +128,12 @@ mod parent {
 
     #[cfg(windows)]
     mod windows {
-        use std::{ffi::OsStr, fs::File, io, os::windows::ffi::OsStrExt, path::PathBuf, ptr};
+        use std::{ffi::OsStr, io, os::windows::ffi::OsStrExt, path::PathBuf, ptr};
 
         use windows_sys::{
             Win32::{
                 Foundation::*,
-                Storage::FileSystem::*,
-                System::{Pipes::*, Threading::*},
+                System::Threading::*,
                 UI::Shell::*,
             },
             w,

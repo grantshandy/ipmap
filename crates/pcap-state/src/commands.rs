@@ -103,7 +103,7 @@ pub async fn run_traceroute(
 
     let (child, exit) = ipc::spawn_child_process(child_path, Command::Traceroute(params))?;
 
-    let exit = || exit().map_err(|e| Error::from(e));
+    let exit = || exit().map_err(Error::from);
 
     while let Ok(msg) = child.recv() {
         match msg {

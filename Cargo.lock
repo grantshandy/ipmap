@@ -2153,7 +2153,6 @@ name = "ipmap"
 version = "5.0.0"
 dependencies = [
  "child-ipc",
- "ip_rfc",
  "ipgeo-state",
  "pcap-state",
  "serde",

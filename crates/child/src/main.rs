@@ -1,6 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::{env, net::IpAddr, panic, sync::mpsc, thread};
+use std::{net::IpAddr, panic, sync::mpsc, thread};
 
 use child_ipc::{
     Error, ErrorKind, IpcService, PcapStatus, Response, RunCapture, RunTraceroute,
@@ -21,7 +21,7 @@ impl IpcService for Service {
         #[cfg(target_os = "linux")]
         if !Self::has_net_raw()? {
             return Err(Error::insufficient_permissions(
-                env::current_exe().unwrap_or(child_ipc::EXE_NAME.into()),
+                std::env::current_exe().unwrap_or(child_ipc::EXE_NAME.into()),
             ));
         }
 
@@ -52,7 +52,7 @@ impl IpcService for Service {
 
         loop {
             ipc::send_response(parent, Ok(Response::CaptureSample(buf.connections())));
-            std::thread::sleep(params.report_frequency);
+            thread::sleep(params.report_frequency);
         }
     }
 
@@ -122,7 +122,7 @@ impl IpcService for Service {
             match rx.recv() {
                 Ok(ThreadMessage::Result(r)) => break r,
                 Ok(ThreadMessage::Progress(p)) => {
-                    ipc::send_response(&parent, Ok(Response::Progress(p)))
+                    ipc::send_response(parent, Ok(Response::Progress(p)))
                 }
                 Ok(ThreadMessage::Error(e)) => return Err(Error::runtime(e)),
                 Err(e) => {
