@@ -49,9 +49,9 @@ Requirements:
     - `/ipgeo` - Data structures for representing ip-geolocation databases.
     - `/ipgeo-state` - UI state and methods for loading and switching ip-geolocation databases.
     - `/pcap-dyn` - Dynamic bindings to the [`libpcap`](https://www.tcpdump.org/) C library, modeled after the [`pcap`](https://crates.io/crates/pcap) crate.
-    - `/pcap-state` - UI state and methods for executing `ipmap-child`.
+    - `/pcap-state` - UI state and command for packet capture.
     - `/child` - A separate child process (`ipmap-child`) for executing privileged features such as packet capture and traceroute.
-    - `/child-ipc` - Shared types between `pcap-state` and `ipmap-child` for IPC.
+    - `/child-ipc` - Shared types between `pcap-state` and `ipmap-child` for IPC and methods for executing `ipmap-child`.
  - `/ui` - The desktop UI, written with Svelte and Typescript.
 
 ```mermaid
@@ -86,7 +86,7 @@ flowchart TD
  - [ ] MMDB database support.
  - [ ] Find a new project name (?).
  - [ ] Animated demo in readme.
- - [ ] Unify error types (?).
+ - [x] Unify error types.
  - [ ] Document builtin databases (env var `DATABASE_PRELOADS`).
  - [ ] Auto-build builtin database binaries with CI (?).
  - [ ] Light/dark mode with system. Try to match native UI?
