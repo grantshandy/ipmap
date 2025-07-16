@@ -3,7 +3,6 @@ import type { Event, UnlistenFn } from "@tauri-apps/api/event";
 import {
   CAPTURE_CONNECTION_TIMEOUT,
   CAPTURE_REPORT_FREQUENCY,
-  captureError,
   displayError,
   printError,
 } from ".";
@@ -13,7 +12,7 @@ import {
   type ConnectionInfo,
   type Connections,
   type Device,
-  type IpcError,
+  type Error,
   type PcapStateChange,
   type PcapStateInfo,
   type Result,
@@ -48,7 +47,7 @@ export class Pcap {
   public update: EventDispatcher<ConnectionUpdate> = new EventDispatcher();
 
   /** Initialize a new Pcap instance */
-  public static init = (): Promise<Result<Pcap, IpcError>> =>
+  public static init = (): Promise<Result<Pcap, Error>> =>
     commands
       .initPcap()
       .then((p) =>
@@ -90,7 +89,10 @@ export class Pcap {
   };
 
   /** Stop the current packet capture, if capturing. */
-  public stopCapture = () => captureError(commands.stopCapture);
+  public stopCapture = () =>
+    commands.stopCapture().then((r) => {
+      if (r.status == "error") printError(r.error).then(displayError);
+    });
 
   /** Runs when the backend fires the pcap update state event */
   private updateState = (state: PcapStateInfo | Event<PcapStateChange>) => {
