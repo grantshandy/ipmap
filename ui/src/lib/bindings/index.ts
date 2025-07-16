@@ -4,7 +4,8 @@ import {
   type Coordinate,
   type Device,
   type Duration,
-  type IpcError,
+  type Error,
+  type ErrorKind,
   type Location,
   type MovingAverageInfo,
   type Result,
@@ -30,16 +31,31 @@ export const utils = {
   platform: commands.platform,
 };
 
-export const isIpcError = (err: any): err is IpcError =>
-  err != null &&
-  typeof err == "object" &&
-  "t" in err &&
-  (err.t == "Runtime" ||
-    err.t == "Ipc" ||
-    err.t == "LibLoading" ||
-    err.t == "InsufficientPermissions");
+export const isError = (value: unknown): value is Error => {
+  if (typeof value !== "object" || value === null) return false;
 
-export const printIpcError = commands.printIpcError;
+  if (!("kind" in value) || !("message" in value)) return false;
+  if (typeof value.kind !== "string") return false;
+
+  const validKinds: ErrorKind[] = [
+    "UnexpectedType",
+    "TerminatedUnexpectedly",
+    "Ipc",
+    "InsufficientPermissions",
+    "LibLoading",
+    "Runtime",
+    "ChildNotFound",
+    "EstablishConnection",
+    "Io",
+  ];
+
+  if (!validKinds.includes(value.kind as ErrorKind)) return false;
+  if (typeof value.message !== "string" && value.message !== null) return false;
+
+  return true;
+};
+
+export const printError = commands.printError;
 
 export const captureError = async <
   T,

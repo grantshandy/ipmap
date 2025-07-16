@@ -7,18 +7,18 @@
   import {
     database,
     traceroute,
-    isIpcError,
+    isError,
     type Coordinate,
     type Hop,
     type Result,
-    type TracerouteParams,
-    type IpcError,
+    type RunTraceroute,
+    type Error,
   } from "$lib/bindings";
   import type { Action } from "svelte/action";
 
   const MAX_MAX_ROUNDS: number = 200;
 
-  let prefs: TracerouteParams = $state({
+  let prefs: RunTraceroute = $state({
     maxRounds: 5,
     ip: "",
   });
@@ -27,11 +27,13 @@
   // number => loading round
   // Hop[] => viewing results
   // Error => error message
-  let pageState: null | number | Hop[] | IpcError = $state(null);
+  let pageState: null | number | Hop[] | Error = $state(null);
 
   const search = async (input: Result<string, string> | null) => {
     if (input == null || input.status == "error") {
-      pageState = input?.error ? { t: "Runtime", c: input.error } : null;
+      pageState = input?.error
+        ? { kind: "Runtime", message: input.error }
+        : null;
       return;
     }
 
@@ -65,7 +67,7 @@
   {#await traceroute.enabled() then enabled}
     {#if enabled.status == "error"}
       <ErrorScreen error={enabled.error} />
-    {:else if isIpcError(pageState)}
+    {:else if isError(pageState)}
       <ErrorScreen bind:error={pageState} exitable={true} />
     {:else if typeof pageState == "number"}
       {@render traceLoading()}

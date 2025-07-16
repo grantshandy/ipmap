@@ -1,6 +1,6 @@
 use std::net::IpAddr;
 
-use child_ipc::{CaptureParams, Command, Connections, IpcError, Response, TracerouteParams, ipc};
+use child_ipc::{Command, Connections, Error, ErrorKind, Response, RunCapture, RunTraceroute, ipc};
 use ipgeo_state::{DbState, LookupInfo};
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -13,30 +13,25 @@ use crate::{PcapState, PcapStateChange, PcapStateInfo};
 pub async fn start_capture(
     app: AppHandle,
     pcap: State<'_, PcapState>,
-    params: CaptureParams,
+    params: RunCapture,
     conns: Channel<Connections>,
-) -> Result<(), IpcError> {
+) -> Result<(), Error> {
     let device = params.device.clone();
 
-    let child_path = crate::resolve_child_path(app.path()).map_err(IpcError::Ipc)?;
-
-    let (child, exit) = ipc::spawn_child_iterator(child_path, Command::Capture(params))
-        .map_err(|e| IpcError::Ipc(e.to_string()))?;
+    let child_path = crate::resolve_child_path(app.path())?;
+    let (child, exit) = ipc::spawn_child_process(child_path, Command::Capture(params))?;
 
     pcap.set_capture(device, exit);
-
     PcapStateChange::emit(&app);
 
-    for resp in child {
+    while let Ok(resp) = child.recv() {
         match resp {
             Ok(Response::CaptureSample(c)) => {
                 let _ = conns.send(c);
             }
             Ok(_) => {
                 pcap.stop_capture();
-                return Err(IpcError::Ipc(
-                    "Child process returned unexpected type".to_string(),
-                ));
+                return Err(Error::basic(ErrorKind::UnexpectedType));
             }
             Err(e) => {
                 pcap.stop_capture();
@@ -46,7 +41,6 @@ pub async fn start_capture(
     }
 
     pcap.stop_capture();
-
     let _ = conns.send(Connections::stop());
     PcapStateChange::emit(&app);
 
@@ -56,40 +50,43 @@ pub async fn start_capture(
 /// Stop the current capture.
 #[tauri::command]
 #[specta::specta]
-pub async fn stop_capture(pcap: State<'_, PcapState>) -> Result<(), String> {
+pub async fn stop_capture(pcap: State<'_, PcapState>) -> Result<(), Error> {
     match pcap.stop_capture() {
-        Some(Err(e)) => Err(e.to_string()),
+        Some(Err(e)) => Err(Error::from(e)),
         _ => Ok(()),
     }
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn init_pcap(app: AppHandle, state: State<'_, PcapState>) -> Result<PcapStateInfo, IpcError> {
+pub fn init_pcap(app: AppHandle, state: State<'_, PcapState>) -> Result<PcapStateInfo, Error> {
     state.info(app)
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn print_ipc_error(error: IpcError) -> String {
+pub fn print_error(error: Error) -> String {
     error.to_string()
 }
 
 #[tauri::command]
 #[specta::specta]
 #[cfg_attr(windows, allow(unused_variables))]
-pub async fn traceroute_enabled(app: AppHandle) -> Result<(), IpcError> {
+pub async fn traceroute_enabled(app: AppHandle) -> Result<(), Error> {
     #[cfg(windows)]
     return Ok(());
 
     #[cfg(not(windows))]
     {
-        let path = crate::resolve_child_path(app.path()).map_err(IpcError::Ipc)?;
+        let path = crate::resolve_child_path(app.path())?;
 
         match ipc::call_child_process(path.clone(), Command::TracerouteStatus)? {
-            Response::TracerouteStatus(true) => Ok(()),
-            Response::TracerouteStatus(false) => Err(IpcError::InsufficientPermissions(path)),
-            _ => Err(IpcError::Ipc("Unexpected response from child".to_string())),
+            Response::TraceStatus(true) => Ok(()),
+            Response::TraceStatus(false) => Err(Error::message(
+                ErrorKind::InsufficientPermissions,
+                path.display().to_string(),
+            )),
+            _ => Err(Error::basic(ErrorKind::UnexpectedType)),
         }
     }
 }
@@ -99,24 +96,22 @@ pub async fn traceroute_enabled(app: AppHandle) -> Result<(), IpcError> {
 pub async fn run_traceroute(
     app: AppHandle,
     db: State<'_, DbState>,
-    params: TracerouteParams,
+    params: RunTraceroute,
     progress: Channel<usize>,
-) -> Result<Vec<Hop>, IpcError> {
-    let child_path = crate::resolve_child_path(app.path()).map_err(IpcError::Ipc)?;
+) -> Result<Vec<Hop>, Error> {
+    let child_path = crate::resolve_child_path(app.path())?;
 
-    let (child, exit) = ipc::spawn_child_iterator(child_path, Command::Traceroute(params))
-        .map_err(|e| IpcError::Ipc(e.to_string()))?;
+    let (child, exit) = ipc::spawn_child_process(child_path, Command::Traceroute(params))?;
 
-    let exit = || exit().map_err(|e| IpcError::Ipc(e.to_string()));
+    let exit = || exit().map_err(|e| Error::from(e));
 
-    for message in child {
-        match message {
-            Ok(Response::TracerouteProgress(round)) => {
+    while let Ok(msg) = child.recv() {
+        match msg {
+            Ok(Response::Progress(round)) => {
                 let _ = progress.send(round);
             }
-            Ok(Response::TracerouteResponse(resp)) => {
+            Ok(Response::Traceroute(resp)) => {
                 let hops = resp
-                    .hops
                     .into_iter()
                     .map(|ips| Hop::new(ips, db.clone()))
                     .collect();
@@ -126,9 +121,7 @@ pub async fn run_traceroute(
             }
             Ok(_) => {
                 exit()?;
-                return Err(IpcError::Ipc(
-                    "Child process returned unexpected type".to_string(),
-                ));
+                return Err(Error::basic(ErrorKind::UnexpectedType));
             }
             Err(e) => {
                 exit()?;
@@ -137,9 +130,8 @@ pub async fn run_traceroute(
         }
     }
 
-    Err(IpcError::Ipc(
-        "Child process terminated unexpectedly".to_string(),
-    ))
+    exit()?;
+    Err(Error::basic(ErrorKind::TerminatedUnexpectedly))
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Type)]

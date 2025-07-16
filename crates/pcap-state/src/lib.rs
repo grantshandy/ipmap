@@ -5,7 +5,7 @@ use std::{
 };
 
 use child_ipc::{
-    Command, Device, EXE_NAME, IpcError, Response,
+    Command, Device, EXE_NAME, Error, ErrorKind, Response,
     ipc::{self, StopCallback},
 };
 use serde::{Deserialize, Serialize};
@@ -46,14 +46,14 @@ impl PcapState {
             .unwrap();
     }
 
-    pub fn info(&self, app: AppHandle) -> Result<PcapStateInfo, IpcError> {
+    pub fn info(&self, app: AppHandle) -> Result<PcapStateInfo, Error> {
         let capture: Option<Device> = self
             .capture
             .lock()
             .ok()
             .and_then(|c| c.as_ref().map(|c| c.device.clone()));
 
-        let child = resolve_child_path(app.path()).map_err(IpcError::Ipc)?;
+        let child = resolve_child_path(app.path())?;
 
         match ipc::call_child_process(child, Command::PcapStatus)? {
             Response::PcapStatus(status) => Ok(PcapStateInfo {
@@ -61,7 +61,7 @@ impl PcapState {
                 devices: status.devices,
                 capture,
             }),
-            _ => Err(IpcError::Ipc("Unexpected response type".to_string())),
+            _ => Err(Error::basic(ErrorKind::UnexpectedType)),
         }
     }
 }
@@ -80,7 +80,7 @@ pub struct PcapStateInfo {
 #[serde(tag = "status")]
 pub enum PcapStateChange {
     Ok(PcapStateInfo),
-    Err(IpcError),
+    Err(Error),
 }
 
 impl PcapStateChange {
@@ -94,11 +94,21 @@ impl PcapStateChange {
     }
 }
 
-pub(crate) fn resolve_child_path(resolver: &PathResolver<impl Runtime>) -> Result<PathBuf, String> {
-    resolver
-        .resolve(
-            PathBuf::from("resources").join(EXE_NAME),
-            BaseDirectory::Resource,
-        )
-        .map_err(|e| format!("{EXE_NAME} not found: {e}"))
+pub(crate) fn resolve_child_path(resolver: &PathResolver<impl Runtime>) -> Result<PathBuf, Error> {
+    match resolver.resolve(
+        PathBuf::from("resources").join(EXE_NAME),
+        BaseDirectory::Resource,
+    ) {
+        Ok(path) => {
+            if path.try_exists().is_ok_and(|exists| exists) {
+                Ok(path)
+            } else {
+                Err(Error::message(
+                    ErrorKind::ChildNotFound,
+                    format!("{path:?} doesn't exist"),
+                ))
+            }
+        }
+        Err(err) => Err(Error::message(ErrorKind::ChildNotFound, err.to_string())),
+    }
 }

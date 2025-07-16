@@ -1,25 +1,25 @@
 <script lang="ts">
   import Link from "./Link.svelte";
 
-  import { printIpcError, utils, type IpcError } from "$lib/bindings";
+  import { printError as printError, utils, type Error } from "$lib/bindings";
 
   let {
     error = $bindable(),
     exitable,
-  }: { error: IpcError | null; exitable?: boolean } = $props();
+  }: { error: Error | null; exitable?: boolean } = $props();
 </script>
 
 {#if error}
   <div class="flex grow items-center justify-center">
     <div class="rounded-box bg-error max-w-110 space-y-2 px-3 py-2">
-      {#if error.t == "InsufficientPermissions"}
-        {@render insufficientPermissionsInfo(error.c)}
-      {:else if error.t == "LibLoading"}
-        {@render libLoadingErrorInfo(error.c)}
+      {#if error.kind == "InsufficientPermissions"}
+        {@render insufficientPermissionsInfo(error.message)}
+      {:else if error.kind == "LibLoading"}
+        {@render libLoadingErrorInfo(error.message)}
       {:else}
-        <h1 class="text-lg font-semibold">Error</h1>
-        {#if "c" in error}
-          {#await printIpcError(error) then error}
+        <h1 class="text-lg font-semibold">Error: {error.kind}</h1>
+        {#if error.message}
+          {#await printError(error) then error}
             <pre class="overflow-x-auto text-sm">{error}</pre>
           {/await}
         {/if}
@@ -29,7 +29,7 @@
   </div>
 {/if}
 
-{#snippet insufficientPermissionsInfo(path: string)}
+{#snippet insufficientPermissionsInfo(path: string | null)}
   <h1 class="text-lg font-semibold">
     Child Process Has Insufficient Network Permissions
   </h1>
@@ -50,7 +50,7 @@
   {/await}
 {/snippet}
 
-{#snippet libLoadingErrorInfo(message: string)}
+{#snippet libLoadingErrorInfo(message: string | null)}
   {#await utils.platform() then platform}
     <h1 class="text-lg font-semibold">
       Failed to Load {platform == "windows" ? "Npcap" : "libpcap"} Driver
@@ -71,7 +71,7 @@
         developer.
       {/if}
     </p>
-    <p class="text-xs">Message: <code>{message}</code></p>
+    <p class="text-xs">Message: <code>{message ?? "No Message"}</code></p>
   {/await}
 {/snippet}
 

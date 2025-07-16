@@ -5,7 +5,7 @@ import {
   CAPTURE_REPORT_FREQUENCY,
   captureError,
   displayError,
-  printIpcError,
+  printError,
 } from ".";
 import {
   commands,
@@ -85,7 +85,7 @@ export class Pcap {
     );
 
     if (res.status == "error") {
-      displayError(await printIpcError(res.error));
+      displayError(await printError(res.error));
     }
   };
 
@@ -100,7 +100,7 @@ export class Pcap {
       if (state.payload.status == "Ok") {
         info = state.payload;
       } else {
-        printIpcError(state.payload).then(displayError);
+        printError(state.payload).then(displayError);
         return;
       }
     } else {

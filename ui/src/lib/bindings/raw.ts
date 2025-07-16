@@ -91,7 +91,7 @@ async myLocation() : Promise<Result<LookupInfo, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async initPcap() : Promise<Result<PcapStateInfo, IpcError>> {
+async initPcap() : Promise<Result<PcapStateInfo, Error>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("init_pcap") };
 } catch (e) {
@@ -99,7 +99,7 @@ async initPcap() : Promise<Result<PcapStateInfo, IpcError>> {
     else return { status: "error", error: e  as any };
 }
 },
-async startCapture(params: CaptureParams, conns: TAURI_CHANNEL<Connections>) : Promise<Result<null, IpcError>> {
+async startCapture(params: RunCapture, conns: TAURI_CHANNEL<Connections>) : Promise<Result<null, Error>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("start_capture", { params, conns }) };
 } catch (e) {
@@ -110,7 +110,7 @@ async startCapture(params: CaptureParams, conns: TAURI_CHANNEL<Connections>) : P
 /**
  * Stop the current capture.
  */
-async stopCapture() : Promise<Result<null, string>> {
+async stopCapture() : Promise<Result<null, Error>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("stop_capture") };
 } catch (e) {
@@ -118,7 +118,7 @@ async stopCapture() : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async tracerouteEnabled() : Promise<Result<null, IpcError>> {
+async tracerouteEnabled() : Promise<Result<null, Error>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("traceroute_enabled") };
 } catch (e) {
@@ -126,7 +126,7 @@ async tracerouteEnabled() : Promise<Result<null, IpcError>> {
     else return { status: "error", error: e  as any };
 }
 },
-async runTraceroute(params: TracerouteParams, progress: TAURI_CHANNEL<number>) : Promise<Result<Hop[], IpcError>> {
+async runTraceroute(params: RunTraceroute, progress: TAURI_CHANNEL<number>) : Promise<Result<Hop[], Error>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("run_traceroute", { params, progress }) };
 } catch (e) {
@@ -134,8 +134,8 @@ async runTraceroute(params: TracerouteParams, progress: TAURI_CHANNEL<number>) :
     else return { status: "error", error: e  as any };
 }
 },
-async printIpcError(error: IpcError) : Promise<string> {
-    return await TAURI_INVOKE("print_ipc_error", { error });
+async printError(error: Error) : Promise<string> {
+    return await TAURI_INVOKE("print_error", { error });
 }
 }
 
@@ -156,9 +156,24 @@ pcapStateChange: "pcap-state-change"
 
 /** user-defined types **/
 
-export type CaptureParams = { device: Device; connectionTimeout: Duration; reportFrequency: Duration }
 export type ConnectionInfo = { up: MovingAverageInfo; down: MovingAverageInfo }
-export type Connections = { updates: Partial<{ [key in string]: ConnectionInfo }>; started: string[]; ended: string[]; stopping: boolean }
+export type Connections = { 
+/**
+ * The current state of all active network connections.
+ */
+updates: Partial<{ [key in string]: ConnectionInfo }>; 
+/**
+ * A list of IpAddrs in updates that were just added.
+ */
+started: string[]; 
+/**
+ * A list of IpAddrs that were previously in updates but have now been removed.
+ */
+ended: string[]; 
+/**
+ * Indicates to the frontend UI that the capture session has just stopped.
+ */
+stopping: boolean }
 /**
  * A latitude/longitude coordinate.
  */
@@ -191,15 +206,16 @@ ready: boolean;
  */
 wireless: boolean }
 export type Duration = { secs: number; nanos: number }
+export type Error = { kind: ErrorKind; message: string | null }
+export type ErrorKind = "UnexpectedType" | "TerminatedUnexpectedly" | "Ipc" | "InsufficientPermissions" | "LibLoading" | "Runtime" | "ChildNotFound" | "EstablishConnection" | "Io"
 export type Hop = { ips: string[]; loc: LookupInfo | null }
-export type IpcError = { t: "InsufficientPermissions"; c: string } | { t: "LibLoading"; c: string } | { t: "Runtime"; c: string } | { t: "Ipc"; c: string }
 /**
  * Location metadata.
  */
 export type Location = { city: string | null; region: string | null; countryCode: string }
 export type LookupInfo = { crd: Coordinate; loc: Location }
 export type MovingAverageInfo = { total: number; avgS: number }
-export type PcapStateChange = ({ status: "Ok" } & PcapStateInfo) | ({ status: "Err" } & IpcError)
+export type PcapStateChange = ({ status: "Ok" } & PcapStateInfo) | ({ status: "Err" } & Error)
 export type PcapStateInfo = { 
 /**
  * The version information about the currently loaded libpcap
@@ -214,8 +230,9 @@ devices: Device[];
  */
 capture: Device | null }
 export type Platform = "linux" | "windows" | "macos"
+export type RunCapture = { device: Device; connectionTimeout: Duration; reportFrequency: Duration }
+export type RunTraceroute = { ip: string; maxRounds: number }
 export type TAURI_CHANNEL<TSend> = null
-export type TracerouteParams = { ip: string; maxRounds: number }
 
 /** tauri-specta globals **/
 
