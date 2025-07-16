@@ -99,3 +99,4 @@ flowchart TD
    - [ ] Different map layers?
    - [ ] Capture report frequency and connection timeout.
  - [ ] Fix button icons.
+ - [ ] Create application icon.
