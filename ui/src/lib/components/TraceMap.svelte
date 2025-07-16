@@ -11,7 +11,6 @@
   import { fade, fly } from "svelte/transition";
 
   type Props = {
-    myLocation: Coordinate;
     ip: string;
     hops: Hop[];
     close: () => void;
@@ -19,7 +18,7 @@
 
   const VIEW_ZOOM = 10;
 
-  let { myLocation, hops, close, ip }: Props = $props();
+  let { hops, close, ip }: Props = $props();
   let hopsOpen = $state(false);
   let map: Map | null = $state(null);
 
@@ -34,15 +33,12 @@
   $effect(() => {
     if (!map) return;
 
-    marker(myLocation).addTo(map);
-
     const locations = hops.filter((hop) => hop.loc != null);
 
     if (locations.length > 0) {
-      const firstLocation = locations[0].loc;
-      if (firstLocation == null) return; // for ts
-
-      addGeodesicLine(myLocation, firstLocation.crd);
+      const myLoc = locations[0].loc;
+      if (myLoc == null) return; // for ts
+      marker(myLoc.crd).addTo(map);
     }
 
     for (let i = 1; i < locations.length; i++) {

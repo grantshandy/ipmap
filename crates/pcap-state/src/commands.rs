@@ -1,7 +1,7 @@
-use std::net::IpAddr;
+use std::{iter, net::IpAddr};
 
 use child_ipc::{Command, Connections, Error, ErrorKind, Response, RunCapture, RunTraceroute, ipc};
-use ipgeo_state::{DbState, LookupInfo};
+use ipgeo_state::{DbState, LookupInfo, commands::my_location};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tauri::{AppHandle, Manager, State, ipc::Channel};
@@ -111,13 +111,19 @@ pub async fn run_traceroute(
                 let _ = progress.send(round);
             }
             Ok(Response::Traceroute(resp)) => {
-                let hops = resp
-                    .into_iter()
-                    .map(|ips| Hop::new(ips, db.clone()))
-                    .collect();
-
                 exit()?;
-                return Ok(hops);
+
+                let my_location = my_location(db.clone()).await.ok().map(|me| Hop {
+                    ips: vec![],
+                    loc: Some(me),
+                });
+
+                let hops = resp.into_iter().map(|ips| Hop::new(ips, db.clone()));
+
+                return match my_location {
+                    Some(me) => Ok(iter::once(me).chain(hops).collect()),
+                    None => Ok(hops.collect()),
+                };
             }
             Ok(_) => {
                 exit()?;

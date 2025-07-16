@@ -46,11 +46,6 @@
     pageState = res.status == "ok" ? res.data : res.error;
   };
 
-  let myLocation: Coordinate = $state({ lat: 0, lng: 0 });
-  database.myLocation().then((l) => {
-    if (l) myLocation = l.crd;
-  });
-
   let formInvalid = $derived(
     prefs.maxRounds < 1 || prefs.maxRounds > MAX_MAX_ROUNDS,
   );
@@ -74,7 +69,6 @@
     {:else if Array.isArray(pageState)}
       <TraceMap
         hops={pageState}
-        {myLocation}
         ip={prefs.ip}
         close={() => (pageState = null)}
       />

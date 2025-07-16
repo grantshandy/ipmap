@@ -131,11 +131,7 @@ mod parent {
         use std::{ffi::OsStr, io, os::windows::ffi::OsStrExt, path::PathBuf, ptr};
 
         use windows_sys::{
-            Win32::{
-                Foundation::*,
-                System::Threading::*,
-                UI::Shell::*,
-            },
+            Win32::{Foundation::*, System::Threading::*, UI::Shell::*},
             w,
         };
 
