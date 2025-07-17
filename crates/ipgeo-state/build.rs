@@ -11,6 +11,12 @@ mod shared;
 
 const IN_ENV: &str = "DB_PRELOADS";
 
+#[cfg(unix)]
+const SEPARATOR: &str = ":";
+
+#[cfg(windows)]
+const SEPARATOR: &str = ";";
+
 fn main() -> Result<()> {
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-env-changed={IN_ENV}");
@@ -23,7 +29,7 @@ fn main() -> Result<()> {
     let mut ipv4 = Vec::new();
     let mut ipv6 = Vec::new();
 
-    for db in db_preloads.split(":").map(parse_db_preload_path) {
+    for db in db_preloads.split(SEPARATOR).map(parse_db_preload_path) {
         let (path, db) = db?;
 
         match db {
