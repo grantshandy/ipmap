@@ -237,26 +237,25 @@
       {@render focusedLocationInfo(focusedLocation)}
     {/if}
 
-    {#if pcap.status.capture != null}
-      <div class="absolute right-2 bottom-2 z-[999] space-y-2">
-        <!-- TODO: Add network up/down speed -->
-        <div class="bg-base-200 rounded-box flex divide-x border py-0.5">
-          {@render directionIndicator("Up", "--color-up")}
-          {@render directionIndicator("Down", "--color-down")}
-          {@render directionIndicator("Mixed", "--color-mixed")}
-        </div>
+    <!-- {#if pcap.status.capture != null} -->
+    <div class="absolute right-2 bottom-2 z-[999] space-y-2">
+      <!-- TODO: Add network up/down speed -->
+      <div class="bg-base-200 rounded-box flex divide-x border py-0.5">
+        {@render directionIndicator("&#8593;", "--color-up")}
+        {@render directionIndicator("&#8595;", "--color-down")}
+        {@render directionIndicator("&#x2195;", "--color-mixed")}
       </div>
-    {/if}
+    </div>
+    <!-- {/if} -->
   </MapView>
 </div>
 
-{#snippet directionIndicator(name: string, bgVar: string)}
-  <div class="span flex items-center space-x-1 px-2 py-0.5 text-xs italic">
+{#snippet directionIndicator(arrow: string, bgVar: string)}
+  <div class="flex items-center px-2 py-0.5 text-center text-xs">
     <span
       style={`background-color: var(${bgVar});`}
-      class="inline-block h-4 w-4 rounded-full"
-    ></span>
-    <span>{name}</span>
+      class="inline-block h-4 w-4 rounded-full">{@html arrow}</span
+    >
   </div>
 {/snippet}
 
