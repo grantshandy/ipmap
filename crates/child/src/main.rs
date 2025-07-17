@@ -1,6 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::{net::IpAddr, panic, sync::mpsc, thread};
+use std::{net::IpAddr, thread};
 
 use child_ipc::{
     Error, ErrorKind, IpcService, PcapStatus, Response, RunCapture, RunTraceroute,
@@ -57,81 +57,42 @@ impl IpcService for Service {
     }
 
     fn traceroute(parent: &ipc::Parent, params: RunTraceroute) -> Result<Vec<Vec<IpAddr>>, Error> {
-        ipc::send_response(parent, Ok(Response::Progress(0)));
-
         // I've found that trippy_core sometimes panics, so you have to do this B.S.
         // Also, [Parent] doesn't go across the catch_unwind boundary so it makes it
         // much worse.
 
-        enum ThreadMessage {
-            Progress(usize),
-            Result(trippy_core::State),
-            Error(String),
+        if !Self::has_net_raw()? {
+            return Err(Error::insufficient_permissions(
+                std::env::current_exe().unwrap_or(child_ipc::EXE_NAME.into()),
+            ));
         }
 
-        let (tx, rx) = mpsc::channel::<ThreadMessage>();
+        let tracer = trippy_core::Builder::new(params.ip)
+            .max_rounds(Some(params.max_rounds))
+            .build()
+            .map_err(|err| Error::runtime(format!("Error building traceroute: {err}")))?;
 
-        thread::spawn(move || {
-            let panic_error = panic::catch_unwind(|| {
-                let tracer = match trippy_core::Builder::new(params.ip)
-                    .max_rounds(Some(params.max_rounds))
-                    .build()
-                {
-                    Ok(tracer) => tracer,
-                    Err(error) => {
-                        tx.send(ThreadMessage::Error(format!(
-                            "Error building traceroute: {error}"
-                        )))
-                        .unwrap();
-                        return;
-                    }
+        tracer
+            .run_with(|round| {
+                let Some(round) = round
+                    .probes
+                    .iter()
+                    .filter_map(|status| match status {
+                        trippy_core::ProbeStatus::Awaited(a) => Some(a.round.0),
+                        trippy_core::ProbeStatus::Complete(c) => Some(c.round.0),
+                        _ => None,
+                    })
+                    .max()
+                else {
+                    return;
                 };
 
-                if let Err(error) = tracer.run_with(|round| {
-                    let round: Option<usize> = round
-                        .probes
-                        .iter()
-                        .filter_map(|status| match status {
-                            trippy_core::ProbeStatus::Awaited(a) => Some(a.round.0),
-                            trippy_core::ProbeStatus::Complete(c) => Some(c.round.0),
-                            _ => None,
-                        })
-                        .max();
+                ipc::send_response(parent, Ok(Response::Progress(round)));
+            })
+            .map_err(|err| Error::runtime(format!("Error running traceroute: {err}")))?;
 
-                    if let Some(round) = round {
-                        tx.send(ThreadMessage::Progress(round)).unwrap();
-                    }
-                }) {
-                    tx.send(ThreadMessage::Error(format!(
-                        "Error running traceroute: {error}"
-                    )))
-                    .unwrap();
-                    return;
-                }
-
-                tx.send(ThreadMessage::Result(tracer.snapshot())).unwrap();
-            });
-
-            if panic_error.is_err() {
-                tx.send(ThreadMessage::Error("Traceroute panicked".into()))
-                    .unwrap();
-            }
-        });
-
-        let snapshot = loop {
-            match rx.recv() {
-                Ok(ThreadMessage::Result(r)) => break r,
-                Ok(ThreadMessage::Progress(p)) => {
-                    ipc::send_response(parent, Ok(Response::Progress(p)))
-                }
-                Ok(ThreadMessage::Error(e)) => return Err(Error::runtime(e)),
-                Err(e) => {
-                    return Err(Error::runtime(format!("Traceroute thread closed: {e}")));
-                }
-            }
-        };
-
-        let hops = snapshot
+        let hops = tracer
+            .snapshot()
             .hops()
             .iter()
             .map(|h| {

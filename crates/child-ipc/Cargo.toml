@@ -19,16 +19,9 @@ version = "0.60.2"
 optional = true
 features = [
     "Win32_Foundation",
-    "Win32_Security",
-    "Win32_Storage_FileSystem",
-    "Win32_System_Pipes",
-    "Win32_System_IO",
-    "Win32_System_Console",
     "Win32_System_Registry",
     "Win32_UI_Shell",
-    "Win32_UI_WindowsAndMessaging",
     "Win32_System_Threading",
-    "Win32_System_WindowsProgramming",
 ]
 
 [dev-dependencies]
@@ -38,3 +31,8 @@ ipc-channel = "0.20.0"
 parent = ["ipc", "dep:tracing", "dep:specta", "dep:windows-sys"]
 child = ["ipc"]
 ipc = ["dep:base64", "dep:ipc-channel", "dep:postcard"]
+
+[[example]]
+name = "parent"
+path = "examples/parent.rs"
+required-features = ["parent"]

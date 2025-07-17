@@ -105,8 +105,8 @@ pub async fn run_traceroute(
 
     let exit = || exit().map_err(Error::from);
 
-    while let Ok(msg) = child.recv() {
-        match msg {
+    loop {
+        match child.recv()? {
             Ok(Response::Progress(round)) => {
                 let _ = progress.send(round);
             }
@@ -135,9 +135,6 @@ pub async fn run_traceroute(
             }
         }
     }
-
-    exit()?;
-    Err(Error::basic(ErrorKind::TerminatedUnexpectedly))
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Type)]

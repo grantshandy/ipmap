@@ -13,7 +13,7 @@ mod child {
     use crate::{Command, Error, Response};
     use base64::prelude::*;
 
-    pub type Parent = ipc_channel::ipc::IpcSender<super::Message>;
+    pub type Parent = ipc_channel::ipc::IpcSender<Message>;
 
     pub fn get_command() -> (Command, Parent) {
         let mut args = env::args();
@@ -84,9 +84,11 @@ mod parent {
     }
 
     pub fn spawn_child_process(
-        child_path: PathBuf,
+        mut child_path: PathBuf,
         command: Command,
     ) -> Result<(Child, StopCallback), Error> {
+        child_path = child_path.canonicalize()?;
+
         let (server, channel_name) = IpcOneShotServer::<Message>::new()?;
 
         let args = [
@@ -104,31 +106,54 @@ mod parent {
         #[cfg(not(windows))]
         let stop = spawn_child(child_path, args)?;
 
-        let (recv, first) = server.accept().unwrap();
+        let (recv, first) = server.accept()?;
 
-        match first? {
-            Response::Connected => Ok((recv, stop)),
-            actual => Err(Error::message(
-                ErrorKind::EstablishConnection,
-                format!("Expected Response::Connected, got {actual:?}"),
-            )),
+        match first {
+            Ok(Response::Connected) => Ok((recv, stop)),
+            actual => {
+                stop()?;
+                Err(Error::message(
+                    ErrorKind::EstablishConnection,
+                    format!("Expected Ok(Response::Connected), got {actual:?}"),
+                ))
+            }
         }
     }
 
     fn spawn_child(child_path: PathBuf, args: [String; 2]) -> io::Result<StopCallback> {
-        let mut child = ProcessCommand::new(child_path.clone()).args(args).spawn()?;
+        let mut child = ProcessCommand::new(child_path.clone())
+            .args(args)
+            .spawn()?;
 
         Ok(Box::new(move || {
-            child.kill()?;
-            child.wait()?;
+            match child.try_wait()? {
+                Some(status) => {
+                    if !status.success() {
+                        return Err(io::Error::other(
+                            format!(
+                                "Child process exited with code: {}",
+                                status.code().map_or("unknown".to_string(), |c| format!("{c:#x}"))
+                            )
+                        ));
+                    }
+                }
+                None => {
+                    // Still running, so terminate it
+                    tracing::debug!("Terminating the child process...");
+                    child.kill()?;
+                    child.wait()?; // Ensure it fully exits
+                }
+            }
+
             tracing::debug!("{child_path:?} finished exiting");
+
             Ok(())
         }))
     }
 
     #[cfg(windows)]
     mod windows {
-        use std::{ffi::OsStr, io, os::windows::ffi::OsStrExt, path::PathBuf, ptr};
+        use std::{ffi::OsStr, io, mem, os::windows::ffi::OsStrExt, path::PathBuf, ptr};
 
         use windows_sys::{
             Win32::{Foundation::*, System::Threading::*, UI::Shell::*},
@@ -145,23 +170,21 @@ mod parent {
             child_path: PathBuf,
             args: [String; 2],
         ) -> io::Result<StopCallback> {
-            let exe_wide = wide_null(child_path.clone());
+            let child_path = wide_null(child_path.clone());
             let args = wide_null(args.join(" "));
 
-            let mut sei: SHELLEXECUTEINFOW = unsafe { std::mem::zeroed() };
-            sei.cbSize = std::mem::size_of::<SHELLEXECUTEINFOW>() as u32;
+            let mut sei: SHELLEXECUTEINFOW = unsafe { mem::zeroed() };
+            sei.cbSize = mem::size_of::<SHELLEXECUTEINFOW>() as u32;
             sei.hwnd = 0 as HWND; // No parent window
             sei.lpVerb = w!("runas");
-            sei.lpFile = exe_wide.as_ptr();
+            sei.lpClass = w!("exefile");
+            sei.lpFile = child_path.as_ptr();
             sei.lpParameters = args.as_ptr();
             sei.lpDirectory = ptr::null(); // Current directory
             sei.nShow = 0; // SW_HIDE
-            sei.lpClass = w!("exefile");
             sei.fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_CLASSNAME;
 
-            let success = unsafe { ShellExecuteExW(&mut sei) };
-
-            if success == 0 {
+            if unsafe { ShellExecuteExW(&mut sei) } == 0 {
                 return Err(io::Error::last_os_error());
             }
 
@@ -176,20 +199,57 @@ mod parent {
 
             Ok(Box::new(move || {
                 let process_handle = process_handle_usize as HANDLE;
-                if unsafe { TerminateProcess(process_handle, 0) } == 0 {
-                    let code = unsafe { GetLastError() } as i32;
-                    if code != 5 {
-                        return Err(io::Error::from_raw_os_error(code));
-                    } else {
-                        return Ok(());
-                    }
+
+                // Get the exit code to see the status of the program
+                let mut exit_code = 0;
+                if unsafe { GetExitCodeProcess(process_handle, &mut exit_code) } == 0 {
+                    unsafe { CloseHandle(process_handle) };
+                    return Err(io::Error::last_os_error());
                 }
 
-                unsafe { WaitForSingleObject(process_handle, INFINITE) };
-                unsafe { CloseHandle(process_handle) };
+                let mut was_terminated = false;
 
-                tracing::debug!("{child_path:?} finished exiting");
-                Ok(())
+                // If the program is still running, terminate it.
+                if exit_code == STILL_ACTIVE as u32 {
+                    tracing::debug!("terminating the child process...");
+
+                    if unsafe { TerminateProcess(process_handle, 1) } == 0 {
+                        let err = io::Error::last_os_error();
+
+                        unsafe { CloseHandle(process_handle) };
+
+                        return Err(io::Error::other(
+                            format!("Failed to terminate process: {err}")
+                        ));
+                    }
+
+                    was_terminated = true;
+                }
+
+                // Wait for the process to fully exit.
+                unsafe { WaitForSingleObject(process_handle, INFINITE) };
+
+                // Get final exit code after termination or natural exit.
+                if unsafe { GetExitCodeProcess(process_handle, &mut exit_code) } == 0 {
+                    unsafe { CloseHandle(process_handle) };
+                    return Err(io::Error::last_os_error());
+                }
+
+                if unsafe { CloseHandle(process_handle) } == 0 {
+                    return Err(io::Error::last_os_error());
+                }
+
+                tracing::debug!("{child_path:?} finished exiting with code: {exit_code:#x}");
+
+                // if we terminated the child the exit code will be 0x103 which is expected,
+                // If the process naturally failed on its own, return that as an error.
+                if !was_terminated && exit_code != 0 {
+                    Err(io::Error::other(
+                        format!("Child process exited with code: {exit_code:#x}")
+                    ))
+                } else {
+                    Ok(())
+                }
             }))
         }
     }
