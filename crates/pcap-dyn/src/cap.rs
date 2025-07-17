@@ -42,17 +42,21 @@ impl Capture {
         // no longer a zero-length string.
 
         let handle = ffi::err_cap("pcap_open_live", |errbuf| unsafe {
-            raw.pcap_open_live(device_name.as_ptr(), 128, 0, 0, errbuf)
+            raw.pcap_open_live(device_name.as_ptr(), 2048, 0, 0, errbuf)
         })?;
 
-        // let (stop_tx, stop_rx) = mpsc::channel::<()>();
+        if unsafe { raw.pcap_set_immediate_mode(handle, 1) } == 1 {
+            // this shouldn't happen afaik.
+            return Err(Error {
+                name: "pcap_set_immediate_mode",
+                message: "Failed to set immediate mode, handle is active?".into(),
+            });
+        }
 
         Ok(Self {
             device,
             raw,
             handle: PcapTSend(handle),
-            // stop_tx,
-            // stop_rx,
         })
     }
 
@@ -72,13 +76,10 @@ impl Capture {
         // block until pcap_breakloop is called in Capture::stop. Libpcap
         // doesn't like the callbacks to take very long, so we pass them into
         // an mpsc channel and return immediately.
-        // let stop_tx = self.stop_tx.clone();
         thread::spawn(move || {
             // blocks until Self::stop calls pcap_breakloop
             callback_state.start_loop();
-
-            // signal back to Self::stop that start_loop finished blocking
-            // let _ = stop_tx.send(());
+            tracing::trace!("pcap_loop stopped");
         });
 
         packet_rx
@@ -96,8 +97,8 @@ impl Drop for Capture {
         unsafe {
             self.raw.pcap_breakloop(self.handle.0);
         }
-        // wait until it's broken
-        // _ = self.stop_rx.recv();
+
+        // TODO: wait until broke before closing?
 
         // close the handle
         unsafe {
@@ -169,8 +170,15 @@ impl Packet {
         };
 
         let (direction, ip) = match (ip_rfc::global(&src), ip_rfc::global(&dst)) {
-            (false, true) => (PacketDirection::Down, dst),
-            (true, false) => (PacketDirection::Up, src),
+            // Traffic from a private IP (local) to a public IP (remote)
+            // This is UPSTREAM traffic. We care about the destination IP.
+            (false, true) => (PacketDirection::Up, dst),
+
+            // Traffic from a public IP (remote) to a private IP (local)
+            // This is DOWNSTREAM traffic. We care about the source IP.
+            (true, false) => (PacketDirection::Down, src),
+
+            // All other cases (local to local, remote to remote, etc.) are ignored.
             _ => return None,
         };
 
@@ -184,6 +192,6 @@ impl Packet {
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum PacketDirection {
-    Up,
     Down,
+    Up,
 }

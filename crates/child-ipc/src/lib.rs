@@ -81,7 +81,7 @@ pub struct Device {
     pub wireless: bool,
 }
 
-#[derive(Default, Clone, Debug, Serialize, Deserialize)]
+#[derive(Default, PartialEq, Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "parent", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct Connections {
@@ -93,6 +93,8 @@ pub struct Connections {
     pub ended: Vec<IpAddr>,
     /// Indicates to the frontend UI that the capture session has just stopped.
     pub stopping: bool,
+    /// All the data from this session
+    pub session: ConnectionInfo,
 }
 
 impl Connections {
@@ -105,19 +107,44 @@ impl Connections {
     }
 }
 
-#[derive(Copy, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[cfg_attr(feature = "parent", derive(specta::Type))]
 pub struct ConnectionInfo {
-    pub up: MovingAverageInfo,
-    pub down: MovingAverageInfo,
+    pub up: ThroughputTrackerInfo,
+    pub down: ThroughputTrackerInfo,
+    pub direction: ConnectionDirection,
 }
 
-#[derive(Copy, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "parent", derive(specta::Type))]
+#[serde(rename_all = "lowercase")]
+pub enum ConnectionDirection {
+    Up,
+    Down,
+    #[default]
+    Mixed,
+}
+
+impl ConnectionDirection {
+    pub fn from_speed(up: f64, down: f64) -> Self {
+        let ratio = f64::min(up, down) / f64::max(up, down);
+
+        if ratio > 0.7 {
+            Self::Mixed
+        } else if up > down {
+            Self::Up
+        } else {
+            Self::Down
+        }
+    }
+}
+
+#[derive(Copy, Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[cfg_attr(feature = "parent", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
-pub struct MovingAverageInfo {
+pub struct ThroughputTrackerInfo {
     pub total: usize,
-    pub avg_s: usize,
+    pub avg_s: f64,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

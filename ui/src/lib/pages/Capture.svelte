@@ -4,7 +4,6 @@
   import {
     database,
     renderDeviceName,
-    calculateConnectionDirection,
     arcFromDirection,
     movingAverageInfo,
     regionNames,
@@ -81,14 +80,11 @@
     if (locKey in locations) {
       locations[locKey].ips[ip] = info;
     } else {
-      const direction = calculateConnectionDirection(
-        info.up.avgS,
-        info.down.avgS,
-      );
-
-      const arc = arcFromDirection(myLocation, lookupResp.crd, direction).addTo(
-        map,
-      );
+      const arc = arcFromDirection(
+        myLocation,
+        lookupResp.crd,
+        info.direction,
+      ).addTo(map);
 
       locations[locKey] = {
         crd: locKey,
@@ -97,7 +93,7 @@
           .on("click", () => setFocusedLocation(locKey))
           .addTo(map),
         arc,
-        direction,
+        direction: info.direction,
         location: lookupResp.loc,
       };
     }
@@ -139,13 +135,8 @@
 
     loc.ips[ip] = info;
 
-    const infos = Object.values(loc.ips);
-    const up = infos.map((info) => info.up.avgS).reduce((a, b) => a + b);
-    const down = infos.map((info) => info.down.avgS).reduce((a, b) => a + b);
-    const newDirection = calculateConnectionDirection(up, down);
-
-    if (loc.direction != newDirection) {
-      loc.direction = newDirection;
+    if (loc.direction != info.direction) {
+      loc.direction = info.direction;
       loc.arc.remove();
       loc.arc = arcFromDirection(
         myLocation,
@@ -237,16 +228,33 @@
       {@render focusedLocationInfo(focusedLocation)}
     {/if}
 
-    <!-- {#if pcap.status.capture != null} -->
-    <div class="absolute right-2 bottom-2 z-[999] space-y-2">
-      <!-- TODO: Add network up/down speed -->
-      <div class="bg-base-200 rounded-box flex divide-x border py-0.5">
-        {@render directionIndicator("&#8593;", "--color-up")}
-        {@render directionIndicator("&#8595;", "--color-down")}
-        {@render directionIndicator("&#x2195;", "--color-mixed")}
+    {#if pcap.status.capture != null}
+      <div class="absolute right-2 bottom-2 z-[999] space-y-2">
+        {#if pcap.session != null}
+          <div
+            class="bg-base-200 rounded-box flex divide-x border py-0.5 text-xs"
+          >
+            <span>&#8593; {humanFileSize(pcap.session.up.total)}</span>
+            <span>&#8595; {humanFileSize(pcap.session.down.total)}</span>
+          </div>
+          <div
+            class="bg-base-200 rounded-box flex divide-x border py-0.5 text-xs"
+          >
+            <span class="px-1"
+              >&#8593; {humanFileSize(pcap.session.up.avgS)}/s</span
+            >
+            <span class="px-1"
+              >&#8595; {humanFileSize(pcap.session.down.avgS)}/s</span
+            >
+          </div>
+        {/if}
+        <div class="bg-base-200 rounded-box flex divide-x border py-0.5">
+          {@render directionIndicator("&#8593;", "--color-up")}
+          {@render directionIndicator("&#8595;", "--color-down")}
+          {@render directionIndicator("&#x2195;", "--color-mixed")}
+        </div>
       </div>
-    </div>
-    <!-- {/if} -->
+    {/if}
   </MapView>
 </div>
 

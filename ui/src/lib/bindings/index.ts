@@ -1,6 +1,7 @@
 import { message } from "@tauri-apps/plugin-dialog";
 import {
   commands,
+  type ConnectionDirection,
   type Coordinate,
   type Device,
   type Duration,
@@ -106,25 +107,6 @@ export const renderDeviceName = async (device: Device): Promise<string> => {
     return device.description ?? device.name;
   } else {
     return `${device.name}${device.description ? ": (" + device.description + ")" : ""}`;
-  }
-};
-
-export type ConnectionDirection = "up" | "down" | "mixed";
-
-export const calculateConnectionDirection = (
-  up: number,
-  down: number,
-): ConnectionDirection => {
-  const CUTOFF = 0.7;
-
-  const ratio = Math.min(up, down) / Math.max(up, down);
-
-  if (ratio > CUTOFF) {
-    return "mixed";
-  } else if (up > down) {
-    return "up";
-  } else {
-    return "down";
   }
 };
 

@@ -156,7 +156,8 @@ pcapStateChange: "pcap-state-change"
 
 /** user-defined types **/
 
-export type ConnectionInfo = { up: MovingAverageInfo; down: MovingAverageInfo }
+export type ConnectionDirection = "up" | "down" | "mixed"
+export type ConnectionInfo = { up: ThroughputTrackerInfo; down: ThroughputTrackerInfo; direction: ConnectionDirection }
 export type Connections = { 
 /**
  * The current state of all active network connections.
@@ -173,7 +174,11 @@ ended: string[];
 /**
  * Indicates to the frontend UI that the capture session has just stopped.
  */
-stopping: boolean }
+stopping: boolean; 
+/**
+ * All the data from this session
+ */
+session: ConnectionInfo }
 /**
  * A latitude/longitude coordinate.
  */
@@ -214,7 +219,6 @@ export type Hop = { ips: string[]; loc: LookupInfo | null }
  */
 export type Location = { city: string | null; region: string | null; countryCode: string }
 export type LookupInfo = { crd: Coordinate; loc: Location }
-export type MovingAverageInfo = { total: number; avgS: number }
 export type PcapStateChange = ({ status: "Ok" } & PcapStateInfo) | ({ status: "Err" } & Error)
 export type PcapStateInfo = { 
 /**
@@ -233,6 +237,7 @@ export type Platform = "linux" | "windows" | "macos"
 export type RunCapture = { device: Device; connectionTimeout: Duration; reportFrequency: Duration }
 export type RunTraceroute = { ip: string; maxRounds: number }
 export type TAURI_CHANNEL<TSend> = null
+export type ThroughputTrackerInfo = { total: number; avgS: number }
 
 /** tauri-specta globals **/
 

@@ -121,20 +121,18 @@ mod parent {
     }
 
     fn spawn_child(child_path: PathBuf, args: [String; 2]) -> io::Result<StopCallback> {
-        let mut child = ProcessCommand::new(child_path.clone())
-            .args(args)
-            .spawn()?;
+        let mut child = ProcessCommand::new(child_path.clone()).args(args).spawn()?;
 
         Ok(Box::new(move || {
             match child.try_wait()? {
                 Some(status) => {
                     if !status.success() {
-                        return Err(io::Error::other(
-                            format!(
-                                "Child process exited with code: {}",
-                                status.code().map_or("unknown".to_string(), |c| format!("{c:#x}"))
-                            )
-                        ));
+                        return Err(io::Error::other(format!(
+                            "Child process exited with code: {}",
+                            status
+                                .code()
+                                .map_or("unknown".to_string(), |c| format!("{c:#x}"))
+                        )));
                     }
                 }
                 None => {
@@ -218,9 +216,9 @@ mod parent {
 
                         unsafe { CloseHandle(process_handle) };
 
-                        return Err(io::Error::other(
-                            format!("Failed to terminate process: {err}")
-                        ));
+                        return Err(io::Error::other(format!(
+                            "Failed to terminate process: {err}"
+                        )));
                     }
 
                     was_terminated = true;
@@ -244,9 +242,9 @@ mod parent {
                 // if we terminated the child the exit code will be 0x103 which is expected,
                 // If the process naturally failed on its own, return that as an error.
                 if !was_terminated && exit_code != 0 {
-                    Err(io::Error::other(
-                        format!("Child process exited with code: {exit_code:#x}")
-                    ))
+                    Err(io::Error::other(format!(
+                        "Child process exited with code: {exit_code:#x}"
+                    )))
                 } else {
                     Ok(())
                 }

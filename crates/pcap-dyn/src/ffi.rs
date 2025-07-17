@@ -15,13 +15,14 @@ const FILE: &str = "wpcap.dll";
 #[rustfmt::skip]
 #[derive(WrapperApi)]
 pub struct Raw {
-    pcap_open_live:   unsafe extern "C" fn(device: *const c_char, snaplen: c_int, promisc: c_int, to_ms: c_int, errbuf: *mut c_char) -> *mut pcap_t,
-    pcap_close:       unsafe extern "C" fn(p: *mut pcap_t),
-    pcap_loop:        unsafe extern "C" fn(p: *mut pcap_t, count: c_int, callback: pcap_handler, user: *mut c_uchar) -> c_int,
-    pcap_breakloop:   unsafe extern "C" fn(p: *mut pcap_t),
-    pcap_findalldevs: unsafe extern "C" fn(alldevsp: *mut *mut pcap_if_t, errbuf: *mut c_char) -> c_int,
-    pcap_freealldevs: unsafe extern "C" fn(alldevs: *mut pcap_if_t),
-    pcap_lib_version: unsafe extern "C" fn() -> *const c_char,
+    pcap_open_live:          unsafe extern "C" fn(device: *const c_char, snaplen: c_int, promisc: c_int, to_ms: c_int, errbuf: *mut c_char) -> *mut pcap_t,
+    pcap_close:              unsafe extern "C" fn(p: *mut pcap_t),
+    pcap_loop:               unsafe extern "C" fn(p: *mut pcap_t, count: c_int, callback: pcap_handler, user: *mut c_uchar) -> c_int,
+    pcap_breakloop:          unsafe extern "C" fn(p: *mut pcap_t),
+    pcap_findalldevs:        unsafe extern "C" fn(alldevsp: *mut *mut pcap_if_t, errbuf: *mut c_char) -> c_int,
+    pcap_freealldevs:        unsafe extern "C" fn(alldevs: *mut pcap_if_t),
+    pcap_lib_version:        unsafe extern "C" fn() -> *const c_char,
+    pcap_set_immediate_mode: unsafe extern "C" fn(p: *mut pcap_t, immediate_mode: c_int) -> c_int,
 }
 
 impl Raw {
@@ -178,7 +179,7 @@ pub(crate) fn err_cap<T>(
     Ok(res)
 }
 
-/// Really bad practice, but it's a last-ditch effort if it can't find the library (e.g. on NixOS)
+/// Really bad practice, but it's a last-ditch effort if it can't find the library (e.g. on NixOS?)
 #[cfg(unix)]
 fn try_pkg_config_path(filename: &'static str) -> Option<Result<Container<Raw>, dlopen2::Error>> {
     std::process::Command::new("sh")

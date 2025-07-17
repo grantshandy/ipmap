@@ -7,8 +7,10 @@ use std::{
 };
 
 use crate::{Capture, Packet, PacketDirection};
-use child_ipc::{ConnectionInfo, Connections, MovingAverageInfo};
+use child_ipc::{ConnectionDirection, ConnectionInfo, Connections, ThroughputTrackerInfo};
 use dashmap::DashMap;
+
+const RATE_WINDOW_SECS: f64 = Duration::from_secs(1).as_secs_f64();
 
 pub struct CaptureTimeBuffer {
     pub cap: Capture,
@@ -99,18 +101,46 @@ impl TimeBuffer {
         }
 
         Connections {
+            session: self.session_info(&updates),
             updates,
             started,
             ended,
             stopping: false,
         }
     }
+
+    fn session_info(&self, active_info: &HashMap<IpAddr, ConnectionInfo>) -> ConnectionInfo {
+        let (active_up_total, up_s, active_down_total, down_s) = active_info
+            .iter()
+            .map(|(_, c)| (c.up.total, c.up.avg_s, c.down.total, c.down.avg_s))
+            .fold((0, 0.0, 0, 0.0), |(w, x, y, z), (a, b, c, d)| {
+                (w + a, x + b, y + c, z + d)
+            });
+
+        let (inactive_up_total, inactive_down_total) = self
+            .inactive
+            .iter()
+            .map(|kv| (kv.value().up, kv.value().down))
+            .fold((0, 0), |(x, y), (a, b)| (x + a, y + b));
+
+        ConnectionInfo {
+            up: ThroughputTrackerInfo {
+                total: active_up_total + inactive_up_total,
+                avg_s: up_s,
+            },
+            down: ThroughputTrackerInfo {
+                total: active_down_total + inactive_down_total,
+                avg_s: down_s,
+            },
+            direction: ConnectionDirection::from_speed(up_s, down_s),
+        }
+    }
 }
 
 #[derive(Default)]
 struct ActiveConnection {
-    up: MovingAverage,
-    down: MovingAverage,
+    up: ThroughputTracker,
+    down: ThroughputTracker,
     status: ConnectionStatus,
 }
 
@@ -123,12 +153,16 @@ impl ActiveConnection {
     }
 
     pub fn info(&mut self, connection_timeout: Duration) -> (ConnectionInfo, ConnectionStatus) {
+        let up = self.up.info(connection_timeout);
+        let down = self.down.info(connection_timeout);
+
         let info = ConnectionInfo {
-            up: self.up.info(connection_timeout),
-            down: self.down.info(connection_timeout),
+            direction: ConnectionDirection::from_speed(up.avg_s, down.avg_s),
+            up,
+            down,
         };
 
-        let status = if info.up.avg_s + info.down.avg_s == 0 {
+        let status = if self.up.dead() && self.down.dead() {
             ConnectionStatus::Ended
         } else if self.status == ConnectionStatus::Started {
             self.status = ConnectionStatus::Active;
@@ -151,13 +185,13 @@ enum ConnectionStatus {
 
 // A time-based moving average
 #[derive(Default)]
-struct MovingAverage {
+struct ThroughputTracker {
     data: VecDeque<(usize, Instant)>,
     total_bytes: usize,
     current_window_sum: usize, // Sum of bytes within the current window
 }
 
-impl MovingAverage {
+impl ThroughputTracker {
     // Add a new sample (byte count)
     // This method requires a mutable reference, so it needs a write lock.
     pub fn add_sample(&mut self, bytes: usize) {
@@ -166,7 +200,7 @@ impl MovingAverage {
         self.data.push_back((bytes, Instant::now()));
     }
 
-    pub fn info(&mut self, connection_timeout: Duration) -> MovingAverageInfo {
+    pub fn info(&mut self, connection_timeout: Duration) -> ThroughputTrackerInfo {
         let now = Instant::now();
 
         // Since data is time-ordered, we can efficiently remove from the front.
@@ -180,34 +214,20 @@ impl MovingAverage {
             }
         }
 
-        MovingAverageInfo {
+        let avg_s = if self.current_window_sum == 0 {
+            0.0
+        } else {
+            self.current_window_sum as f64 / RATE_WINDOW_SECS
+        };
+
+        ThroughputTrackerInfo {
             total: self.total_bytes,
-            avg_s: self.get_average_bytes_per_second() as usize,
+            avg_s,
         }
     }
 
-    /// Get the average bytes per second over the window duration
-    fn get_average_bytes_per_second(&self) -> f64 {
-        if self.data.len() <= 1 {
-            // Need at least two points to define a meaningful duration for an average.
-            return 0.0;
-        }
-
-        let oldest_timestamp = self.data.front().unwrap().1;
-        let newest_timestamp = self.data.back().unwrap().1;
-        let duration = newest_timestamp - oldest_timestamp;
-
-        // Handle the case where duration is effectively zero (e.g., multiple samples at the exact same Instant)
-        if duration.as_secs_f64() < f64::EPSILON {
-            // If there's data, return the sum (representing a high instantaneous rate), otherwise 0.0
-            return if self.current_window_sum > 0 {
-                self.current_window_sum as f64
-            } else {
-                0.0
-            };
-        }
-
-        self.current_window_sum as f64 / duration.as_secs_f64()
+    pub fn dead(&self) -> bool {
+        self.current_window_sum == 0
     }
 }
 
@@ -228,11 +248,11 @@ impl From<ActiveConnection> for InactiveConnection {
 impl From<InactiveConnection> for ActiveConnection {
     fn from(value: InactiveConnection) -> ActiveConnection {
         ActiveConnection {
-            up: MovingAverage {
+            up: ThroughputTracker {
                 total_bytes: value.up,
                 ..Default::default()
             },
-            down: MovingAverage {
+            down: ThroughputTracker {
                 total_bytes: value.down,
                 ..Default::default()
             },

@@ -31,6 +31,8 @@ export class Pcap {
     capture: null,
   });
 
+  session: ConnectionInfo | null = $state(null);
+
   /** Active connections the computer is currently engaged in. */
   connections: { [ip: string]: ConnectionInfo } = $state({});
 
@@ -144,9 +146,14 @@ export class Pcap {
         this.end.fire(ip);
       }
 
+      this.session = null;
       this.connections = {};
       return;
     }
+
+    console.log(Object.values(conns.updates).map((c) => c?.direction));
+
+    this.session = conns.session;
 
     for (const [ip, data] of Object.entries(connUpdates)) {
       this.connections[ip] = data;
