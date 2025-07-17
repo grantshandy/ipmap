@@ -12,17 +12,15 @@
 {#if error}
   <div class="flex grow items-center justify-center">
     <div class="rounded-box bg-error max-w-110 space-y-2 px-3 py-2">
-      {#if error.kind == "InsufficientPermissions"}
+      {#if error.kind === "InsufficientPermissions"}
         {@render insufficientPermissionsInfo(error.message)}
-      {:else if error.kind == "LibLoading"}
+      {:else if error.kind === "LibLoading"}
         {@render libLoadingErrorInfo(error.message)}
       {:else}
-        <h1 class="text-lg font-semibold">Error: {error.kind}</h1>
-        {#if error.message}
-          {#await printError(error) then error}
-            <pre class="overflow-x-auto text-sm">{error}</pre>
-          {/await}
-        {/if}
+        <h1 class="text-lg font-semibold">Error</h1>
+        {#await printError(error) then error}
+          <pre class="overflow-x-auto text-sm">{error}</pre>
+        {/await}
         {@render exitButton()}
       {/if}
     </div>
@@ -34,7 +32,7 @@
     Child Process Has Insufficient Network Permissions
   </h1>
   {#await utils.platform() then platform}
-    {#if platform == "linux"}
+    {#if platform === "linux"}
       <p class="text-sm">
         In order to perform this action, you must enable network capabilities on
         the child executable.
@@ -53,14 +51,14 @@
 {#snippet libLoadingErrorInfo(message: string | null)}
   {#await utils.platform() then platform}
     <h1 class="text-lg font-semibold">
-      Failed to Load {platform == "windows" ? "Npcap" : "libpcap"} Driver
+      Failed to Load {platform === "windows" ? "Npcap" : "libpcap"} Driver
     </h1>
     <p class="text-sm">
-      {#if platform == "windows"}
+      {#if platform === "windows"}
         You should be able to fix this by installing
         <Link href="https://npcap.com/">Npcap</Link>
         from their website and restarting your computer.
-      {:else if platform == "linux"}
+      {:else if platform === "linux"}
         Install
         <Link href="https://repology.org/project/libpcap/versions">libpcap</Link
         >
