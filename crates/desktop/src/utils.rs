@@ -3,6 +3,7 @@ use specta::Type;
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 
 const ABOUT_WINDOW_ID: &str = "about";
+const ABOUT_WINDOW_OFFSET: i32 = 50;
 
 #[specta::specta]
 #[tauri::command]
@@ -15,18 +16,25 @@ pub async fn open_about_window(app: AppHandle) {
         return;
     }
 
-    let main = app.get_webview_window("main").unwrap();
-
-    WebviewWindowBuilder::new(&app, ABOUT_WINDOW_ID, WebviewUrl::App("about".into()))
+    let mut w = WebviewWindowBuilder::new(&app, ABOUT_WINDOW_ID, WebviewUrl::App("about".into()))
         .title("About")
-        .parent(&main)
-        .unwrap()
         .minimizable(false)
         .maximizable(false)
         .inner_size(350.0, 400.0)
-        .resizable(false)
-        .build()
-        .unwrap();
+        .resizable(false);
+
+    if let Some(main) = app.get_webview_window("main") {
+        w = w.parent(&main).unwrap();
+
+        let pos = main.outer_position().unwrap();
+
+        w = w.position(
+            (pos.x + ABOUT_WINDOW_OFFSET) as f64,
+            (pos.y + ABOUT_WINDOW_OFFSET) as f64,
+        );
+    }
+
+    w.build().unwrap();
 }
 
 #[tauri::command]
