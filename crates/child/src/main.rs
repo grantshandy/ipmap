@@ -50,8 +50,22 @@ impl IpcService for Service {
         };
         let buf = CaptureTimeBuffer::start(cap, params.connection_timeout);
 
+        let mut last_empty = false;
+
         loop {
-            ipc::send_response(parent, Ok(Response::CaptureSample(buf.connections())));
+            let conn = buf.connections();
+            let conn_empty = conn.empty();
+
+            // Send a response if:
+            // 1. The buffer is not empty (always report new data).
+            // 2. The buffer *just became* empty (a state change).
+            if !conn_empty || !last_empty {
+                ipc::send_response(parent, Ok(Response::CaptureSample(conn)));
+            }
+
+            // Update the state for the next loop iteration.
+            last_empty = conn_empty;
+
             thread::sleep(params.report_frequency);
         }
     }

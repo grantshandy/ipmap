@@ -105,6 +105,10 @@ impl Connections {
             ..Default::default()
         }
     }
+
+    pub fn empty(&self) -> bool {
+        self.ended.is_empty() && self.started.is_empty() && self.updates.is_empty()
+    }
 }
 
 #[derive(Copy, Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
