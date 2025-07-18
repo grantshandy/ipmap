@@ -156,8 +156,7 @@ pcapStateChange: "pcap-state-change"
 
 /** user-defined types **/
 
-export type ConnectionDirection = "up" | "down" | "mixed"
-export type ConnectionInfo = { up: ThroughputTrackerInfo; down: ThroughputTrackerInfo; direction: ConnectionDirection }
+export type ConnectionInfo = { up: ThroughputTrackerInfo; down: ThroughputTrackerInfo }
 export type Connections = { 
 /**
  * The current state of all active network connections.
@@ -178,7 +177,11 @@ stopping: boolean;
 /**
  * All the data from this session
  */
-session: ConnectionInfo }
+session: ConnectionInfo; 
+/**
+ * The current maximum observed throughput (up.avg_s + down.avg_s)
+ */
+maxThroughput: number }
 /**
  * A latitude/longitude coordinate.
  */

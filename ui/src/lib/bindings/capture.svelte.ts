@@ -31,7 +31,11 @@ export class Pcap {
     capture: null,
   });
 
+  /** Capture session treated as a single connection */
   session: ConnectionInfo | null = $state(null);
+
+  /** The maximum throughput (up + down avg_s) observed currently */
+  maxThroughput = $state(0);
 
   /** Active connections the computer is currently engaged in. */
   connections: { [ip: string]: ConnectionInfo } = $state({});
@@ -40,13 +44,16 @@ export class Pcap {
   public unlisten!: UnlistenFn;
 
   /** An event that is triggered when a connection with a given IP address starts */
-  public start: EventDispatcher<ConnectionStart> = new EventDispatcher();
+  public connStart: EventDispatcher<ConnectionStart> = new EventDispatcher();
 
   /** An event that is triggered when a connection with a given IP address ends */
-  public end: EventDispatcher<ConnectionEnd> = new EventDispatcher();
+  public connEnd: EventDispatcher<ConnectionEnd> = new EventDispatcher();
 
   /** An event that is triggered when the backend reports new data for the connection */
-  public update: EventDispatcher<ConnectionUpdate> = new EventDispatcher();
+  public connUpdate: EventDispatcher<ConnectionUpdate> = new EventDispatcher();
+
+  /** Fired after all the updates are run */
+  public updateEnd: EventDispatcher<UpdateEnd> = new EventDispatcher();
 
   /** Initialize a new Pcap instance */
   public static init = (): Promise<Result<Pcap, Error>> =>
@@ -141,17 +148,17 @@ export class Pcap {
   private updateConnections = (conns: Connections) => {
     const connUpdates = conns.updates as { [ip: string]: ConnectionInfo };
 
+    this.maxThroughput = conns.maxThroughput;
+
     if (conns.stopping) {
       for (const ip of Object.keys(this.connections)) {
-        this.end.fire(ip);
+        this.connEnd.fire(ip);
       }
 
       this.session = null;
       this.connections = {};
       return;
     }
-
-    console.log(Object.values(conns.updates).map((c) => c?.direction));
 
     this.session = conns.session;
 
@@ -160,17 +167,19 @@ export class Pcap {
     }
 
     for (const ip of conns.started) {
-      this.start.fire(ip, this.connections[ip]);
+      this.connStart.fire(ip, this.connections[ip]);
     }
 
     for (const ip of conns.ended) {
-      this.end.fire(ip);
+      this.connEnd.fire(ip);
       delete this.connections[ip];
     }
 
     for (const [ip, data] of Object.entries(this.connections)) {
-      this.update.fire(ip, data);
+      this.connUpdate.fire(ip, data);
     }
+
+    this.updateEnd.fire();
   };
 }
 
@@ -191,3 +200,4 @@ class EventDispatcher<T extends (...args: any[]) => void> {
 type ConnectionStart = (ip: string, info: ConnectionInfo) => void;
 type ConnectionEnd = (ip: string) => void;
 type ConnectionUpdate = (ip: string, info: ConnectionInfo) => void;
+type UpdateEnd = () => void;

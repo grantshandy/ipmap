@@ -32,7 +32,7 @@
     <div class="flow-root w-full select-none">
       <select class="select select-sm max-w-40" bind:value={page}>
         <option value="search">Location Search</option>
-        <option value="capture">Packet Capture</option>
+        <option value="capture">Monitor Network</option>
         <option value="trace">Traceroute</option>
       </select>
 

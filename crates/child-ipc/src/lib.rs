@@ -95,6 +95,8 @@ pub struct Connections {
     pub stopping: bool,
     /// All the data from this session
     pub session: ConnectionInfo,
+    /// The current maximum observed throughput (up.avg_s + down.avg_s)
+    pub max_throughput: f64,
 }
 
 impl Connections {
@@ -116,30 +118,11 @@ impl Connections {
 pub struct ConnectionInfo {
     pub up: ThroughputTrackerInfo,
     pub down: ThroughputTrackerInfo,
-    pub direction: ConnectionDirection,
 }
 
-#[derive(Copy, Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
-#[cfg_attr(feature = "parent", derive(specta::Type))]
-#[serde(rename_all = "lowercase")]
-pub enum ConnectionDirection {
-    Up,
-    Down,
-    #[default]
-    Mixed,
-}
-
-impl ConnectionDirection {
-    pub fn from_speed(up: f64, down: f64) -> Self {
-        let ratio = f64::min(up, down) / f64::max(up, down);
-
-        if ratio > 0.7 {
-            Self::Mixed
-        } else if up > down {
-            Self::Up
-        } else {
-            Self::Down
-        }
+impl ConnectionInfo {
+    pub fn throughput(&self) -> f64 {
+        self.up.avg_s + self.down.avg_s
     }
 }
 

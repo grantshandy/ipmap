@@ -7,6 +7,9 @@
     error = $bindable(),
     exitable,
   }: { error: Error | null; exitable?: boolean } = $props();
+
+  const setcapCommand = (path: string | null) =>
+    `setcap cap_net_raw,cap_net_admin=eip ${path}`;
 </script>
 
 {#if error}
@@ -35,13 +38,24 @@
     {#if platform === "linux"}
       <p class="text-sm">
         In order to perform this action, you must enable network capabilities on
-        the child executable.
+        the child executable:
       </p>
       <pre
-        class="bg-base-100 bg-opacity-80 overflow-x-auto rounded-sm px-2 py-3 text-xs"># setcap cap_net_raw,cap_net_admin=eip {path}</pre>
-      <button class="btn btn-sm" onclick={() => window.location.reload()}
-        >Retry</button
-      >
+        class="bg-base-100 bg-opacity-80 overflow-x-auto rounded-sm px-2 py-1 text-xs">
+# {setcapCommand(path)}
+      </pre>
+      <div class="flex space-x-2">
+        <button class="btn btn-sm" onclick={() => window.location.reload()}>
+          Retry
+        </button>
+        <button
+          class="btn btn-sm"
+          onclick={() =>
+            navigator.clipboard.writeText("sudo " + setcapCommand(path))}
+        >
+          Copy
+        </button>
+      </div>
     {:else}
       <p class="text-sm">Try restarting the program as an administrator.</p>
     {/if}

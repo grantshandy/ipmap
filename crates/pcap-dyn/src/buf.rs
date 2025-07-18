@@ -7,7 +7,7 @@ use std::{
 };
 
 use crate::{Capture, Packet, PacketDirection};
-use child_ipc::{ConnectionDirection, ConnectionInfo, Connections, ThroughputTrackerInfo};
+use child_ipc::{ConnectionInfo, Connections, ThroughputTrackerInfo};
 use dashmap::DashMap;
 
 const RATE_WINDOW_SECS: f64 = Duration::from_secs(1).as_secs_f64();
@@ -100,11 +100,18 @@ impl TimeBuffer {
             };
         }
 
+        let max_throughput = updates
+            .iter()
+            .map(|(_, c)| c.throughput())
+            .reduce(f64::max)
+            .unwrap_or(0.0);
+
         Connections {
             session: self.session_info(&updates),
             updates,
             started,
             ended,
+            max_throughput,
             stopping: false,
         }
     }
@@ -132,7 +139,6 @@ impl TimeBuffer {
                 total: active_down_total + inactive_down_total,
                 avg_s: down_s,
             },
-            direction: ConnectionDirection::from_speed(up_s, down_s),
         }
     }
 }
@@ -156,11 +162,7 @@ impl ActiveConnection {
         let up = self.up.info(connection_timeout);
         let down = self.down.info(connection_timeout);
 
-        let info = ConnectionInfo {
-            direction: ConnectionDirection::from_speed(up.avg_s, down.avg_s),
-            up,
-            down,
-        };
+        let info = ConnectionInfo { up, down };
 
         let status = if self.up.dead() && self.down.dead() {
             ConnectionStatus::Ended

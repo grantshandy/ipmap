@@ -4,18 +4,20 @@
   import {
     database,
     renderDeviceName,
-    arcFromDirection,
+    newArc,
     movingAverageInfo,
     regionNames,
+    humanFileSize,
+    coordKey,
     type Pcap,
     type Coordinate,
-    type ConnectionInfo,
-    type ConnectionDirection,
-    type Location,
-    humanFileSize,
+    type CoordKey,
+    type ActiveLocationRecord,
+    updateArcStyle,
+    CAPTURE_SHOW_ARCS,
+    updateIcon,
   } from "$lib/bindings";
-  import { divIcon, marker, type Map, type Marker } from "leaflet";
-  import { GeodesicLine } from "leaflet.geodesic";
+  import { marker, type Map } from "leaflet";
   import { onDestroy } from "svelte";
 
   const { pcap }: { pcap: Pcap } = $props();
@@ -26,18 +28,7 @@
   });
 
   let map: Map | null = $state(null);
-
-  type CoordKey = string;
-  type ActiveLocationRecord = {
-    crd: CoordKey;
-    marker: Marker;
-    arc: GeodesicLine;
-    ips: Record<string, ConnectionInfo>;
-    direction: ConnectionDirection;
-    location: Location;
-  };
-
-  const coordKey = (p: Coordinate): CoordKey => `${p.lat}${p.lng}`;
+  let focused: ActiveLocationRecord | null = $state(null);
 
   const coordinates: Record<string, CoordKey> = {};
   const locations: Record<CoordKey, ActiveLocationRecord> = {};
@@ -47,23 +38,7 @@
     if (l) myLocation = l.crd;
   });
 
-  const updateIcon = (loc: ActiveLocationRecord) => {
-    const active = focusedLocation && focusedLocation.crd == loc.crd;
-
-    const iconSize = active ? 30 : 20;
-    const iconAnchor = iconSize / 2;
-
-    loc.marker.setIcon(
-      divIcon({
-        html: `<span>${Object.keys(loc.ips).length}</span>`,
-        className: active ? "marker-icon-active" : "marker-icon",
-        iconSize: [iconSize, iconSize],
-        iconAnchor: [iconAnchor, iconAnchor],
-      }),
-    );
-  };
-
-  pcap.start.on(async (ip, info) => {
+  pcap.connStart.on(async (ip, info) => {
     if (!map || !myLocation) return;
 
     const lookupResp = await database.lookupIp(ip);
@@ -80,28 +55,23 @@
     if (locKey in locations) {
       locations[locKey].ips[ip] = info;
     } else {
-      const arc = arcFromDirection(
-        myLocation,
-        lookupResp.crd,
-        info.direction,
-      ).addTo(map);
-
       locations[locKey] = {
         crd: locKey,
         ips: Object.fromEntries([[ip, info]]),
         marker: marker(lookupResp.crd)
           .on("click", () => setFocusedLocation(locKey))
           .addTo(map),
-        arc,
-        direction: info.direction,
+        arc: newArc(myLocation, lookupResp.crd, info, pcap.maxThroughput),
         location: lookupResp.loc,
       };
+
+      if (CAPTURE_SHOW_ARCS) locations[locKey].arc.addTo(map);
     }
 
-    updateIcon(locations[locKey]);
+    updateIcon(locations[locKey], focused);
   });
 
-  pcap.end.on((ip: string) => {
+  pcap.connEnd.on((ip: string) => {
     if (!coordinates[ip] || !map) return;
 
     const locRecord = locations[coordinates[ip]];
@@ -113,7 +83,7 @@
       locRecord.marker.removeFrom(map);
       locRecord.arc.removeFrom(map);
 
-      if (focusedLocation && focusedLocation.crd == locRecord.crd) {
+      if (focused && focused.crd == locRecord.crd) {
         setFocusedLocation(null);
       }
 
@@ -123,34 +93,27 @@
       return;
     }
 
-    updateIcon(locRecord);
+    updateIcon(locRecord, focused);
   });
 
-  pcap.update.on(async (ip, info) => {
+  pcap.connUpdate.on(async (ip, info) => {
     const coord = coordinates[ip];
     if (!coord || !map) return;
 
     const loc = locations[coord];
     if (!loc) return;
-
     loc.ips[ip] = info;
 
-    if (loc.direction != info.direction) {
-      loc.direction = info.direction;
-      loc.arc.remove();
-      loc.arc = arcFromDirection(
-        myLocation,
-        loc.marker.getLatLng(),
-        loc.direction,
-      ).addTo(map);
-    }
-
-    if (focusedLocation && focusedLocation.crd == coord) {
-      focusedLocation.ips = loc.ips;
+    if (focused && focused.crd == coord) {
+      focused.ips = loc.ips;
     }
   });
 
-  let focusedLocation: ActiveLocationRecord | null = $state(null);
+  pcap.updateEnd.on(async () => {
+    for (const location of Object.values(locations)) {
+      updateArcStyle(location, pcap.maxThroughput);
+    }
+  });
 
   // click off the icon to make it not focused
   $effect(() => {
@@ -159,27 +122,27 @@
 
   const setFocusedLocation = (key: CoordKey | null) => {
     if (!key) {
-      if (focusedLocation) {
-        const old = focusedLocation;
-        focusedLocation = null;
-        updateIcon(old);
+      if (focused) {
+        const old = focused;
+        focused = null;
+        updateIcon(old, focused);
       }
       return;
     }
 
     const loc = locations[key];
-    if (!loc || loc == focusedLocation) return;
+    if (!loc || loc == focused) return;
 
     // reset previous location
-    if (focusedLocation) {
-      const prev = focusedLocation;
-      focusedLocation = loc;
-      updateIcon(prev);
+    if (focused) {
+      const prev = focused;
+      focused = loc;
+      updateIcon(prev, focused);
     }
 
     // update new location
-    focusedLocation = loc;
-    updateIcon(focusedLocation);
+    focused = loc;
+    updateIcon(focused, focused);
 
     // center on location
     const zoom = (map?.getZoom() ?? 0) > 5 ? map?.getZoom() : 5;
@@ -224,8 +187,8 @@
       {/if}
     </div>
 
-    {#if focusedLocation}
-      {@render focusedLocationInfo(focusedLocation)}
+    {#if focused}
+      {@render focusedLocationInfo(focused)}
     {/if}
 
     {#if pcap.status.capture != null}
