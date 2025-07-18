@@ -4,10 +4,7 @@ use ipgeo::{GenericDatabase, LookupInfo};
 use tauri::{AppHandle, Manager, State};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
 
-use crate::{
-    DNS_LOOKUP_TIMEOUT, DbState, DbStateChange, DbStateInfo,
-    my_loc::{self, MyLocationResponse},
-};
+use crate::{DNS_LOOKUP_TIMEOUT, DbState, DbStateChange, DbStateInfo};
 
 #[tauri::command]
 #[specta::specta]
@@ -154,9 +151,9 @@ pub async fn lookup_host(host: &str) -> Result<Option<IpAddr>, ()> {
 #[tauri::command]
 #[specta::specta]
 pub async fn my_location(state: State<'_, DbState>) -> Result<LookupInfo, String> {
-    match my_loc::get().await? {
-        MyLocationResponse::Full(info) => Ok(info),
-        MyLocationResponse::JustIp(ip) => match lookup_ip(state, ip) {
+    match crate::my_loc::get().await? {
+        (_, Some(info)) => Ok(info),
+        (ip, None) => match lookup_ip(state, ip) {
             Some(info) => Ok(info),
             None => Err(format!("Your IP {ip} not found in loaded database")),
         },

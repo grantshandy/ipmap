@@ -113,10 +113,17 @@ pub async fn run_traceroute(
             Ok(Response::Traceroute(resp)) => {
                 exit()?;
 
-                let my_location = my_location(db.clone()).await.ok().map(|me| Hop {
-                    ips: vec![],
-                    loc: Some(me),
-                });
+                let my_location = match ipgeo_state::my_loc::get().await {
+                    Ok((ip, Some(info))) => Some(Hop {
+                        ips: vec![ip],
+                        loc: Some(info),
+                    }),
+                    Ok((ip, None)) => Some(Hop {
+                        ips: vec![ip],
+                        loc: my_location(db.clone()).await.ok(),
+                    }),
+                    Err(_) => None,
+                };
 
                 let hops = resp.into_iter().map(|ips| Hop::new(ips, db.clone()));
 

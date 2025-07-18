@@ -13,7 +13,7 @@ use tauri::{AppHandle, Manager};
 use tauri_specta::Event;
 
 pub mod commands;
-mod my_loc;
+pub mod my_loc;
 
 #[cfg(db_preloads)]
 mod preloads;
