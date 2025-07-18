@@ -284,8 +284,8 @@
 
         <h3>{ip}:</h3>
         <div class="font-mono text-xs">
-          <p>&#x1F80B; {movingAverageInfo(info.down)}</p>
-          <p>&#x1F809; {movingAverageInfo(info.up)}</p>
+          <p>&#8593; {movingAverageInfo(info.up)}</p>
+          <p>&#8595; {movingAverageInfo(info.down)}</p>
         </div>
       {/each}
     </div>
