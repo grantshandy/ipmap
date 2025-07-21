@@ -1,6 +1,6 @@
 use std::{fs::File, net::IpAddr, path::PathBuf, thread};
 
-use ipgeo::{GenericDatabase, LookupInfo};
+use ipgeo::{DatabaseTrait, GenericDatabase, LookupInfo};
 use tauri::{AppHandle, Manager, State};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
 
@@ -115,10 +115,7 @@ pub fn database_state(state: State<'_, DbState>) -> DbStateInfo {
 #[tauri::command]
 #[specta::specta]
 pub fn lookup_ip(state: State<'_, DbState>, ip: IpAddr) -> Option<LookupInfo> {
-    match ip {
-        IpAddr::V4(ip) => state.ipv4_db.get(ip),
-        IpAddr::V6(ip) => state.ipv6_db.get(ip),
-    }
+    state.get(ip)
 }
 
 /// Get a hostname with the system for a given IP address.

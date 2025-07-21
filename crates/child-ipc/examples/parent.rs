@@ -1,13 +1,15 @@
 use child_ipc::{Command, RunTraceroute, ipc};
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (child, exit) = ipc::spawn_child_process(
-        r"./target/release/ipmap-child.exe".into(),
+        r"./target/release/ipmap-child".into(),
         Command::Traceroute(RunTraceroute {
             ip: "1.1.1.1".parse().unwrap(),
-            max_rounds: 1,
+            max_rounds: 10,
         }),
-    )?;
+    )
+    .await?;
 
     loop {
         let msg = child.recv();

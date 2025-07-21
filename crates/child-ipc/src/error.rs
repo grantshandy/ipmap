@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 pub enum ErrorKind {
     UnexpectedType,
     TerminatedUnexpectedly,
+    ChildTimeout,
     Ipc,
     InsufficientPermissions,
     LibLoading,
@@ -28,6 +29,7 @@ impl fmt::Display for ErrorKind {
             ErrorKind::ChildNotFound => "Child process not found",
             ErrorKind::EstablishConnection => "Failed to establish connection",
             ErrorKind::Io => "IO error",
+            ErrorKind::ChildTimeout => "The child failed to connect to the IPC pipe in time",
         };
 
         f.write_str(msg)

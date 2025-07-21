@@ -1,12 +1,12 @@
 use std::{
-    net::{Ipv4Addr, Ipv6Addr},
+    net::{IpAddr, Ipv4Addr, Ipv6Addr},
     path::{Path, PathBuf},
     sync::{Arc, RwLock},
     time::Duration,
 };
 
 use dashmap::{DashMap, Entry};
-use ipgeo::{Database, GenericIp};
+use ipgeo::{Coordinate, Database, DatabaseTrait, GenericIp, Location};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tauri::{AppHandle, Manager};
@@ -36,6 +36,28 @@ impl DbState {
             ipv6: self.ipv6_db.info(),
             loading: self.loading.read().map(|s| s.clone()).unwrap_or_default(),
         }
+    }
+}
+
+impl DatabaseTrait<IpAddr> for DbState {
+    fn get(&self, ip: IpAddr) -> Option<LookupInfo> {
+        match ip {
+            IpAddr::V4(ip) => self.ipv4_db.get(ip),
+            IpAddr::V6(ip) => self.ipv6_db.get(ip),
+        }
+    }
+
+    fn get_coordinate(&self, ip: IpAddr) -> Option<Coordinate> {
+        match ip {
+            IpAddr::V4(ip) => self.ipv4_db.get_coordinate(ip),
+            IpAddr::V6(ip) => self.ipv6_db.get_coordinate(ip),
+        }
+    }
+
+    fn get_location(&self, crd: Coordinate) -> Option<Location> {
+        self.ipv4_db
+            .get_location(crd)
+            .or_else(|| self.ipv6_db.get_location(crd))
     }
 }
 
@@ -119,7 +141,16 @@ impl<Ip: GenericIp> DbCollection<Ip> {
         DbCollectionInfo { selected, loaded }
     }
 
-    pub fn get(&self, ip: Ip) -> Option<LookupInfo> {
+    pub fn set_selected(&self, path: &PathBuf) {
+        if let Some(db) = self.loaded.get(path) {
+            *self.selected.write().expect("open selected") = Some(db.value().clone());
+        }
+    }
+}
+
+// TODO: move all selected call into single helper methods
+impl<Ip: GenericIp> DatabaseTrait<Ip> for DbCollection<Ip> {
+    fn get(&self, ip: Ip) -> Option<LookupInfo> {
         self.selected
             .read()
             .expect("read selected")
@@ -127,10 +158,20 @@ impl<Ip: GenericIp> DbCollection<Ip> {
             .and_then(|selected| selected.db.get(ip))
     }
 
-    pub fn set_selected(&self, path: &PathBuf) {
-        if let Some(db) = self.loaded.get(path) {
-            *self.selected.write().expect("open selected") = Some(db.value().clone());
-        }
+    fn get_coordinate(&self, ip: Ip) -> Option<Coordinate> {
+        self.selected
+            .read()
+            .expect("read selected")
+            .as_ref()
+            .and_then(|selected| selected.db.get_coordinate(ip))
+    }
+
+    fn get_location(&self, crd: Coordinate) -> Option<Location> {
+        self.selected
+            .read()
+            .expect("read selected")
+            .as_ref()
+            .and_then(|selected| selected.db.get_location(crd))
     }
 }
 

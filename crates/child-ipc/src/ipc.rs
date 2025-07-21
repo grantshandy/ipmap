@@ -18,7 +18,7 @@ mod child {
     pub fn get_command() -> (Command, Parent) {
         let mut args = env::args();
 
-        let _name = args.next();
+        let _exe_name = args.next();
 
         let Some(command) = args
             .next()
@@ -62,7 +62,7 @@ pub use parent::*;
 
 #[cfg(feature = "parent")]
 mod parent {
-    use std::{io, path::PathBuf, process::Command as ProcessCommand};
+    use std::{io, path::PathBuf, process::Command as ProcessCommand, time::Duration};
 
     use base64::prelude::*;
     use ipc_channel::ipc::IpcOneShotServer;
@@ -70,11 +70,16 @@ mod parent {
     use super::Message;
     use crate::{Command, Error, ErrorKind, Response};
 
+    const CHILD_CONNECTION_TIMEOUT: Duration = Duration::from_millis(200);
+
     pub type StopCallback = Box<dyn FnOnce() -> io::Result<()> + Send + Sync>;
     pub type Child = ipc_channel::ipc::IpcReceiver<Message>;
 
-    pub fn call_child_process(child_path: PathBuf, command: Command) -> Result<Response, Error> {
-        let (recv, stop) = spawn_child_process(child_path, command)?;
+    pub async fn call_child_process(
+        child_path: PathBuf,
+        command: Command,
+    ) -> Result<Response, Error> {
+        let (recv, stop) = spawn_child_process(child_path, command).await?;
 
         let msg = recv.recv()?;
 
@@ -83,7 +88,7 @@ mod parent {
         msg
     }
 
-    pub fn spawn_child_process(
+    pub async fn spawn_child_process(
         mut child_path: PathBuf,
         command: Command,
     ) -> Result<(Child, StopCallback), Error> {
@@ -106,7 +111,11 @@ mod parent {
         #[cfg(not(windows))]
         let stop = spawn_child(child_path, args)?;
 
-        let (recv, first) = server.accept()?;
+        let accept = async { server.accept() };
+
+        let (recv, first) = tokio::time::timeout(CHILD_CONNECTION_TIMEOUT, accept)
+            .await
+            .map_err(|_| Error::basic(ErrorKind::ChildTimeout))??;
 
         match first {
             Ok(Response::Connected) => Ok((recv, stop)),

@@ -32,6 +32,7 @@ pub fn run() {
             pcap_state::commands::print_error,
         ]);
 
+    // TODO: export in build script
     #[cfg(all(debug_assertions, not(mobile)))]
     ts_export_builder
         .export(

@@ -136,3 +136,16 @@ pub enum Error {
     #[error("No records found")]
     NoRecords,
 }
+
+// TODO: rename
+pub trait DatabaseTrait<Ip> {
+    fn get(&self, ip: Ip) -> Option<LookupInfo> {
+        let crd = self.get_coordinate(ip)?;
+        let loc = self.get_location(crd)?;
+
+        Some(LookupInfo { crd, loc })
+    }
+
+    fn get_coordinate(&self, ip: Ip) -> Option<Coordinate>;
+    fn get_location(&self, crd: Coordinate) -> Option<Location>;
+}

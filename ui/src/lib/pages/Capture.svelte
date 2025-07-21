@@ -2,23 +2,24 @@
   import MapView from "$lib/components/Map.svelte";
 
   import {
+    CAPTURE_SHOW_ARCS,
     database,
     renderDeviceName,
     newArc,
     movingAverageInfo,
     regionNames,
     humanFileSize,
-    coordKey,
+    updateArc,
+    newMarker,
+    markerIcon,
+    CaptureSession,
     type Pcap,
     type Coordinate,
-    type CoordKey,
-    type ActiveLocationRecord,
-    updateArcStyle,
-    CAPTURE_SHOW_ARCS,
-    updateIcon,
+    type CaptureLocation,
   } from "$lib/bindings";
-  import { marker, type Map } from "leaflet";
+  import { type Marker, type Map } from "leaflet";
   import { onDestroy } from "svelte";
+  import type { GeodesicLine } from "leaflet.geodesic";
 
   const { pcap }: { pcap: Pcap } = $props();
 
@@ -27,126 +28,72 @@
     pcap.unlisten();
   });
 
+  // TODO: add back focused
+
   let map: Map | null = $state(null);
-  let focused: ActiveLocationRecord | null = $state(null);
+  let capture: CaptureSession | null = $state(null);
 
-  const coordinates: Record<string, CoordKey> = {};
-  const locations: Record<CoordKey, ActiveLocationRecord> = {};
+  type ArcMarker = { arc: GeodesicLine; marker: Marker };
 
+  let locations: Record<string, ArcMarker> = {};
+
+  // TODO: tie to backend further? return from startCapture?
   let myLocation: Coordinate = { lat: 0, lng: 0 };
   database.myLocation().then((l) => {
     if (l) myLocation = l.crd;
   });
 
-  pcap.connStart.on(async (ip, info) => {
-    if (!map || !myLocation) return;
+  const onIpChanged = (crd: string, record: CaptureLocation | null) => {
+    if (!capture || !map) return;
 
-    const lookupResp = await database.lookupIp(ip);
-
-    if (!lookupResp) {
-      // TODO: handle case where location is not found
-      console.warn(`${ip} not found in db`);
+    // remove location
+    if (record == null) {
+      locations[crd].arc.remove();
+      locations[crd].marker.remove();
+      delete locations[crd];
       return;
     }
 
-    const locKey = coordKey(lookupResp.crd);
-    coordinates[ip] = locKey;
+    // add new location
+    if (!(crd in locations)) {
+      const arc = newArc(myLocation, record.crd, record, capture.maxThroughput);
 
-    if (locKey in locations) {
-      locations[locKey].ips[ip] = info;
-    } else {
-      locations[locKey] = {
-        crd: locKey,
-        ips: Object.fromEntries([[ip, info]]),
-        marker: marker(lookupResp.crd)
-          .on("click", () => setFocusedLocation(locKey))
-          .addTo(map),
-        arc: newArc(myLocation, lookupResp.crd, info, pcap.maxThroughput),
-        location: lookupResp.loc,
+      if (CAPTURE_SHOW_ARCS) arc.addTo(map);
+
+      locations[crd] = {
+        marker: newMarker(record).addTo(map),
+        arc,
       };
+    } else {
+      // new IP added to location
 
-      if (CAPTURE_SHOW_ARCS) locations[locKey].arc.addTo(map);
+      // TODO: focused ?
+      locations[crd].marker.setIcon(markerIcon(record, false));
+    }
+  };
+
+  const onUpdate = (crd: string, loc: CaptureLocation) => {
+    if (!capture) return;
+
+    updateArc(loc, locations[crd].arc, capture.maxThroughput);
+  };
+
+  const onStopping = () => {
+    for (const record of Object.values(locations)) {
+      record.arc.remove();
+      record.marker.remove();
     }
 
-    updateIcon(locations[locKey], focused);
-  });
+    locations = {};
+  };
 
-  pcap.connEnd.on((ip: string) => {
-    if (!coordinates[ip] || !map) return;
+  const startCapture = () => {
+    capture = pcap.startCapture(onUpdate, onIpChanged, onStopping);
+  };
 
-    const locRecord = locations[coordinates[ip]];
-    if (!locRecord) return;
-
-    delete locRecord.ips[ip];
-
-    if (Object.keys(locRecord.ips).length == 0) {
-      locRecord.marker.removeFrom(map);
-      locRecord.arc.removeFrom(map);
-
-      if (focused && focused.crd == locRecord.crd) {
-        setFocusedLocation(null);
-      }
-
-      delete locations[coordinates[ip]];
-      delete coordinates[ip];
-
-      return;
-    }
-
-    updateIcon(locRecord, focused);
-  });
-
-  pcap.connUpdate.on(async (ip, info) => {
-    const coord = coordinates[ip];
-    if (!coord || !map) return;
-
-    const loc = locations[coord];
-    if (!loc) return;
-    loc.ips[ip] = info;
-
-    if (focused && focused.crd == coord) {
-      focused.ips = loc.ips;
-    }
-  });
-
-  pcap.updateEnd.on(async () => {
-    for (const location of Object.values(locations)) {
-      updateArcStyle(location, pcap.maxThroughput);
-    }
-  });
-
-  // click off the icon to make it not focused
-  $effect(() => {
-    if (map) map.on("click", () => setFocusedLocation(null));
-  });
-
-  const setFocusedLocation = (key: CoordKey | null) => {
-    if (!key) {
-      if (focused) {
-        const old = focused;
-        focused = null;
-        updateIcon(old, focused);
-      }
-      return;
-    }
-
-    const loc = locations[key];
-    if (!loc || loc == focused) return;
-
-    // reset previous location
-    if (focused) {
-      const prev = focused;
-      focused = loc;
-      updateIcon(prev, focused);
-    }
-
-    // update new location
-    focused = loc;
-    updateIcon(focused, focused);
-
-    // center on location
-    const zoom = (map?.getZoom() ?? 0) > 5 ? map?.getZoom() : 5;
-    map?.flyTo(loc.marker.getLatLng(), zoom);
+  const stopCapture = async () => {
+    await pcap.stopCapture();
+    capture = null;
   };
 </script>
 
@@ -170,15 +117,12 @@
       </select>
 
       {#if pcap.status.capture}
-        <button
-          onclick={pcap.stopCapture}
-          class="join-item btn btn-sm btn-error"
-        >
+        <button onclick={stopCapture} class="join-item btn btn-sm btn-error">
           Stop Capture
         </button>
       {:else}
         <button
-          onclick={pcap.startCapture}
+          onclick={startCapture}
           class="join-item btn btn-sm btn-primary"
           disabled={pcap.device == null}
         >
@@ -187,30 +131,28 @@
       {/if}
     </div>
 
-    {#if focused}
+    <!-- {#if focused}
       {@render focusedLocationInfo(focused)}
-    {/if}
+    {/if} -->
 
-    {#if pcap.status.capture != null}
+    {#if capture != null}
       <div class="absolute right-2 bottom-2 z-[999] space-y-2">
-        {#if pcap.session != null}
-          <div
-            class="bg-base-200 rounded-box flex divide-x border py-0.5 text-xs"
+        <div
+          class="bg-base-200 rounded-box flex divide-x border py-0.5 text-xs"
+        >
+          <span>&#8593; {humanFileSize(capture.session.up.total)}</span>
+          <span>&#8595; {humanFileSize(capture.session.down.total)}</span>
+        </div>
+        <div
+          class="bg-base-200 rounded-box flex divide-x border py-0.5 text-xs"
+        >
+          <span class="px-1"
+            >&#8593; {humanFileSize(capture.session.up.avgS)}/s</span
           >
-            <span>&#8593; {humanFileSize(pcap.session.up.total)}</span>
-            <span>&#8595; {humanFileSize(pcap.session.down.total)}</span>
-          </div>
-          <div
-            class="bg-base-200 rounded-box flex divide-x border py-0.5 text-xs"
+          <span class="px-1"
+            >&#8595; {humanFileSize(capture.session.down.avgS)}/s</span
           >
-            <span class="px-1"
-              >&#8593; {humanFileSize(pcap.session.up.avgS)}/s</span
-            >
-            <span class="px-1"
-              >&#8595; {humanFileSize(pcap.session.down.avgS)}/s</span
-            >
-          </div>
-        {/if}
+        </div>
         <div class="bg-base-200 rounded-box flex divide-x border py-0.5">
           {@render directionIndicator("&#8593;", "--color-up")}
           {@render directionIndicator("&#8595;", "--color-down")}
@@ -230,26 +172,28 @@
   </div>
 {/snippet}
 
-{#snippet focusedLocationInfo(loc: ActiveLocationRecord)}
+{#snippet focusedLocationInfo(record: CaptureLocation)}
   <div
     class="bg-base-200 rounded-box absolute bottom-2 left-2 z-[999] max-h-120 w-54 space-y-3 overflow-y-scroll border p-2"
   >
     <p class="text-sm">
-      {`${loc.location.city ?? "Unknown City"}${loc.location.region ? `, ${loc.location.region}` : ""}`},
-      {regionNames.of(loc.location.countryCode)}
+      {`${record.loc.city ?? "Unknown City"}${record.loc.region ? `, ${record.loc.region}` : ""}`},
+      {regionNames.of(record.loc.countryCode)}
     </p>
 
     <div class="space-y-1">
-      {#each Object.entries(loc.ips) as [ip, info], i}
+      {#each Object.entries(record.ips) as [ip, info], i}
         {#if i != 0}
           <hr />
         {/if}
 
         <h3>{ip}:</h3>
-        <div class="font-mono text-xs">
-          <p>&#8593; {movingAverageInfo(info.up)}</p>
-          <p>&#8595; {movingAverageInfo(info.down)}</p>
-        </div>
+        {#if info}
+          <div class="font-mono text-xs">
+            <p>&#8593; {movingAverageInfo(info.up)}</p>
+            <p>&#8595; {movingAverageInfo(info.down)}</p>
+          </div>
+        {/if}
       {/each}
     </div>
   </div>

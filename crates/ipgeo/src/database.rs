@@ -16,8 +16,8 @@ use rustc_hash::FxBuildHasher;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    Error, Result,
-    location::{Coordinate, CountryCode, Location, LookupInfo},
+    DatabaseTrait, Error, Result,
+    location::{Coordinate, CountryCode, Location},
 };
 use csv_format::*;
 
@@ -94,19 +94,15 @@ impl<Ip: GenericIp> Database<Ip> {
 
         Ok(db)
     }
+}
 
-    pub fn get_coordinate(&self, ip: Ip) -> Option<Coordinate> {
+impl<Ip: GenericIp> DatabaseTrait<Ip> for Database<Ip> {
+    fn get_coordinate(&self, ip: Ip) -> Option<Coordinate> {
         self.coordinates.get(&ip.into()).copied()
     }
 
-    pub fn get(&self, ip: Ip) -> Option<LookupInfo> {
-        let crd = self.get_coordinate(ip)?;
-        let loc = self
-            .locations
-            .get(&crd)
-            .map(|i| i.populate(&self.strings))?;
-
-        Some(LookupInfo { crd, loc })
+    fn get_location(&self, crd: Coordinate) -> Option<Location> {
+        self.locations.get(&crd).map(|i| i.populate(&self.strings))
     }
 }
 

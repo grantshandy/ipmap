@@ -1,18 +1,19 @@
 import { message } from "@tauri-apps/plugin-dialog";
 import {
   commands,
+  type CaptureLocation,
+  type Connection,
   type Coordinate,
   type Device,
   type Duration,
   type Error,
   type ErrorKind,
   type Location,
-  type ThroughputTrackerInfo,
   type Result,
-  type ConnectionInfo,
+  type Throughput,
 } from "./raw";
 import { GeodesicLine } from "leaflet.geodesic";
-import { divIcon, geodesic, Marker } from "leaflet";
+import { divIcon, geodesic, marker, Marker } from "leaflet";
 
 import database from "./database.svelte";
 export { database };
@@ -106,87 +107,49 @@ export const CAPTURE_SHOW_ARCS = true;
 export const CAPTURE_COLORS = true;
 export const CAPTURE_VARY_SIZE = true;
 
-export const newArc = (
-  from: Coordinate,
-  to: Coordinate,
-  info: ConnectionInfo,
-  maxThroughput: number,
-): GeodesicLine => {
-  const up = info.up.avgS;
-  const down = info.down.avgS;
-
-  const { weight, opacity } = CAPTURE_VARY_SIZE
-    ? calculateWeights(up + down, maxThroughput)
-    : { weight: 2, opacity: 0.8 };
-
-  return geodesic([from, to], {
-    steps: 5,
-    // TODO: default styles other than basic blue?
-    className: CAPTURE_COLORS ? connectionDirection(up, down) : "",
-    weight,
-    opacity,
-  });
-};
-
-export const updateArcStyle = (
-  record: ActiveLocationRecord,
-  maxThroughput: number,
-) => {
-  const [up, down] = recordThroughputs(record);
-
-  if (CAPTURE_COLORS) {
-    updateArcDirection(record.arc, up, down);
-  }
-
-  if (CAPTURE_VARY_SIZE) {
-    record.arc.setStyle(calculateWeights(up + down, maxThroughput));
-  }
-};
-
 const ARC_MIN_OPACITY = 0.25;
 const ARC_MAX_OPACITY = 1.0;
 const ARC_MIN_WEIGHT = 1.5;
 const ARC_MAX_WEIGHT = 6;
 
+export const newArc = (
+  from: Coordinate,
+  to: Coordinate,
+  record: CaptureLocation,
+  maxThroughput: number,
+): GeodesicLine => {
+  const { weight, opacity } = CAPTURE_VARY_SIZE
+    ? calculateWeights(record.thr, maxThroughput)
+    : { weight: 2, opacity: 0.8 };
+
+  return geodesic([from, to], {
+    steps: 5,
+    // TODO: default styles other than basic blue?
+    className: CAPTURE_COLORS ? record.dir : "",
+    weight,
+    opacity,
+  });
+};
+
+export const updateArc = (
+  record: CaptureLocation,
+  arc: GeodesicLine,
+  maxThroughput: number,
+) => {
+  const svgElement = arc.getElement();
+  if (svgElement) {
+    svgElement.setAttribute("class", `leaflet-interactive ${record.dir}`);
+  }
+
+  if (CAPTURE_VARY_SIZE) {
+    arc.setStyle(calculateWeights(record.thr, maxThroughput));
+  }
+};
+
 const calculateWeights = (throughput: number, maxThroughput: number) => ({
   weight: lerp(throughput, 0, maxThroughput, ARC_MIN_WEIGHT, ARC_MAX_WEIGHT),
   opacity: lerp(throughput, 0, maxThroughput, ARC_MIN_OPACITY, ARC_MAX_OPACITY),
 });
-
-const updateArcDirection = (arc: GeodesicLine, up: number, down: number) => {
-  const direction = connectionDirection(up, down);
-
-  const svgElement = arc.getElement();
-  if (svgElement) {
-    svgElement.setAttribute("class", `leaflet-interactive ${direction}`);
-  }
-};
-
-export const recordThroughputs = (
-  record: ActiveLocationRecord,
-): [number, number] => {
-  const values = Object.values(record.ips);
-
-  return [
-    values.map((p) => p.up.avgS).reduce((a, b) => a + b, 0),
-    values.map((p) => p.down.avgS).reduce((a, b) => a + b, 0),
-  ];
-};
-
-/** Corresponds with class names path.up, path.down, path.mixed */
-export type ConnectionDirection = "up" | "down" | "mixed";
-
-export const connectionDirection = (up: number, down: number) => {
-  const ratio = Math.min(up, down) / Math.max(up, down);
-
-  if (ratio > 0.7) {
-    return "mixed";
-  } else if (up > down) {
-    return "up";
-  } else {
-    return "down";
-  }
-};
 
 export const lerp = (
   value: number,
@@ -202,34 +165,19 @@ export const lerp = (
   );
 };
 
-export type CoordKey = string;
-export type ActiveLocationRecord = {
-  crd: CoordKey;
-  marker: Marker;
-  arc: GeodesicLine;
-  ips: Record<string, ConnectionInfo>;
-  location: Location;
-};
+export const newMarker = (loc: CaptureLocation): Marker =>
+  marker(loc.crd, { icon: markerIcon(loc, false) });
 
-export const coordKey = (p: Coordinate): CoordKey => `${p.lat}${p.lng}`;
-
-export const updateIcon = (
-  loc: ActiveLocationRecord,
-  focused: ActiveLocationRecord | null,
-) => {
-  const active = focused && focused.crd == loc.crd;
-
-  const iconSize = active ? 30 : 20;
+export const markerIcon = (loc: CaptureLocation, focused: boolean) => {
+  const iconSize = focused ? 30 : 20;
   const iconAnchor = iconSize / 2;
 
-  loc.marker.setIcon(
-    divIcon({
-      html: `<span>${Object.keys(loc.ips).length}</span>`,
-      className: active ? "marker-icon-active" : "marker-icon",
-      iconSize: [iconSize, iconSize],
-      iconAnchor: [iconAnchor, iconAnchor],
-    }),
-  );
+  return divIcon({
+    html: `<span>${Object.keys(loc.ips).length}</span>`,
+    className: focused ? "marker-icon-active" : "marker-icon",
+    iconSize: [iconSize, iconSize],
+    iconAnchor: [iconAnchor, iconAnchor],
+  });
 };
 
 export const renderDeviceName = async (device: Device): Promise<string> => {
@@ -249,7 +197,7 @@ export const humanFileSize = (size: number) => {
   );
 };
 
-export const movingAverageInfo = (info: ThroughputTrackerInfo): string =>
+export const movingAverageInfo = (info: Throughput): string =>
   `${humanFileSize(info.total)} | ${humanFileSize(info.avgS)}/s`;
 
 export const regionNames = new Intl.DisplayNames(["en"], { type: "region" });

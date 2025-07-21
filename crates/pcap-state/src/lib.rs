@@ -46,7 +46,7 @@ impl PcapState {
             .unwrap();
     }
 
-    pub fn info(&self, app: AppHandle) -> Result<PcapStateInfo, Error> {
+    pub async fn info(&self, app: AppHandle) -> Result<PcapStateInfo, Error> {
         let capture: Option<Device> = self
             .capture
             .lock()
@@ -55,7 +55,7 @@ impl PcapState {
 
         let child = resolve_child_path(app.path())?;
 
-        match ipc::call_child_process(child, Command::PcapStatus)? {
+        match ipc::call_child_process(child, Command::PcapStatus).await? {
             Response::PcapStatus(status) => Ok(PcapStateInfo {
                 version: status.version,
                 devices: status.devices,
@@ -84,8 +84,8 @@ pub enum PcapStateChange {
 }
 
 impl PcapStateChange {
-    pub fn emit(app: &AppHandle) {
-        let info = match app.state::<PcapState>().inner().info(app.clone()) {
+    pub async fn emit(app: &AppHandle) {
+        let info = match app.state::<PcapState>().inner().info(app.clone()).await {
             Ok(info) => Self::Ok(info),
             Err(err) => Self::Err(err),
         };

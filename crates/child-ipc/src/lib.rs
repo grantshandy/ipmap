@@ -24,6 +24,7 @@ pub enum Command {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum Response {
+    /// An immediate first response returned by the child, assures we're connected.
     Connected,
     PcapStatus(PcapStatus),
     CaptureSample(Connections),
@@ -32,6 +33,7 @@ pub enum Response {
     Traceroute(Vec<Vec<IpAddr>>),
 }
 
+/// Command => Response base switching and parsing logic, to be implemented by the child.
 #[cfg(feature = "child")]
 pub trait IpcService {
     fn execute() {
@@ -67,7 +69,7 @@ impl Command {
     }
 }
 
-/// A network device, e.g. "wlp3s0".
+/// A network device reported from libpcap, e.g. "wlp3s0".
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "parent", derive(specta::Type))]
 pub struct Device {
@@ -81,56 +83,55 @@ pub struct Device {
     pub wireless: bool,
 }
 
+/// The current state of the capture session
 #[derive(Default, PartialEq, Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "parent", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct Connections {
     /// The current state of all active network connections.
-    pub updates: HashMap<IpAddr, ConnectionInfo>,
-    /// A list of IpAddrs in updates that were just added.
+    pub updates: HashMap<IpAddr, Connection>,
+    /// A list of IpAddrs in updates that were *just* added to updates.
     pub started: Vec<IpAddr>,
-    /// A list of IpAddrs that were previously in updates but have now been removed.
+    /// A list of IpAddrs that were previously in updates but have now been removed in this iteration.
     pub ended: Vec<IpAddr>,
-    /// Indicates to the frontend UI that the capture session has just stopped.
-    pub stopping: bool,
-    /// All the data from this session
-    pub session: ConnectionInfo,
-    /// The current maximum observed throughput (up.avg_s + down.avg_s)
-    pub max_throughput: f64,
+    /// The entire session represented as a single connection.
+    pub session: Connection,
 }
 
 impl Connections {
-    /// Indicate to the frontend UI that the capture session has just stopped.
-    pub fn stop() -> Self {
-        Self {
-            stopping: true,
-            ..Default::default()
-        }
-    }
-
-    pub fn empty(&self) -> bool {
+    /// If this instance contains any meaningful information to send to the frontend.
+    pub fn is_empty(&self) -> bool {
+        // If there is nothing in these, self.session hasn't changed since the last iteration.
         self.ended.is_empty() && self.started.is_empty() && self.updates.is_empty()
     }
 }
 
 #[derive(Copy, Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[cfg_attr(feature = "parent", derive(specta::Type))]
-pub struct ConnectionInfo {
-    pub up: ThroughputTrackerInfo,
-    pub down: ThroughputTrackerInfo,
+pub struct Connection {
+    pub up: Throughput,
+    pub down: Throughput,
 }
 
-impl ConnectionInfo {
+impl Connection {
+    /// Current speed up and down per second
     pub fn throughput(&self) -> f64 {
         self.up.avg_s + self.down.avg_s
     }
+
+    pub fn inactive(&self) -> bool {
+        // TODO: should we compare with 0.0?
+        self.throughput() == 0.0
+    }
 }
 
+/// Current stats for a single connection direction (up or down)
 #[derive(Copy, Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[cfg_attr(feature = "parent", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
-pub struct ThroughputTrackerInfo {
+pub struct Throughput {
+    /// Total number of bytes since the start of the capture session
     pub total: usize,
+    /// Number of bytes per second
     pub avg_s: f64,
 }
 

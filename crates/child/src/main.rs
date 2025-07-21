@@ -6,9 +6,10 @@ use child_ipc::{
     Error, ErrorKind, IpcService, PcapStatus, Response, RunCapture, RunTraceroute,
     ipc::{self},
 };
-use pcap_dyn::{Api, buf::CaptureTimeBuffer};
+use pcap_dyn::{Api, buf::CaptureTrafficMonitor};
 
 fn main() {
+    std::thread::sleep(std::time::Duration::from_millis(200));
     Service::execute();
 }
 
@@ -48,13 +49,13 @@ impl IpcService for Service {
             Ok(capture) => capture,
             Err(e) => ipc::exit_with_error(parent, Error::runtime(e.to_string())),
         };
-        let buf = CaptureTimeBuffer::start(cap, params.connection_timeout);
+        let buf = CaptureTrafficMonitor::start(cap, params.connection_timeout);
 
         let mut last_empty = false;
 
         loop {
             let conn = buf.connections();
-            let conn_empty = conn.empty();
+            let conn_empty = conn.is_empty();
 
             // Send a response if:
             // 1. The buffer is not empty (always report new data).

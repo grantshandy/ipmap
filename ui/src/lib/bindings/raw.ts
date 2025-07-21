@@ -99,7 +99,7 @@ async initPcap() : Promise<Result<PcapStateInfo, Error>> {
     else return { status: "error", error: e  as any };
 }
 },
-async startCapture(params: RunCapture, conns: TAURI_CHANNEL<Connections>) : Promise<Result<null, Error>> {
+async startCapture(params: RunCapture, conns: TAURI_CHANNEL<CaptureLocations>) : Promise<Result<null, Error>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("start_capture", { params, conns }) };
 } catch (e) {
@@ -156,32 +156,38 @@ pcapStateChange: "pcap-state-change"
 
 /** user-defined types **/
 
-export type ConnectionInfo = { up: ThroughputTrackerInfo; down: ThroughputTrackerInfo }
-export type Connections = { 
 /**
- * The current state of all active network connections.
+ * A location and it's associated active IPs and their connections.
  */
-updates: Partial<{ [key in string]: ConnectionInfo }>; 
+export type CaptureLocation = { ips: Partial<{ [key in string]: Connection }>; loc: Location; crd: Coordinate; dir: ConnectionDirection; thr: number }
+export type CaptureLocations = { 
 /**
- * A list of IpAddrs in updates that were just added.
+ * The current state of locations and their connections.
  */
-started: string[]; 
+updates: Partial<{ [key in string]: CaptureLocation }>; 
 /**
- * A list of IpAddrs that were previously in updates but have now been removed.
+ * Coordinates that were created or had IPs added/destroyed.
+ * Indices into the updates fields.
  */
-ended: string[]; 
+connectionsChanged: string[]; 
 /**
- * Indicates to the frontend UI that the capture session has just stopped.
+ * Connections that we couldn't find in the ip-geo database.
  */
-stopping: boolean; 
+notFound: Partial<{ [key in string]: Connection }>; 
 /**
- * All the data from this session
+ * A single Connection representing the entire capture session.
  */
-session: ConnectionInfo; 
+session: Connection; 
 /**
- * The current maximum observed throughput (up.avg_s + down.avg_s)
+ * The maximum connection throughput found.
  */
-maxThroughput: number }
+maxThroughput: number; 
+/**
+ * Indicate to the client this is the last update in the session.
+ */
+last: boolean }
+export type Connection = { up: Throughput; down: Throughput }
+export type ConnectionDirection = "mixed" | "up" | "down"
 /**
  * A latitude/longitude coordinate.
  */
@@ -194,7 +200,7 @@ export type DbInfo = { path: string; preloaded: boolean }
 export type DbStateChange = DbStateInfo
 export type DbStateInfo = { ipv4: DbCollectionInfo; ipv6: DbCollectionInfo; loading: string | null }
 /**
- * A network device, e.g. "wlp3s0".
+ * A network device reported from libpcap, e.g. "wlp3s0".
  */
 export type Device = { 
 /**
@@ -215,7 +221,7 @@ ready: boolean;
 wireless: boolean }
 export type Duration = { secs: number; nanos: number }
 export type Error = { kind: ErrorKind; message: string | null }
-export type ErrorKind = "UnexpectedType" | "TerminatedUnexpectedly" | "Ipc" | "InsufficientPermissions" | "LibLoading" | "Runtime" | "ChildNotFound" | "EstablishConnection" | "Io"
+export type ErrorKind = "UnexpectedType" | "TerminatedUnexpectedly" | "ChildTimeout" | "Ipc" | "InsufficientPermissions" | "LibLoading" | "Runtime" | "ChildNotFound" | "EstablishConnection" | "Io"
 export type Hop = { ips: string[]; loc: LookupInfo | null }
 /**
  * Location metadata.
@@ -240,7 +246,18 @@ export type Platform = "linux" | "windows" | "macos"
 export type RunCapture = { device: Device; connectionTimeout: Duration; reportFrequency: Duration }
 export type RunTraceroute = { ip: string; maxRounds: number }
 export type TAURI_CHANNEL<TSend> = null
-export type ThroughputTrackerInfo = { total: number; avgS: number }
+/**
+ * Current stats for a single connection direction (up or down)
+ */
+export type Throughput = { 
+/**
+ * Total number of bytes since the start of the capture session
+ */
+total: number; 
+/**
+ * Number of bytes per second
+ */
+avgS: number }
 
 /** tauri-specta globals **/
 
