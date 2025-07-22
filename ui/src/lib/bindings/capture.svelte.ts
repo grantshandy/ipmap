@@ -32,13 +32,15 @@ export class CaptureSession {
   ipChanged: OnIpChanged;
   stopping: OnStopping;
 
-  connections: { [latlng: string]: CaptureLocation } = $state({});
-  notFound: { [ip: string]: Connection } = $state({});
+  connections: { [crd: string]: CaptureLocation } = $state({});
   session: Connection = $state({
     up: { avgS: 0, total: 0 },
     down: { avgS: 0, total: 0 },
   });
   maxThroughput = $state(0);
+
+  notFound: { [ip: string]: Connection } = $state({});
+  notFoundCount = $derived(Object.keys(this.notFound).length);
 
   constructor(updates: OnUpdate, ipChanged: OnIpChanged, stopping: OnStopping) {
     this.updates = updates;
@@ -51,6 +53,7 @@ export class CaptureSession {
     this.maxThroughput = conns.maxThroughput;
     this.session = conns.session;
     this.connections = conns.updates as { [crd: string]: CaptureLocation };
+    this.notFound = conns.notFound as { [ip: string]: Connection };
 
     // Fire stopping, Pcap.stopCapture should clean us up after it returns.
     if (conns.last) {

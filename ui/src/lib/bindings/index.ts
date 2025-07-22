@@ -2,7 +2,6 @@ import { message } from "@tauri-apps/plugin-dialog";
 import {
   commands,
   type CaptureLocation,
-  type Connection,
   type Coordinate,
   type Device,
   type Duration,
@@ -102,10 +101,11 @@ export const durationFromMillis = (milliseconds: number): Duration => {
 
 // TODO: move to settings window
 export const CAPTURE_CONNECTION_TIMEOUT: Duration = { secs: 1, nanos: 0 };
-export const CAPTURE_REPORT_FREQUENCY: Duration = durationFromMillis(150);
+export const CAPTURE_REPORT_FREQUENCY: Duration = durationFromMillis(50);
 export const CAPTURE_SHOW_ARCS = true;
 export const CAPTURE_COLORS = true;
 export const CAPTURE_VARY_SIZE = true;
+export const CAPTURE_SHOW_NOT_FOUND = false;
 
 const ARC_MIN_OPACITY = 0.25;
 const ARC_MAX_OPACITY = 1.0;
@@ -136,9 +136,11 @@ export const updateArc = (
   arc: GeodesicLine,
   maxThroughput: number,
 ) => {
-  const svgElement = arc.getElement();
-  if (svgElement) {
-    svgElement.setAttribute("class", `leaflet-interactive ${record.dir}`);
+  if (CAPTURE_COLORS) {
+    const svgElement = arc.getElement();
+    if (svgElement) {
+      svgElement.setAttribute("class", `leaflet-interactive ${record.dir}`);
+    }
   }
 
   if (CAPTURE_VARY_SIZE) {
@@ -197,8 +199,8 @@ export const humanFileSize = (size: number) => {
   );
 };
 
-export const movingAverageInfo = (info: Throughput): string =>
-  `${humanFileSize(info.total)} | ${humanFileSize(info.avgS)}/s`;
+export const throughputInfo = (info: Throughput): string =>
+  `${humanFileSize(info.avgS)}/s | ${humanFileSize(info.total)}`;
 
 export const regionNames = new Intl.DisplayNames(["en"], { type: "region" });
 
