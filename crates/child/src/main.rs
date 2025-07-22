@@ -9,7 +9,6 @@ use child_ipc::{
 use pcap_dyn::{Api, buf::CaptureTrafficMonitor};
 
 fn main() {
-    std::thread::sleep(std::time::Duration::from_millis(200));
     Service::execute();
 }
 
