@@ -3,7 +3,6 @@
   import GlobeMap from "$lib/components/Globe.svelte";
 
   import {
-    CaptureSession,
     database,
     type CaptureLocation,
     type Coordinate,
@@ -12,13 +11,12 @@
   import {
     calculateOpacity,
     calculateWeight,
-    directionArcColors,
+    directionColorString,
     getPath,
     type LocationRecord,
   } from "$lib/globus-utils";
   import { Entity, Vector, type Globe } from "@openglobus/og";
   import { onDestroy } from "svelte";
-  import { calculateWeights } from "$lib/leaflet-utils";
 
   const { pcap }: { pcap: Pcap } = $props();
 
@@ -27,7 +25,6 @@
   });
 
   let globe: Globe | null = $state(null);
-  let capture: CaptureSession | null = $state(null);
   let locations: Record<string, LocationRecord> = {};
 
   const arcs = new Vector("Collection", {
@@ -47,18 +44,12 @@
   const locationAdded = (crd: string, loc: CaptureLocation) => {
     if (!globe || !pcap.capture || !(crd in pcap.capture.connections)) return;
 
-    const { path, colors } = getPath(
-      globe.planet.ellipsoid,
-      myLocation,
-      loc,
-      pcap.capture.maxThroughput,
-    );
-
     const ent = new Entity({
       polyline: {
-        path3v: [path],
-        pathColors: [colors],
-        thickness: 2,
+        path3v: [getPath(globe.planet.ellipsoid, myLocation, loc)],
+        color: directionColorString(loc.dir),
+        thickness: calculateWeight(loc.thr, pcap.capture.maxThroughput),
+        opacity: calculateOpacity(loc.thr, pcap.capture.maxThroughput),
         isClosed: false,
       },
     });
@@ -66,7 +57,6 @@
     locations[crd] = {
       ent,
       animIndex: 0,
-      colors,
       direction: loc.dir,
     };
 
@@ -76,32 +66,31 @@
   const locationRemoved = (crd: string) => {
     if (crd in locations) {
       locations[crd].ent.remove();
+      arcs.update();
       delete locations[crd];
     }
   };
 
   const update = async (crd: string, loc: CaptureLocation) => {
     if (pcap.capture && crd in locations) {
-      locations[crd].ent.polyline?.setOpacity(
+      const polyline = locations[crd].ent.polyline;
+
+      if (!polyline) return;
+
+      polyline.setOpacity(
         calculateOpacity(loc.thr, pcap.capture.maxThroughput),
       );
-      locations[crd].ent.polyline?.setThickness(
+      polyline.setThickness(
         calculateWeight(loc.thr, pcap.capture.maxThroughput),
       );
-
-      // if (!(crd in pcap.capture.connections)) return;
-
-      // if (locations[crd].direction != capture.connections[crd].dir) {
-      //   locations[crd].direction = capture.connections[crd].dir;
-      //   console.log("changing direction");
-      //   locations[crd].colors = directionArcColors(locations[crd].direction);
-      // }
+      polyline.setColorHTML(directionColorString(loc.dir));
     }
   };
 
   const stopping = () => {
     locations = {};
     arcs.setEntities([]);
+    arcs.update();
   };
 </script>
 
