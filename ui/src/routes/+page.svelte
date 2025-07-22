@@ -1,20 +1,24 @@
 <script lang="ts">
   import Link from "$lib/components/Link.svelte";
   import Databases from "$lib/components/Databases.svelte";
+  import ErrorScreen from "$lib/components/ErrorScreen.svelte";
+
   import Search from "$lib/pages/Search.svelte";
   import Traceroute from "$lib/pages/Traceroute.svelte";
   import Capture from "$lib/pages/Capture.svelte";
-  import ErrorScreen from "$lib/components/ErrorScreen.svelte";
+  import GlobeCapture from "$lib/pages/GlobeCapture.svelte";
 
   import { database, Pcap, utils } from "$lib/bindings";
   import { basename } from "@tauri-apps/api/path";
 
-  type Page = "capture" | "search" | "trace";
+  type Page = "capture" | "search" | "trace" | "globe";
 
   let page: Page = $state((localStorage.page as Page) ?? "search");
   $effect(() => {
     localStorage.page = page;
   });
+
+  let pcapResult = Pcap.init();
 </script>
 
 {#await database.loadInternals()}
@@ -28,11 +32,12 @@
 {/await}
 
 {#snippet main()}
-  <main class="flex h-screen flex-col space-y-3 overscroll-none p-3">
-    <div class="flow-root w-full select-none">
+  <main class="flex h-screen flex-col overscroll-none">
+    <div class="flow-root w-full p-3 select-none">
       <select class="select select-sm max-w-40" bind:value={page}>
         <option value="search">Location Search</option>
         <option value="capture">Monitor Network</option>
+        <option value="globe">Network Globe</option>
         <option value="trace">Traceroute</option>
       </select>
 
@@ -45,10 +50,14 @@
       <Search />
     {:else if page === "trace"}
       <Traceroute />
-    {:else if page === "capture"}
-      {#await Pcap.init() then result}
+    {:else}
+      {#await pcapResult then result}
         {#if result.status == "ok"}
-          <Capture pcap={result.data} />
+          {#if page === "capture"}
+            <Capture pcap={result.data} />
+          {:else if page === "globe"}
+            <GlobeCapture pcap={result.data} />
+          {/if}
         {:else}
           <ErrorScreen error={result.error} />
         {/if}

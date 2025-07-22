@@ -1,16 +1,12 @@
 <script lang="ts">
   import MapView from "$lib/components/Map.svelte";
+  import CaptureStart from "$lib/components/CaptureStart.svelte";
 
   import {
     CAPTURE_SHOW_ARCS,
     CAPTURE_COLORS,
     CAPTURE_SHOW_NOT_FOUND,
     database,
-    renderDeviceName,
-    newArc,
-    updateArc,
-    newMarker,
-    markerIcon,
     renderLocationName,
     throughputInfo,
     CaptureSession,
@@ -22,6 +18,7 @@
   import { type Marker, type Map } from "leaflet";
   import { onDestroy } from "svelte";
   import type { GeodesicLine } from "leaflet.geodesic";
+  import { markerIcon, newArc, newMarker, updateArc } from "$lib/leaflet-utils";
 
   const UP_ARROW = "&#8593;";
   const DOWN_ARROW = "&#8595;";
@@ -31,10 +28,7 @@
 
   onDestroy(() => {
     pcap.stopCapture();
-    pcap.unlisten();
   });
-
-  // TODO: add back focused
 
   let map: Map | null = $state(null);
   let capture: CaptureSession | null = $state(null);
@@ -47,7 +41,11 @@
   // TODO: tie to backend further? return from startCapture?
   let myLocation: Coordinate = { lat: 0, lng: 0 };
   database.myLocation().then((l) => {
-    if (l) myLocation = l.crd;
+    if (l.status == "ok") {
+      myLocation = l.data.crd;
+    } else {
+      console.warn(l.error);
+    }
   });
 
   $effect(() => {
@@ -133,34 +131,7 @@
     <div
       class="absolute top-2 right-2 z-[999] flex flex-col items-end space-y-2"
     >
-      <div class="join join-horizontal rounded-box border">
-        <select
-          class="join-item select select-sm w-48"
-          disabled={pcap.status.capture != null}
-          bind:value={pcap.device}
-        >
-          {#each pcap.status.devices as device}
-            <option value={device} disabled={!device.ready} selected>
-              {#await renderDeviceName(device) then name}
-                {name}
-              {/await}
-            </option>
-          {/each}
-        </select>
-        {#if pcap.status.capture}
-          <button onclick={stopCapture} class="join-item btn btn-sm btn-error">
-            Stop Capture
-          </button>
-        {:else}
-          <button
-            onclick={startCapture}
-            class="join-item btn btn-sm btn-primary"
-            disabled={pcap.device == null}
-          >
-            Start Capture
-          </button>
-        {/if}
-      </div>
+      <CaptureStart {pcap} {startCapture} {stopCapture} />
 
       {#if capture != null && CAPTURE_COLORS}
         <div

@@ -3,7 +3,6 @@ import {
   commands,
   type DbStateInfo,
   type DbCollectionInfo,
-  type LookupInfo,
 } from "./raw";
 import * as dialog from "@tauri-apps/plugin-dialog";
 import { captureError } from ".";
@@ -62,9 +61,7 @@ class Database implements DbStateInfo {
   lookupDns = commands.lookupDns;
   lookupHost = commands.lookupHost;
   loadInternals = commands.loadInternals;
-
-  myLocation = (): Promise<LookupInfo | null> =>
-    captureError(commands.myLocation);
+  myLocation = commands.myLocation;
 }
 
 export default new Database();

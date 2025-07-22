@@ -23,9 +23,9 @@ let startCalled = false;
 
 type CoordKey = string;
 
-type OnUpdate = (crd: CoordKey, loc: CaptureLocation) => void;
-type OnIpChanged = (crd: CoordKey, loc: CaptureLocation | null) => void;
-type OnStopping = () => void;
+export type OnUpdate = (crd: CoordKey, loc: CaptureLocation) => void;
+export type OnIpChanged = (crd: CoordKey, loc: CaptureLocation | null) => void;
+export type OnStopping = () => void;
 
 export class CaptureSession {
   updates: OnUpdate;
