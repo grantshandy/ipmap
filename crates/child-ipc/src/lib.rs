@@ -89,10 +89,6 @@ pub struct Device {
 pub struct Connections {
     /// The current state of all active network connections.
     pub updates: HashMap<IpAddr, Connection>,
-    /// A list of IpAddrs in updates that were *just* added to updates.
-    pub started: Vec<IpAddr>,
-    /// A list of IpAddrs that were previously in updates but have now been removed in this iteration.
-    pub ended: Vec<IpAddr>,
     /// The entire session represented as a single connection.
     pub session: Connection,
 }
@@ -100,8 +96,7 @@ pub struct Connections {
 impl Connections {
     /// If this instance contains any meaningful information to send to the frontend.
     pub fn is_empty(&self) -> bool {
-        // If there is nothing in these, self.session hasn't changed since the last iteration.
-        self.ended.is_empty() && self.started.is_empty() && self.updates.is_empty()
+        self.updates.is_empty()
     }
 }
 

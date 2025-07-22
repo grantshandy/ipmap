@@ -78,7 +78,6 @@ impl TrafficMonitor {
     /// Return the current state of the network traffic
     pub fn connections(&self) -> Connections {
         let mut updates = HashMap::new();
-        let mut started = Vec::new();
         let mut ended = Vec::new();
 
         let now = Instant::now();
@@ -87,10 +86,6 @@ impl TrafficMonitor {
         for mut kv in self.active.iter_mut() {
             let ac = kv.value_mut();
             let info = ac.info(now, self.connection_timeout);
-
-            if ac.emit_start() {
-                started.push(*kv.key());
-            }
 
             if info.inactive() {
                 ended.push(*kv.key());
@@ -108,12 +103,7 @@ impl TrafficMonitor {
 
         let session = self.session(&updates);
 
-        Connections {
-            updates,
-            started,
-            ended,
-            session,
-        }
+        Connections { updates, session }
     }
 
     /// A single [ConnectionInfo] that represents the total bytes and throughput of the entire session since it was created.
@@ -154,8 +144,6 @@ impl TrafficMonitor {
 struct ActiveConnectionTracker {
     up: ThroughputTracker,
     down: ThroughputTracker,
-    // TODO: takes up lots of memory in alignment, move to another HashSet?
-    started: bool,
 }
 
 impl ActiveConnectionTracker {
@@ -171,16 +159,6 @@ impl ActiveConnectionTracker {
             up: self.up.info(now, connection_timeout),
             down: self.down.info(now, connection_timeout),
         }
-    }
-
-    /// Returns true once, the first time it is called.
-    pub fn emit_start(&mut self) -> bool {
-        if !self.started {
-            self.started = true;
-            return true;
-        }
-
-        false
     }
 }
 

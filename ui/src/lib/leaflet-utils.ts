@@ -2,10 +2,11 @@ import { divIcon, geodesic, marker, type Marker } from "leaflet";
 import {
   CAPTURE_COLORS,
   CAPTURE_VARY_SIZE,
+  lerp,
   type CaptureLocation,
   type Coordinate,
 } from "./bindings";
-import type { GeodesicLine } from "leaflet.geodesic";
+import { GeodesicLine } from "leaflet.geodesic";
 
 const ARC_MIN_OPACITY = 0.25;
 const ARC_MAX_OPACITY = 1.0;
@@ -14,7 +15,6 @@ const ARC_MAX_WEIGHT = 6;
 
 export const newArc = (
   from: Coordinate,
-  to: Coordinate,
   record: CaptureLocation,
   maxThroughput: number,
 ): GeodesicLine => {
@@ -22,7 +22,7 @@ export const newArc = (
     ? calculateWeights(record.thr, maxThroughput)
     : { weight: 2, opacity: 0.8 };
 
-  return geodesic([from, to], {
+  return geodesic([from, record.crd], {
     steps: 5,
     // TODO: default styles other than basic blue?
     className: CAPTURE_COLORS ? record.dir : "",
@@ -55,20 +55,6 @@ export const calculateWeights = (
   weight: lerp(throughput, 0, maxThroughput, ARC_MIN_WEIGHT, ARC_MAX_WEIGHT),
   opacity: lerp(throughput, 0, maxThroughput, ARC_MIN_OPACITY, ARC_MAX_OPACITY),
 });
-
-export const lerp = (
-  value: number,
-  inMin: number,
-  inMax: number,
-  outMin: number,
-  outMax: number,
-): number => {
-  // Clamp the value to ensure it's within the input range
-  const clampedValue = Math.max(inMin, Math.min(value, inMax));
-  return (
-    ((clampedValue - inMin) * (outMax - outMin)) / (inMax - inMin) + outMin
-  );
-};
 
 export const newMarker = (loc: CaptureLocation): Marker =>
   marker(loc.crd, { icon: markerIcon(loc, false) });

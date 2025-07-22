@@ -10,7 +10,8 @@
     type Pcap,
   } from "$lib/bindings";
   import {
-    animateLine,
+    calculateOpacity,
+    calculateWeight,
     directionArcColors,
     getPath,
     type LocationRecord,
@@ -43,95 +44,77 @@
     }
   });
 
-  const onUpdate = (crd: string, loc: CaptureLocation) => {
-    if (!capture || !(crd in locations)) return;
+  const locationAdded = (crd: string, loc: CaptureLocation) => {
+    if (!globe || !pcap.capture || !(crd in pcap.capture.connections)) return;
 
-    const { opacity, weight } = calculateWeights(
-      loc.thr,
-      capture.maxThroughput,
+    const { path, colors } = getPath(
+      globe.planet.ellipsoid,
+      myLocation,
+      loc,
+      pcap.capture.maxThroughput,
     );
 
-    locations[crd].ent.polyline?.setOpacity(opacity);
-    locations[crd].ent.polyline?.setThickness(weight);
+    const ent = new Entity({
+      polyline: {
+        path3v: [path],
+        pathColors: [colors],
+        thickness: 2,
+        isClosed: false,
+      },
+    });
 
-    if (!(crd in capture.connections)) return;
+    locations[crd] = {
+      ent,
+      animIndex: 0,
+      colors,
+      direction: loc.dir,
+    };
 
-    if (locations[crd].direction != capture.connections[crd].dir) {
-      locations[crd].direction = capture.connections[crd].dir;
-      console.log("changing direction");
-      locations[crd].colors = directionArcColors(locations[crd].direction);
+    arcs.add(ent);
+  };
+
+  const locationRemoved = (crd: string) => {
+    if (crd in locations) {
+      locations[crd].ent.remove();
+      delete locations[crd];
     }
   };
 
-  const onStopping = () => {
-    for (const record of Object.values(locations)) {
-      record.ent.remove();
-    }
+  const update = async (crd: string, loc: CaptureLocation) => {
+    if (pcap.capture && crd in locations) {
+      locations[crd].ent.polyline?.setOpacity(
+        calculateOpacity(loc.thr, pcap.capture.maxThroughput),
+      );
+      locations[crd].ent.polyline?.setThickness(
+        calculateWeight(loc.thr, pcap.capture.maxThroughput),
+      );
 
+      // if (!(crd in pcap.capture.connections)) return;
+
+      // if (locations[crd].direction != capture.connections[crd].dir) {
+      //   locations[crd].direction = capture.connections[crd].dir;
+      //   console.log("changing direction");
+      //   locations[crd].colors = directionArcColors(locations[crd].direction);
+      // }
+    }
+  };
+
+  const stopping = () => {
     locations = {};
     arcs.setEntities([]);
   };
-
-  const onIpChanged = (crd: string, record: CaptureLocation | null) => {
-    if (!capture || !globe) return;
-
-    // delete this arc
-    if (record == null) {
-      if (crd in locations) locations[crd].ent.remove();
-      delete locations[crd];
-      return;
-    }
-
-    // add a new arc
-    if (Object.keys(record.ips).length == 1) {
-      const { path, colors } = getPath(
-        globe.planet.ellipsoid,
-        myLocation,
-        record.crd,
-        record.dir,
-      );
-
-      const ent = new Entity({
-        polyline: {
-          path3v: [path],
-          pathColors: [colors],
-          thickness: 2,
-          isClosed: false,
-        },
-      });
-
-      locations[crd] = {
-        ent,
-        animIndex: 0,
-        colors,
-        direction: record.dir,
-      };
-
-      arcs.add(ent);
-    }
-  };
-
-  const startCapture = () => {
-    capture = pcap.startCapture(onUpdate, onIpChanged, onStopping);
-  };
-
-  const stopCapture = async () => {
-    await pcap.stopCapture();
-    capture = null;
-  };
-
-  $effect(() => {
-    // if (!globe) return;
-    // globe.planet.renderer?.handler.defaultClock.setInterval(10, () => {
-    //   for (const loc of Object.values(locations)) {
-    //     animateLine(loc);
-    //   }
-    // });
-  });
 </script>
 
 <GlobeMap bind:globe layers={[arcs]}>
   <div class="absolute top-2 right-2 z-[999]">
-    <CaptureStart {pcap} {startCapture} {stopCapture} />
+    <CaptureStart
+      {pcap}
+      callbacks={{
+        locationAdded,
+        locationRemoved,
+        update,
+        stopping,
+      }}
+    />
   </div>
 </GlobeMap>

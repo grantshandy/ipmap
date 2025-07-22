@@ -164,12 +164,7 @@ export type CaptureLocations = {
 /**
  * The current state of locations and their connections.
  */
-updates: Partial<{ [key in string]: CaptureLocation }>; 
-/**
- * Coordinates that were created or had IPs added/destroyed.
- * Indices into the updates fields.
- */
-connectionsChanged: string[]; 
+updates: Partial<{ [key in string]: CaptureLocation }>; started: string[]; ended: string[]; 
 /**
  * Connections that we couldn't find in the ip-geo database.
  */

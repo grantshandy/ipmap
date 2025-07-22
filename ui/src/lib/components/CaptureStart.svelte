@@ -1,14 +1,16 @@
 <script lang="ts">
-  import { renderDeviceName, type Pcap } from "$lib/bindings";
+  import {
+    renderDeviceName,
+    type Pcap,
+    type SessionCallbacks,
+  } from "$lib/bindings";
 
   let {
     pcap,
-    startCapture,
-    stopCapture,
+    callbacks,
   }: {
     pcap: Pcap;
-    startCapture: () => void;
-    stopCapture: () => void;
+    callbacks: SessionCallbacks;
   } = $props();
 </script>
 
@@ -27,12 +29,15 @@
     {/each}
   </select>
   {#if pcap.status.capture}
-    <button onclick={stopCapture} class="join-item btn btn-sm btn-error">
+    <button
+      onclick={() => pcap.stopCapture()}
+      class="join-item btn btn-sm btn-error"
+    >
       Stop Capture
     </button>
   {:else}
     <button
-      onclick={startCapture}
+      onclick={() => pcap.startCapture(callbacks)}
       class="join-item btn btn-sm btn-primary"
       disabled={pcap.device == null}
     >

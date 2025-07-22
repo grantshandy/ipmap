@@ -23,15 +23,14 @@ let startCalled = false;
 
 type CoordKey = string;
 
-export type OnUpdate = (crd: CoordKey, loc: CaptureLocation) => void;
-export type OnIpChanged = (crd: CoordKey, loc: CaptureLocation | null) => void;
-export type OnStopping = () => void;
+export type SessionCallbacks = {
+  stopping?: () => void;
+  locationAdded?: (crd: CoordKey, loc: CaptureLocation) => void;
+  locationRemoved?: (crd: CoordKey) => void;
+  update?: (crd: CoordKey, loc: CaptureLocation) => void;
+};
 
 export class CaptureSession {
-  updates: OnUpdate;
-  ipChanged: OnIpChanged;
-  stopping: OnStopping;
-
   connections: { [crd: string]: CaptureLocation } = $state({});
   session: Connection = $state({
     up: { avgS: 0, total: 0 },
@@ -42,35 +41,43 @@ export class CaptureSession {
   notFound: { [ip: string]: Connection } = $state({});
   notFoundCount = $derived(Object.keys(this.notFound).length);
 
-  constructor(updates: OnUpdate, ipChanged: OnIpChanged, stopping: OnStopping) {
-    this.updates = updates;
-    this.ipChanged = ipChanged;
-    this.stopping = stopping;
+  cb: SessionCallbacks;
+
+  constructor(callbacks: SessionCallbacks) {
+    this.cb = callbacks;
   }
+
+  stop = () => {
+    for (const key of Object.keys(this.connections)) {
+      this.cb.locationRemoved?.(key);
+    }
+
+    this.cb.stopping?.();
+  };
 
   /** Runs when the capture channel returns updates. Fires events. */
   update = (conns: CaptureLocations) => {
+    // Fire stopping, Pcap.stopCapture should clean us up after it returns.
+    if (conns.last) {
+      this.stop();
+      return;
+    }
+
     this.maxThroughput = conns.maxThroughput;
     this.session = conns.session;
     this.connections = conns.updates as { [crd: string]: CaptureLocation };
     this.notFound = conns.notFound as { [ip: string]: Connection };
 
-    // Fire stopping, Pcap.stopCapture should clean us up after it returns.
-    if (conns.last) {
-      this.stopping();
-      return;
+    for (const key of conns.started) {
+      this.cb.locationAdded?.(key, this.connections[key]);
     }
 
-    for (const key of conns.connectionsChanged) {
-      if (key in this.connections) {
-        this.ipChanged(key, this.connections[key]);
-      } else {
-        this.ipChanged(key, null);
-      }
+    for (const key of conns.ended) {
+      this.cb.locationRemoved?.(key);
     }
 
     for (const [crd, record] of Object.entries(this.connections)) {
-      this.updates(crd, record);
+      this.cb.update?.(crd, record);
     }
   };
 }
@@ -85,6 +92,8 @@ export class Pcap {
     devices: [],
     capture: null,
   });
+
+  public capture: CaptureSession | null = $state(null);
 
   /** Call this to stop listening to the backend */
   public unlisten!: UnlistenFn;
@@ -110,16 +119,12 @@ export class Pcap {
   }
 
   /** Start capturing on this.device */
-  public startCapture = (
-    updates: OnUpdate,
-    ipChanged: OnIpChanged,
-    stopping: OnStopping,
-  ): CaptureSession | null => {
-    if (this.device == null) return null;
+  public startCapture = (callbacks: SessionCallbacks) => {
+    if (this.device == null || this.capture != null) return;
 
     startCalled = true;
 
-    const captureSession = new CaptureSession(updates, ipChanged, stopping);
+    this.capture = new CaptureSession(callbacks);
 
     commands
       .startCapture(
@@ -128,20 +133,21 @@ export class Pcap {
           connectionTimeout: CAPTURE_CONNECTION_TIMEOUT,
           reportFrequency: CAPTURE_REPORT_FREQUENCY,
         },
-        new Channel(captureSession.update),
+        new Channel(this.capture.update),
       )
       .then((res) => {
         if (res.status == "error") {
           printError(res.error).then(displayError);
         }
       });
-
-    return captureSession;
   };
 
   /** Stop the current packet capture, if capturing. */
   public stopCapture = async () => {
     const r = await commands.stopCapture();
+
+    this.capture = null;
+
     if (r.status == "error") printError(r.error).then(displayError);
   };
 

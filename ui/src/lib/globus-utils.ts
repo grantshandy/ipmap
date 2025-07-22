@@ -1,10 +1,14 @@
 import { Ellipsoid, Entity, LonLat, math, Vec3 } from "@openglobus/og";
-import type { ConnectionDirection, Coordinate } from "./bindings";
+import {
+  lerp,
+  type CaptureLocation,
+  type ConnectionDirection,
+  type Coordinate,
+} from "./bindings";
 
 type FixedSizeArray<N extends number, T> = Array<T> & { length: N };
 
 export const ARC_POINTS = 70;
-const DEFAULT_OPACITY = 0.3;
 
 export type ArcPath = FixedSizeArray<typeof ARC_POINTS, Vec3>;
 export type ArcColors = FixedSizeArray<typeof ARC_POINTS, NumberArray4>;
@@ -39,20 +43,26 @@ const directionColor = (color: ConnectionDirection): NumberArray3 => {
 export const defaultArcColors = (color: NumberArray4): ArcColors =>
   Array.from({ length: ARC_POINTS }, () => color) as ArcColors;
 
-export const directionArcColors = (color: ConnectionDirection): ArcColors =>
-  defaultArcColors([...directionColor(color), DEFAULT_OPACITY]);
+export const directionArcColors = (
+  loc: CaptureLocation,
+  max: number,
+): ArcColors =>
+  defaultArcColors([
+    ...directionColor(loc.dir),
+    calculateOpacity(loc.thr, max),
+  ]);
 
 export const getPath = (
   ell: Ellipsoid,
   from: Coordinate,
-  to: Coordinate,
-  direction: ConnectionDirection,
+  loc: CaptureLocation,
+  maxThroughput: number,
 ): {
   path: ArcPath;
   colors: ArcColors;
 } => {
   const start = convertCoord(from);
-  const end = convertCoord(to);
+  const end = convertCoord(loc.crd);
 
   const { distance, initialAzimuth } = ell.inverse(start, end);
 
@@ -78,30 +88,18 @@ export const getPath = (
     math.bezier3v(i / ARC_POINTS, startCart, p25Cart, p75Cart, endCart),
   ) as ArcPath;
 
-  const colors: ArcColors = directionArcColors(direction);
+  const colors: ArcColors = directionArcColors(loc, maxThroughput);
 
   return { path, colors };
 };
 
-export const animateLine = (_loc: LocationRecord) => {
-  // const polyline = loc.ent.polyline;
-  // if (!polyline) return;
-  // // Increment and wrap the animation index
-  // loc.animIndex++;
-  // if (loc.animIndex > ARC_POINTS + 4) {
-  //   // Add padding for the tail
-  //   loc.animIndex = 0;
-  // }
-  // const ind = loc.animIndex;
-  // const [r, g, b] = loc.baseColor;
-  // const pathIndex = 0; // Each entity has only one path
-  // // Set the "glow" head and tail with decreasing alpha
-  // polyline.setPointColor([r, g, b, 0.8], ind, pathIndex);
-  // polyline.setPointColor([r, g, b, 0.6], ind - 1, pathIndex);
-  // polyline.setPointColor([r, g, b, 0.3], ind - 2, pathIndex);
-  // polyline.setPointColor([r, g, b, 0.1], ind - 3, pathIndex);
-  // // Reset the color of the point that the tail just passed
-  // const resetIndex = ind - 4;
-  // const originalColor = loc.originalColors[resetIndex] || loc.originalColors[0];
-  // polyline.setPointColor(originalColor, resetIndex, pathIndex);
-};
+const ARC_MIN_OPACITY = 0;
+const ARC_MAX_OPACITY = 1.0;
+const ARC_MIN_WEIGHT = 3;
+const ARC_MAX_WEIGHT = 6;
+
+export const calculateOpacity = (val: number, max: number) =>
+  lerp(val, 0, max, ARC_MIN_OPACITY, ARC_MAX_OPACITY);
+
+export const calculateWeight = (val: number, max: number) =>
+  lerp(val, 0, max, ARC_MIN_WEIGHT, ARC_MAX_WEIGHT);

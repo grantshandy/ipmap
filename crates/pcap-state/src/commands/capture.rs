@@ -30,11 +30,13 @@ pub async fn start_capture(
     pcap.set_capture(device, exit);
     PcapStateChange::emit(&app).await;
 
+    let mut active = HashSet::new();
+
     while let Ok(resp) = child.recv() {
         match resp {
             Ok(Response::CaptureSample(c)) => {
                 let prev = Instant::now();
-                let _ = conns.send(CaptureLocations::new(&db, c));
+                let _ = conns.send(CaptureLocations::new(&db, c, &mut active));
                 tracing::info!(
                     "CaptureLocations::new took {}ms",
                     prev.elapsed().as_millis()
@@ -82,9 +84,8 @@ pub async fn init_pcap(
 pub struct CaptureLocations {
     /// The current state of locations and their connections.
     pub updates: HashMap<CoordKey, CaptureLocation>,
-    /// Coordinates that were created or had IPs added/destroyed.
-    /// Indices into the updates fields.
-    pub connections_changed: HashSet<CoordKey>,
+    pub started: HashSet<CoordKey>,
+    pub ended: HashSet<CoordKey>,
     /// Connections that we couldn't find in the ip-geo database.
     pub not_found: HashMap<IpAddr, Connection>,
     /// A single Connection representing the entire capture session.
@@ -96,7 +97,7 @@ pub struct CaptureLocations {
 }
 
 impl CaptureLocations {
-    pub fn new(db: &DbState, conn: Connections) -> Self {
+    pub fn new(db: &DbState, conn: Connections, active: &mut HashSet<CoordKey>) -> Self {
         let max_throughput = conn
             .updates
             .iter()
@@ -104,16 +105,7 @@ impl CaptureLocations {
             .reduce(f64::max)
             .unwrap_or(0.0);
 
-        // combined coordinates of started/ended
-        let connections_changed = conn
-            .started
-            .into_iter()
-            .chain(conn.ended.into_iter())
-            .filter_map(|ip| db.get_coordinate(ip))
-            .map(coord_key)
-            .collect();
-
-        let mut updates_by_coord =
+        let mut conn_by_coord =
             HashMap::<Coordinate, HashMap<IpAddr, Connection>>::with_capacity(conn.updates.len());
         let mut not_found = HashMap::new();
 
@@ -123,13 +115,13 @@ impl CaptureLocations {
                 continue;
             };
 
-            updates_by_coord
+            conn_by_coord
                 .entry(crd)
                 .or_insert(HashMap::new())
                 .insert(ip, info);
         }
 
-        let updates = updates_by_coord
+        let updates = conn_by_coord
             .into_iter()
             .map(|(crd, ips)| {
                 let (up_s, down_s) = ips
@@ -149,11 +141,18 @@ impl CaptureLocations {
                     },
                 )
             })
-            .collect();
+            .collect::<HashMap<CoordKey, CaptureLocation>>();
+
+        let current_keys: HashSet<CoordKey> = updates.keys().cloned().collect();
+        let started = current_keys.difference(active).cloned().collect();
+        let ended = active.difference(&current_keys).cloned().collect();
+
+        *active = current_keys;
 
         Self {
             updates,
-            connections_changed,
+            started,
+            ended,
             not_found,
             session: conn.session,
             max_throughput,

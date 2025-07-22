@@ -9,7 +9,6 @@
     database,
     renderLocationName,
     throughputInfo,
-    CaptureSession,
     type Pcap,
     type Coordinate,
     type CaptureLocation,
@@ -31,10 +30,9 @@
   });
 
   let map: Map | null = $state(null);
-  let capture: CaptureSession | null = $state(null);
   let focused: string | null = $state(null);
 
-  type ArcMarker = { arc: GeodesicLine; marker: Marker };
+  type ArcMarker = { arc: GeodesicLine; marker: Marker; ipCount: number };
 
   let locations: Record<string, ArcMarker> = {};
 
@@ -53,76 +51,60 @@
   });
 
   const setFocused = (crd: string | null) => {
-    if (!capture) return;
+    if (!pcap.capture) return;
 
-    if (focused && focused in capture.connections)
+    if (focused && focused in pcap.capture.connections)
       locations[focused].marker.setIcon(
-        markerIcon(capture.connections[focused], false),
+        markerIcon(pcap.capture.connections[focused], false),
       );
 
     focused = crd && crd in locations ? crd : null;
     if (!focused) return;
 
     locations[focused].marker.setIcon(
-      markerIcon(capture.connections[focused], true),
+      markerIcon(pcap.capture.connections[focused], true),
     );
   };
 
-  const onIpChanged = (crd: string, record: CaptureLocation | null) => {
-    if (!capture || !map) return;
+  const locationAdded = (crd: string, loc: CaptureLocation) => {
+    if (!map || !pcap.capture || !(crd in pcap.capture.connections)) return;
 
-    // remove location
-    if (record == null) {
-      if (focused == crd) setFocused(null);
+    const record = pcap.capture.connections[crd];
 
-      if (crd in locations) {
-        locations[crd].arc.remove();
-        locations[crd].marker.remove();
-      }
+    const arc = newArc(myLocation, record, pcap.capture.maxThroughput);
 
-      delete locations[crd];
-      return;
-    }
+    if (CAPTURE_SHOW_ARCS) arc.addTo(map);
+
+    locations[crd] = {
+      marker: newMarker(record)
+        .on("click", () => setFocused(crd))
+        .addTo(map),
+      arc,
+      ipCount: Object.keys(loc.ips).length,
+    };
+  };
+
+  const locationRemoved = (crd: string) => {
+    if (focused == crd) setFocused(null);
 
     if (crd in locations) {
-      // IP generally added/removed
-      locations[crd].marker.setIcon(markerIcon(record, focused == crd));
-    } else {
-      // add new location
-      const arc = newArc(myLocation, record.crd, record, capture.maxThroughput);
-
-      if (CAPTURE_SHOW_ARCS) arc.addTo(map);
-
-      locations[crd] = {
-        marker: newMarker(record)
-          .on("click", () => setFocused(crd))
-          .addTo(map),
-        arc,
-      };
+      locations[crd].arc.remove();
+      locations[crd].marker.remove();
+      delete locations[crd];
     }
   };
 
-  const onUpdate = async (crd: string, loc: CaptureLocation) => {
-    if (capture && crd in locations)
-      updateArc(loc, locations[crd].arc, capture.maxThroughput);
-  };
+  const update = async (crd: string, loc: CaptureLocation) => {
+    if (pcap.capture && crd in locations) {
+      updateArc(loc, locations[crd].arc, pcap.capture.maxThroughput);
 
-  const onStopping = () => {
-    for (const record of Object.values(locations)) {
-      record.arc.remove();
-      record.marker.remove();
+      const ipCount = Object.keys(loc.ips).length;
+
+      if (locations[crd].ipCount != ipCount) {
+        locations[crd].ipCount = ipCount;
+        locations[crd].marker.setIcon(markerIcon(loc, crd === focused));
+      }
     }
-
-    locations = {};
-  };
-
-  const startCapture = () => {
-    capture = pcap.startCapture(onUpdate, onIpChanged, onStopping);
-  };
-
-  const stopCapture = async () => {
-    await pcap.stopCapture();
-    capture = null;
   };
 </script>
 
@@ -131,9 +113,16 @@
     <div
       class="absolute top-2 right-2 z-[999] flex flex-col items-end space-y-2"
     >
-      <CaptureStart {pcap} {startCapture} {stopCapture} />
+      <CaptureStart
+        {pcap}
+        callbacks={{
+          locationAdded,
+          locationRemoved,
+          update,
+        }}
+      />
 
-      {#if capture != null && CAPTURE_COLORS}
+      {#if pcap.capture != null && CAPTURE_COLORS}
         <div
           class="bg-base-200 rounded-box flex divide-x border py-0.5 select-none"
         >
@@ -144,21 +133,23 @@
       {/if}
     </div>
 
-    {#if capture != null}
+    {#if pcap.capture != null}
       {#if focused}
         <div
           class="bg-base-200 rounded-box absolute bottom-2 left-2 z-[999] max-h-120 w-54 space-y-3 overflow-y-scroll border p-2"
         >
-          {@render focusedInfo(capture.connections[focused])}
+          {@render focusedInfo(pcap.capture.connections[focused])}
         </div>
       {/if}
 
-      {#if CAPTURE_SHOW_NOT_FOUND && capture.notFoundCount != 0}
+      {#if CAPTURE_SHOW_NOT_FOUND && pcap.capture.notFoundCount != 0}
         <div
           class="bg-base-200 rounded-box absolute top-2 left-14 z-[999] border p-1 text-xs"
         >
           <p>
-            {capture.notFoundCount} IP{capture.notFoundCount > 1 ? "s" : ""}
+            {pcap.capture.notFoundCount} IP{pcap.capture.notFoundCount > 1
+              ? "s"
+              : ""}
             not found in database
           </p>
         </div>
@@ -167,7 +158,7 @@
       <div
         class="bg-base-200 rounded-box absolute right-2 bottom-2 z-[999] w-45 space-y-2 border p-1 text-xs select-none"
       >
-        {@render connectionStats(capture.session)}
+        {@render connectionStats(pcap.capture.session)}
       </div>
     {/if}
   </MapView>
