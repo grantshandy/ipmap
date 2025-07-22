@@ -47,6 +47,10 @@
       .tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         noWrap: true,
         edgeBufferTiles: 2,
+        bounds: [
+          [-90, -180],
+          [90, 180],
+        ],
       })
       .addTo(map);
 
