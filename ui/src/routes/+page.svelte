@@ -11,11 +11,16 @@
   import { database, Pcap, utils } from "$lib/bindings";
   import { basename } from "@tauri-apps/api/path";
 
-  type Page = "capture" | "search" | "trace" | "globe";
+  type Page = "capture" | "search" | "trace";
 
   let page: Page = $state((localStorage.page as Page) ?? "search");
   $effect(() => {
     localStorage.page = page;
+  });
+
+  let globe: boolean = $state(localStorage.globe ?? false);
+  $effect(() => {
+    localStorage.globe = globe;
   });
 
   let pcapResult = Pcap.init();
@@ -37,11 +42,15 @@
       <select class="select select-sm max-w-40" bind:value={page}>
         <option value="search">Location Search</option>
         <option value="capture">Monitor Network</option>
-        <option value="globe">Network Globe</option>
         <option value="trace">Traceroute</option>
       </select>
 
       <button class="btn btn-sm" onclick={utils.openAboutWindow}>?</button>
+
+      {#if page === "capture"}
+        <input id="globe" type="checkbox" bind:checked={globe} class="toggle" />
+        <label for="globe">3D</label>
+      {/if}
 
       <Databases />
     </div>
@@ -50,13 +59,13 @@
       <Search />
     {:else if page === "trace"}
       <Traceroute />
-    {:else}
+    {:else if page === "capture"}
       {#await pcapResult then result}
         {#if result.status == "ok"}
-          {#if page === "capture"}
-            <Capture pcap={result.data} />
-          {:else if page === "globe"}
+          {#if globe}
             <GlobeCapture pcap={result.data} />
+          {:else}
+            <Capture pcap={result.data} />
           {/if}
         {:else}
           <ErrorScreen error={result.error} />

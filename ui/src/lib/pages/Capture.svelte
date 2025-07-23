@@ -108,61 +108,57 @@
   };
 </script>
 
-<div class="flex grow">
-  <MapView bind:map>
-    <div
-      class="absolute top-2 right-2 z-[999] flex flex-col items-end space-y-2"
-    >
-      <CaptureStart
-        {pcap}
-        callbacks={{
-          locationAdded,
-          locationRemoved,
-          update,
-        }}
-      />
+<MapView bind:map>
+  <div class="absolute top-2 right-2 z-[999] flex flex-col items-end space-y-2">
+    <CaptureStart
+      {pcap}
+      callbacks={{
+        locationAdded,
+        locationRemoved,
+        update,
+      }}
+    />
 
-      {#if pcap.capture != null && CAPTURE_COLORS}
-        <div
-          class="bg-base-200 rounded-box flex divide-x border py-0.5 select-none"
-        >
-          {@render directionIndicator(UP_ARROW, "--color-up")}
-          {@render directionIndicator(DOWN_ARROW, "--color-down")}
-          {@render directionIndicator(MIXED_ARROW, "--color-mixed")}
-        </div>
-      {/if}
-    </div>
-
-    {#if pcap.capture != null}
-      {#if focused}
-        <div
-          class="bg-base-200 rounded-box absolute bottom-2 left-2 z-[999] max-h-120 w-54 space-y-3 overflow-y-scroll border p-2"
-        >
-          {@render focusedInfo(pcap.capture.connections[focused])}
-        </div>
-      {/if}
-
-      {#if CAPTURE_SHOW_NOT_FOUND && pcap.capture.notFoundCount != 0}
-        <div
-          class="bg-base-200 rounded-box absolute top-2 left-14 z-[999] border p-1 text-xs"
-        >
-          <p>
-            {pcap.capture.notFoundCount} IP{pcap.capture.notFoundCount > 1
-              ? "s"
-              : ""}
-            not found in database
-          </p>
-        </div>
-      {/if}
-
+    {#if pcap.capture != null && CAPTURE_COLORS}
       <div
-        class="bg-base-200 rounded-box absolute right-2 bottom-2 z-[999] w-45 space-y-2 border p-1 text-xs select-none"
+        class="bg-base-200 rounded-box flex divide-x border py-0.5 select-none"
       >
-        {@render connectionStats(pcap.capture.session)}
+        {@render directionIndicator(UP_ARROW, "--color-up")}
+        {@render directionIndicator(DOWN_ARROW, "--color-down")}
+        {@render directionIndicator(MIXED_ARROW, "--color-mixed")}
       </div>
     {/if}
-  </MapView>
-</div>
+  </div>
+
+  {#if pcap.capture != null}
+    {#if focused}
+      <div
+        class="bg-base-200 rounded-box absolute bottom-2 left-2 z-[999] max-h-120 w-54 space-y-3 overflow-y-scroll border p-2"
+      >
+        {@render focusedInfo(pcap.capture.connections[focused])}
+      </div>
+    {/if}
+
+    {#if CAPTURE_SHOW_NOT_FOUND && pcap.capture.notFoundCount != 0}
+      <div
+        class="bg-base-200 rounded-box absolute top-2 left-14 z-[999] border p-1 text-xs"
+      >
+        <p>
+          {pcap.capture.notFoundCount} IP{pcap.capture.notFoundCount > 1
+            ? "s"
+            : ""}
+          not found in database
+        </p>
+      </div>
+    {/if}
+
+    <div
+      class="bg-base-200 rounded-box absolute right-2 bottom-2 z-[999] w-45 space-y-2 border p-1 text-xs select-none"
+    >
+      {@render connectionStats(pcap.capture.session)}
+    </div>
+  {/if}
+</MapView>
 
 {#snippet directionIndicator(arrow: string, bgVar: string)}
   <div class="flex items-center px-2 py-0.5 text-center text-xs">

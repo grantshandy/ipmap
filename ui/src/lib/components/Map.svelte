@@ -62,17 +62,18 @@
 
 <svelte:window on:resize={() => map?.invalidateSize()} />
 
-<div class="overflow-none relative grow">
-  <div class="join join-vertical absolute top-2 left-2 z-30 border select-none">
+<div use:mapAction class="overflow-none relative z-20 grow select-none">
+  <div class="join join-vertical absolute top-2 left-2 z-[999] select-none">
     <button
       onclick={() => map?.zoomIn()}
-      class="btn join-item btn-sm text-xl font-bold">+</button
+      class="btn join-item btn-sm border-b-0 border-white text-xl font-bold"
+      >+</button
     >
     <button
       onclick={() => map?.zoomOut()}
-      class="btn join-item btn-sm text-xl font-bold">&#x2212;</button
+      class="btn join-item btn-sm border-t-0 border-white text-xl font-bold"
+      >&#x2212;</button
     >
   </div>
   {@render children?.()}
-  <div use:mapAction class="z-20 h-full w-full select-none"></div>
 </div>

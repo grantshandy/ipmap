@@ -1,7 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
     net::IpAddr,
-    time::Instant,
 };
 
 use child_ipc::{Command, Connection, Connections, Error, ErrorKind, Response, RunCapture, ipc};
@@ -35,12 +34,7 @@ pub async fn start_capture(
     while let Ok(resp) = child.recv() {
         match resp {
             Ok(Response::CaptureSample(c)) => {
-                let prev = Instant::now();
                 let _ = conns.send(CaptureLocations::new(&db, c, &mut active));
-                tracing::info!(
-                    "CaptureLocations::new took {}ms",
-                    prev.elapsed().as_millis()
-                );
             }
             Ok(_) => {
                 pcap.stop_capture();
