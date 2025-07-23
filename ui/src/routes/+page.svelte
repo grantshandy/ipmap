@@ -32,7 +32,7 @@
 {/await}
 
 {#snippet main()}
-  <main class="flex h-screen flex-col overscroll-none">
+  <main class="flex h-screen max-h-screen flex-col overscroll-none">
     <div class="flow-root w-full p-3 select-none">
       <select class="select select-sm max-w-40" bind:value={page}>
         <option value="search">Location Search</option>

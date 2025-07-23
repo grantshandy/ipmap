@@ -1,13 +1,29 @@
 import { defineConfig } from "vite";
 import { sveltekit } from "@sveltejs/kit/vite";
 import tailwindcss from "@tailwindcss/vite";
+import { viteStaticCopy } from "vite-plugin-static-copy";
 
 // @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
 
 // https://vitejs.dev/config/
 export default defineConfig(async () => ({
-  plugins: [sveltekit(), tailwindcss()],
+  plugins: [
+    sveltekit(),
+    tailwindcss(),
+    viteStaticCopy({
+      targets: [
+        {
+          src: "node_modules/@openglobus/og/lib/res",
+          dest: ".",
+        },
+        // {
+        //   src: "node_modules/@openglobus/og/lib/assets/*",
+        //   dest: ".",
+        // },
+      ],
+    }),
+  ],
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //

@@ -59,7 +59,7 @@ export const getPath = (
     p25Cart = ell.lonLatToCartesian(p25),
     p75Cart = ell.lonLatToCartesian(p75);
 
-  return Array.from({ length: ARC_POINTS }, (_, i) =>
+  return Array.from({ length: ARC_POINTS + 1 }, (_, i) =>
     math.bezier3v(i / ARC_POINTS, startCart, p25Cart, p75Cart, endCart),
   ) as ArcPath;
 };

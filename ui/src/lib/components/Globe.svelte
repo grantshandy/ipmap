@@ -34,7 +34,6 @@
   };
 </script>
 
-<div class="overflow-none relative grow">
-  <div use:addGlobe class="h-full w-full"></div>
+<div use:addGlobe class="overflow-none relative min-h-0 grow">
   {@render children?.()}
 </div>
