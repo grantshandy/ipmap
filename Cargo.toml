@@ -38,5 +38,9 @@ incremental = true
 # lto = true
 # strip = true
 
+# run build scripts at opt-level 3 because ipgeo-state has to read the database which takes
+# 20 seconds in development mode.
 [profile.dev.build-override]
+opt-level = 3
+[profile.release.build-override]
 opt-level = 3
