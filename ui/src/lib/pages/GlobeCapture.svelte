@@ -4,29 +4,26 @@
 
   import {
     database,
+    lerp,
     type CaptureLocation,
+    type ConnectionDirection,
     type Coordinate,
     type Pcap,
   } from "$lib/bindings";
   import {
-    calculateOpacity,
-    calculateWeight,
-    DASH_TO_GAP_RATIO,
-    directionColorString,
     getDashedPath,
     getPath,
+    DASH_TO_GAP_RATIO,
     NUMBER_OF_DASHES,
     OSCILATION_RANGE,
     type LocationRecord,
-  } from "$lib/globus-utils";
-  import { Entity, Vec3, Vector, type Globe } from "@openglobus/og";
+  } from "$lib/3d-arc";
+  import { Entity, Vector, type Globe } from "@openglobus/og";
   import { onDestroy } from "svelte";
 
   const { pcap }: { pcap: Pcap } = $props();
 
-  onDestroy(() => {
-    pcap.stopCapture();
-  });
+  onDestroy(() => pcap.stopCapture());
 
   let globe: Globe | null = $state(null);
   let locations: Record<string, LocationRecord> = {};
@@ -45,6 +42,13 @@
     }
   });
 
+  const calcOpacity = (thr: number) =>
+    lerp(thr, 0, pcap.capture?.maxThroughput ?? 0, 0.25, 1);
+  const calcThickness = (thr: number) =>
+    lerp(thr, 0, pcap.capture?.maxThroughput ?? 0, 3, 6);
+  const calcColor = (clr: ConnectionDirection) =>
+    clr === "up" ? "#c01c28" : clr === "down" ? "#26a269" : "#cd9309";
+
   const locationAdded = (crd: string, loc: CaptureLocation) => {
     if (!globe || !pcap.capture || !(crd in pcap.capture.connections)) return;
 
@@ -57,24 +61,19 @@
       0,
     );
 
-    const ent = new Entity({
-      polyline: {
-        path3v: dashedPath,
-        color: directionColorString(loc.dir),
-        thickness: calculateWeight(loc.thr, pcap.capture.maxThroughput),
-        opacity: calculateOpacity(loc.thr, pcap.capture.maxThroughput),
-        isClosed: false,
-      },
-    });
-
     locations[crd] = {
-      ent,
+      ent: new Entity({
+        polyline: {
+          path3v: dashedPath,
+          color: calcColor(loc.dir),
+          thickness: calcThickness(loc.thr),
+          opacity: calcOpacity(loc.thr),
+          isClosed: false,
+        },
+      }).addTo(arcs),
       animIndex: 0,
-      direction: loc.dir,
       fullPath,
     };
-
-    arcs.add(ent);
   };
 
   const locationRemoved = (crd: string) => {
@@ -86,20 +85,14 @@
   };
 
   const update = async (crd: string, loc: CaptureLocation) => {
-    if (pcap.capture && crd in locations) {
-      const polyline = locations[crd].ent.polyline;
-      if (!polyline) return;
+    if (!pcap.capture || !(crd in locations)) return;
 
-      locations[crd].direction = loc.dir;
+    const polyline = locations[crd].ent.polyline;
+    if (!polyline) return;
 
-      polyline.setOpacity(
-        calculateOpacity(loc.thr, pcap.capture.maxThroughput),
-      );
-      polyline.setThickness(
-        calculateWeight(loc.thr, pcap.capture.maxThroughput),
-      );
-      polyline.setColorHTML(directionColorString(loc.dir));
-    }
+    polyline.setOpacity(calcOpacity(loc.thr));
+    polyline.setThickness(calcThickness(loc.thr));
+    polyline.setColorHTML(calcColor(loc.dir));
   };
 
   const stopping = () => {
@@ -108,44 +101,41 @@
     arcs.update();
   };
 
-  $effect(() => {
-    if (globe) {
-      globe.planet.renderer?.handler.defaultClock.setInterval(10, () => {
-        for (const crd in locations) {
-          const locRecord = locations[crd];
-          const { ent, fullPath, direction } = locRecord;
+  const onGlobeInit = (globe: Globe) => {
+    globe.planet.renderer?.handler.defaultClock.setInterval(10, () => {
+      if (!pcap.capture) return;
 
-          locRecord.animIndex += 1;
+      for (const crd in locations) {
+        if (!(crd in pcap.capture.connections)) continue;
 
-          let offset;
+        const locRecord = locations[crd];
+        const { ent, fullPath } = locRecord;
+        const { dir } = pcap.capture.connections[crd];
 
-          // Determine the direction of movement
-          if (direction === "mixed") {
-            // Use a triangular wave function to create a back-and-forth motion
-            const doubledRange = OSCILATION_RANGE * 2;
-            offset = Math.abs(
-              (locRecord.animIndex % doubledRange) - OSCILATION_RANGE,
-            );
-          } else {
-            offset =
-              direction === "up" ? locRecord.animIndex : -locRecord.animIndex;
-          }
+        locRecord.animIndex += 1;
 
-          ent.polyline?.setPath3v(
-            getDashedPath(
-              fullPath,
-              NUMBER_OF_DASHES,
-              DASH_TO_GAP_RATIO,
-              offset,
-            ),
+        let offset;
+
+        // Determine the direction of movement
+        if (dir === "mixed") {
+          // Use a triangular wave function to create a back-and-forth motion
+          const doubledRange = OSCILATION_RANGE * 2;
+          offset = Math.abs(
+            (locRecord.animIndex % doubledRange) - OSCILATION_RANGE,
           );
+        } else {
+          offset = dir === "up" ? locRecord.animIndex : -locRecord.animIndex;
         }
-      });
-    }
-  });
+
+        ent.polyline?.setPath3v(
+          getDashedPath(fullPath, NUMBER_OF_DASHES, DASH_TO_GAP_RATIO, offset),
+        );
+      }
+    });
+  };
 </script>
 
-<GlobeMap bind:globe layers={[arcs]}>
+<GlobeMap bind:globe layers={[arcs]} {onGlobeInit}>
   <div class="absolute top-2 right-2 z-[999]">
     <CaptureStart
       {pcap}

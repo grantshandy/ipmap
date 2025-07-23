@@ -9,11 +9,14 @@
   } from "@openglobus/og";
   import type { Snippet } from "svelte";
 
-  type Args = { globe: Globe | null; layers: Vector[]; children?: Snippet };
+  type Args = {
+    globe: Globe | null;
+    layers: Vector[];
+    children?: Snippet;
+    onGlobeInit: (globe: Globe) => void;
+  };
 
-  let { globe = $bindable(), layers, children }: Args = $props();
-
-  const sat = new Bing(null);
+  let { globe = $bindable(), layers, children, onGlobeInit }: Args = $props();
 
   const addGlobe = (target: HTMLElement) => {
     globe = new Globe({
@@ -21,12 +24,14 @@
       name: "Earth",
       terrain: new GlobusRgbTerrain(),
       atmosphereEnabled: true,
-      layers: [sat, ...layers],
+      layers: [new Bing(null), ...layers],
       controls: [new control.MouseNavigation()],
       attributionContainer: document.createElement("div"),
     });
 
     globe.start();
+
+    onGlobeInit(globe);
 
     return {
       destroy: () => globe?.destroy(),
