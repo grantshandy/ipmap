@@ -239,7 +239,7 @@ devices: Device[];
 capture: Device | null }
 export type Platform = "linux" | "windows" | "macos"
 export type RunCapture = { device: Device; connectionTimeout: Duration; reportFrequency: Duration }
-export type RunTraceroute = { ip: string; maxRounds: number }
+export type RunTraceroute = { ip: string; rounds: number }
 export type TAURI_CHANNEL<TSend> = null
 /**
  * Current stats for a single connection direction (up or down)

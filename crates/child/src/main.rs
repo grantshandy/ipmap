@@ -78,7 +78,7 @@ impl IpcService for Service {
         }
 
         let tracer = trippy_core::Builder::new(params.ip)
-            .max_rounds(Some(params.max_rounds))
+            .max_rounds(Some(params.rounds))
             .build()
             .map_err(|err| Error::runtime(format!("Error building traceroute: {err}")))?;
 

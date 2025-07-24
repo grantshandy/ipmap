@@ -12,12 +12,11 @@
     type RunTraceroute,
     type Error,
   } from "$lib/bindings";
-  import type { Action } from "svelte/action";
 
-  const MAX_MAX_ROUNDS: number = 200;
+  const MAX_ROUNDS: number = 200;
 
   let prefs: RunTraceroute = $state({
-    maxRounds: 5,
+    rounds: 5,
     ip: "",
   });
 
@@ -44,16 +43,7 @@
     pageState = res.status == "ok" ? res.data : res.error;
   };
 
-  let formInvalid = $derived(
-    prefs.maxRounds < 1 || prefs.maxRounds > MAX_MAX_ROUNDS,
-  );
-
-  const loadingBar: Action = (elem) => {
-    $effect(() => {
-      if (pageState != null && typeof pageState == "number")
-        elem.style.width = `${(pageState / prefs.maxRounds) * 100}%`;
-    });
-  };
+  let formInvalid = $derived(prefs.rounds < 1 || prefs.rounds > MAX_ROUNDS);
 </script>
 
 <div class="flex h-full w-full grow flex-col">
@@ -63,7 +53,7 @@
     {:else if isError(pageState)}
       <ErrorScreen bind:error={pageState} exitable={true} />
     {:else if typeof pageState == "number"}
-      {@render traceLoading()}
+      {@render traceLoading(pageState)}
     {:else if Array.isArray(pageState)}
       <TraceMap
         hops={pageState}
@@ -76,15 +66,15 @@
   {/await}
 </div>
 
-{#snippet traceLoading()}
+{#snippet traceLoading(round: number)}
   <div class="flex grow items-center justify-center select-none">
     <div class="space-y-3 text-center">
       <p>Tracing...</p>
 
       <div class="progress w-56 overflow-hidden rounded-full">
         <div
-          class="h-full rounded-r-full bg-white transition-all duration-500 ease-in-out"
-          use:loadingBar
+          class="h-full rounded-r-full bg-white transition-all duration-1000 ease-in-out"
+          style={`width: ${Math.min(100, (round / (prefs.rounds - 2)) * 100)}%`}
         ></div>
       </div>
     </div>
@@ -98,26 +88,26 @@
     >
       <legend class="fieldset-legend">Run a Traceroute</legend>
 
-      <label class="label" for="maxRounds">Rounds</label>
+      <label class="label" for="rounds">Rounds</label>
       <div>
         <input
-          id="maxRounds"
+          id="rounds"
           type="number"
           min="1"
-          max="200"
+          max={MAX_ROUNDS}
           onkeypress={(e) => {
             const isNum = (charValue: string) =>
               charValue.length == 1 && "0123456789".indexOf(charValue) > -1;
 
             if (!isNum(e.key)) e.preventDefault();
           }}
-          bind:value={prefs.maxRounds}
+          bind:value={prefs.rounds}
           required
           pattern="^[1-9]\d*$"
-          title="Only numbers between 1 and 200"
+          title={`Only numbers between 1 and ${MAX_ROUNDS}`}
           class="input input-sm validator"
         />
-        <p class="validator-hint text-xs">Must be between 1 to 200</p>
+        <p class="validator-hint text-xs">Must be between 1 to ${MAX_ROUNDS}</p>
       </div>
 
       <label class="label" for="ipsearchbox">IP Address or Domain</label>

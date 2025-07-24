@@ -142,7 +142,7 @@ pub struct PcapStatus {
 #[serde(rename_all = "camelCase")]
 pub struct RunTraceroute {
     pub ip: IpAddr,
-    pub max_rounds: usize,
+    pub rounds: usize,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

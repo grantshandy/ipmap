@@ -6,7 +6,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         r"./target/release/ipmap-child".into(),
         Command::Traceroute(RunTraceroute {
             ip: "1.1.1.1".parse().unwrap(),
-            max_rounds: 10,
+            rounds: 10,
         }),
     )
     .await?;
