@@ -5,10 +5,8 @@
 
   import { Channel } from "@tauri-apps/api/core";
   import {
-    database,
     traceroute,
     isError,
-    type Coordinate,
     type Hop,
     type Result,
     type RunTraceroute,

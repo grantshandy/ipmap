@@ -99,9 +99,10 @@ export const durationFromMillis = (milliseconds: number): Duration => {
 export const CAPTURE_CONNECTION_TIMEOUT: Duration = { secs: 1, nanos: 0 };
 export const CAPTURE_REPORT_FREQUENCY: Duration = durationFromMillis(100);
 export const CAPTURE_SHOW_ARCS = true;
+export const CAPTURE_SHOW_MARKERS = true;
 export const CAPTURE_COLORS = true;
 export const CAPTURE_VARY_SIZE = true;
-export const CAPTURE_SHOW_NOT_FOUND = false;
+export const CAPTURE_SHOW_NOT_FOUND = true;
 
 export const renderDeviceName = async (device: Device): Promise<string> => {
   if ((await utils.platform()) == "windows") {

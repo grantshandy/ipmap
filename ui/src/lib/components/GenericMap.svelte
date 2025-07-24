@@ -2,22 +2,25 @@
   import Map from "$lib/components/Map.svelte";
   import Globe from "$lib/components/Globe.svelte";
 
-  import { type MapArgs, type MapInterface } from "$lib/map-interface.svelte";
+  import { pageState, type MapArgs, type MapComponent } from "$lib/page.svelte";
 
   let {
     map = $bindable(),
     focused = $bindable(),
-    globe,
     capture,
     children,
   }: {
-    map: MapInterface | undefined;
+    map: MapComponent | undefined;
     globe?: boolean;
   } & MapArgs = $props();
+
+  // TODO: sync map zoom
 </script>
 
-{#if globe}
-  <Globe bind:this={map} {capture} {children} bind:focused />
-{:else}
-  <Map bind:this={map} {capture} {children} bind:focused />
-{/if}
+<div class="relative grow">
+  {#if pageState.globe}
+    <Globe bind:this={map} {capture} {children} bind:focused />
+  {:else}
+    <Map bind:this={map} {capture} {children} bind:focused />
+  {/if}
+</div>

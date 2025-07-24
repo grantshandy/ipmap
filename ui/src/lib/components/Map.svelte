@@ -12,8 +12,8 @@
     type ConnectionDirection,
     type Coordinate,
   } from "$lib/bindings";
-
-  import type { MapArgs } from "$lib/map-interface.svelte";
+  import { type MapArgs } from "$lib/page.svelte";
+  import { fade } from "svelte/transition";
 
   let { capture, focused = $bindable(), children }: MapArgs = $props();
 
@@ -179,7 +179,11 @@
 
 <svelte:window on:resize={() => map?.invalidateSize()} />
 
-<div class="overflow-none relative flex grow select-none">
+<div
+  in:fade={{ duration: 300 }}
+  out:fade={{ duration: 200 }}
+  class="absolute top-0 left-0 h-full w-full"
+>
   <div class="join join-vertical absolute top-2 left-2 z-[999] select-none">
     <button
       onclick={() => map?.zoomIn()}
@@ -192,6 +196,6 @@
       >&#x2212;</button
     >
   </div>
-  <div use:mapAction class="grow"></div>
+  <div use:mapAction class="relative h-full w-full"></div>
   {@render children?.()}
 </div>

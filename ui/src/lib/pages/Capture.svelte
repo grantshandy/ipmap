@@ -11,9 +11,12 @@
     type Pcap,
     type CaptureLocation,
     type Connection,
+    CAPTURE_SHOW_ARCS,
+    CAPTURE_SHOW_MARKERS,
   } from "$lib/bindings";
   import { onDestroy } from "svelte";
-  import { type MapInterface } from "$lib/map-interface.svelte";
+  import { type MapComponent } from "$lib/page.svelte";
+  import GlobeSwitcher from "$lib/components/GlobeSwitcher.svelte";
 
   const UP_ARROW = "&#8593;";
   const DOWN_ARROW = "&#8595;";
@@ -21,9 +24,8 @@
 
   const { pcap }: { pcap: Pcap } = $props();
 
-  let map: MapInterface | undefined = $state();
+  let map: MapComponent | undefined = $state();
   let focused: string | null = $state(null);
-  let globe: boolean = $state(true);
 
   onDestroy(() => pcap.stopCapture());
 
@@ -39,28 +41,32 @@
 
   export const locationAdded = (crd: string, loc: CaptureLocation) => {
     if (!map) return;
-    map.createMarker(crd, loc.crd, Object.keys(loc.ips).length);
-    map.createArc(crd, myLocation, loc.crd, loc.thr, loc.dir);
+    if (CAPTURE_SHOW_MARKERS)
+      map.createMarker(crd, loc.crd, Object.keys(loc.ips).length);
+    if (CAPTURE_SHOW_ARCS)
+      map.createArc(crd, myLocation, loc.crd, loc.thr, loc.dir);
   };
 
   export const locationRemoved = (crd: string) => {
     if (!map) return;
-    map.removeMarker(crd);
-    map.removeArc(crd);
+    if (CAPTURE_SHOW_MARKERS) map.removeMarker(crd);
+    if (CAPTURE_SHOW_ARCS) map.removeArc(crd);
   };
 
   export const update = async (crd: string, loc: CaptureLocation) => {
     if (!map) return;
-    map.updateMarker(crd, loc.crd, Object.keys(loc.ips).length);
-    map.updateArc(crd, myLocation, loc.crd, loc.thr, loc.dir);
+    if (CAPTURE_SHOW_MARKERS)
+      map.updateMarker(crd, loc.crd, Object.keys(loc.ips).length);
+    if (CAPTURE_SHOW_ARCS)
+      map.updateArc(crd, myLocation, loc.crd, loc.thr, loc.dir);
   };
 </script>
 
-<GenericMap bind:map capture={pcap.capture} {globe} bind:focused>
+<GenericMap bind:map capture={pcap.capture} bind:focused>
   <div class="absolute top-2 right-2 z-[999] flex flex-col items-end space-y-2">
-    {#if map}
+    <div class="flex items-center space-x-2">
+      <GlobeSwitcher />
       <CaptureStart
-        bind:globe
         {pcap}
         callbacks={{
           locationAdded,
@@ -68,16 +74,25 @@
           update,
         }}
       />
-    {/if}
+    </div>
 
-    {#if pcap.capture != null && CAPTURE_COLORS}
+    {#if pcap.capture != null}
       <div
-        class="bg-base-200 rounded-box flex divide-x border py-0.5 select-none"
+        class="bg-base-200 rounded-box w-45 space-y-2 border p-1 text-xs select-none"
       >
-        {@render directionIndicator(UP_ARROW, "--color-up")}
-        {@render directionIndicator(DOWN_ARROW, "--color-down")}
-        {@render directionIndicator(MIXED_ARROW, "--color-mixed")}
+        {@render connectionStats(pcap.capture.session)}
       </div>
+
+      {#if CAPTURE_SHOW_NOT_FOUND && pcap.capture.notFoundCount != 0}
+        <div class="bg-base-200 rounded-box border p-1 text-xs">
+          <p>
+            {pcap.capture.notFoundCount} IP{pcap.capture.notFoundCount > 1
+              ? "s"
+              : ""}
+            not found in database
+          </p>
+        </div>
+      {/if}
     {/if}
   </div>
 
@@ -89,38 +104,8 @@
         {@render focusedInfo(pcap.capture.connections[focused])}
       </div>
     {/if}
-
-    {#if CAPTURE_SHOW_NOT_FOUND && pcap.capture.notFoundCount != 0}
-      <div
-        class="bg-base-200 rounded-box absolute top-2 left-14 z-[999] border p-1 text-xs"
-      >
-        <p>
-          {pcap.capture.notFoundCount} IP{pcap.capture.notFoundCount > 1
-            ? "s"
-            : ""}
-          not found in database
-        </p>
-      </div>
-    {/if}
-
-    <div
-      class="bg-base-200 rounded-box absolute right-2 bottom-2 z-[999] w-45 space-y-2 border p-1 text-xs select-none"
-    >
-      {@render connectionStats(pcap.capture.session)}
-    </div>
   {/if}
 </GenericMap>
-
-{#snippet directionIndicator(arrow: string, bgVar: string)}
-  <div class="flex items-center px-2 py-0.5 text-center text-xs">
-    <span
-      style={`background-color: var(${bgVar});`}
-      class="inline-block h-4 w-4 rounded-full"
-    >
-      {@html arrow}
-    </span>
-  </div>
-{/snippet}
 
 {#snippet focusedInfo(record: CaptureLocation)}
   <p class="text-sm">{renderLocationName(record.loc)}</p>

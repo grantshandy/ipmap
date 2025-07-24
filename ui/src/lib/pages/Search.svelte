@@ -10,11 +10,11 @@
     renderLocationName,
   } from "$lib/bindings";
   import { fade } from "svelte/transition";
-  import type { MapInterface } from "$lib/map-interface.svelte";
+  import { type MapComponent } from "$lib/page.svelte";
+  import GlobeSwitcher from "$lib/components/GlobeSwitcher.svelte";
 
-  let map: MapInterface | undefined = $state();
+  let map: MapComponent | undefined = $state();
   let result: { info: LookupInfo; ip: string } | string | null = $state(null);
-  let globe = $state(false);
 
   const search = async (input: Result<string, string> | null) => {
     if (input == null) {
@@ -48,10 +48,9 @@
   });
 </script>
 
-<GenericMap bind:map {globe}>
+<GenericMap bind:map>
   <div class=" absolute top-2 right-2 z-[999] flex items-center space-x-2">
-    <input id="globe" type="checkbox" bind:checked={globe} class="toggle" />
-    <label for="globe">3D</label>
+    <GlobeSwitcher />
     <div class="rounded-box bg-base-300 border">
       <IpSearchBox {search} />
     </div>

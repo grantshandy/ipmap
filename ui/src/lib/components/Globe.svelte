@@ -1,19 +1,16 @@
 <script lang="ts">
   import "@openglobus/og/styles";
   import {
-    Billboard,
     Bing,
     control,
     Entity,
     Globe,
     GlobusRgbTerrain,
     LonLat,
-    Vec3,
     Vector,
     wgs84,
   } from "@openglobus/og";
-  import type { Snippet } from "svelte";
-  import type { MapArgs } from "$lib/map-interface.svelte";
+  import { type MapArgs } from "$lib/page.svelte";
   import {
     getDashedPath,
     getPath,
@@ -23,11 +20,14 @@
     type ArcRecord,
   } from "$lib/3d-arc";
   import {
+    CAPTURE_COLORS,
+    CAPTURE_VARY_SIZE,
     lerp,
     type ConnectionDirection,
     type Coordinate,
   } from "$lib/bindings";
   import { asset } from "$app/paths";
+  import { fade } from "svelte/transition";
 
   let { capture, focused = $bindable(), children }: MapArgs = $props();
 
@@ -52,6 +52,8 @@
     globe.start();
 
     globe.planet.renderer?.handler.defaultClock.setInterval(10, () => {
+      if (capture != null && !CAPTURE_COLORS) return;
+
       for (const crd in arcRecords) {
         const locRecord = arcRecords[crd];
         const { arc: ent, fullPath, direction } = locRecord;
@@ -149,10 +151,10 @@
     arcRecords[key] = {
       arc: new Entity({
         polyline: {
-          path3v: dashedPath,
-          color: calcColor(dir),
-          thickness: calcThickness(thr),
-          opacity: calcOpacity(thr),
+          path3v: CAPTURE_COLORS ? dashedPath : [fullPath],
+          color: CAPTURE_COLORS ? calcColor(dir) : "white",
+          thickness: CAPTURE_VARY_SIZE ? calcThickness(thr) : 4,
+          opacity: CAPTURE_VARY_SIZE ? calcOpacity(thr) : 0.65,
           isClosed: false,
         },
       }).addTo(arcs),
@@ -181,9 +183,14 @@
     const polyline = arcRecords[key].arc.polyline;
     if (!polyline) return;
 
-    polyline.setOpacity(calcOpacity(thr));
-    polyline.setThickness(calcThickness(thr));
-    polyline.setColorHTML(calcColor(dir));
+    if (CAPTURE_VARY_SIZE) {
+      polyline.setThickness(calcThickness(thr));
+      polyline.setOpacity(calcOpacity(thr));
+    }
+
+    if (CAPTURE_COLORS) {
+      polyline.setColorHTML(calcColor(dir));
+    }
   };
 
   export const removeArc = (key: string) => {
@@ -203,7 +210,14 @@
   };
 </script>
 
-<div class="relative flex grow">
-  <div use:addGlobe class="overflow-none min-h-0 grow"></div>
+<div
+  in:fade={{ duration: 300 }}
+  out:fade={{ duration: 200 }}
+  class="absolute top-0 left-0 h-full w-full"
+>
+  <div
+    use:addGlobe
+    class="overflow-none relative h-full min-h-0 w-full grow"
+  ></div>
   {@render children?.()}
 </div>

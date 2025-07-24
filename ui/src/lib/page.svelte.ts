@@ -5,13 +5,15 @@ import type {
   Coordinate,
 } from "./bindings";
 
+export const pageState = $state({ globe: false });
+
 export interface MapArgs {
   capture?: CaptureSession | null;
   focused?: string | null;
   children?: Snippet;
 }
 
-export interface MapInterface {
+export interface MapComponent {
   createMarker(key: string, crd: Coordinate, count: number): void;
   updateMarker(key: string, crd: Coordinate, count: number): void;
   removeMarker(key: string): void;

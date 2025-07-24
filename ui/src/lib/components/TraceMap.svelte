@@ -3,7 +3,8 @@
 
   import { database, renderLocationName, type Hop } from "$lib/bindings";
   import { fade, fly } from "svelte/transition";
-  import type { MapInterface } from "$lib/map-interface.svelte";
+  import { pageState, type MapComponent } from "$lib/page.svelte";
+  import GlobeSwitcher from "./GlobeSwitcher.svelte";
 
   type Props = {
     ip: string;
@@ -13,8 +14,7 @@
 
   let { hops, close, ip }: Props = $props();
   let hopsOpen = $state(false);
-  let map: MapInterface | undefined = $state();
-  let globe = $state(false);
+  let map: MapComponent | undefined = $state();
 
   $effect(() => {
     if (!map) return;
@@ -40,10 +40,9 @@
   });
 </script>
 
-<GenericMap bind:map {globe}>
-  <div class="absolute bottom-2 left-2 z-[999] flex items-center">
-    <input id="globe" type="checkbox" bind:checked={globe} class="toggle" />
-    <label for="globe">3D</label>
+<GenericMap bind:map>
+  <div class="absolute bottom-2 left-2 z-[999]">
+    <GlobeSwitcher />
   </div>
 
   <div class="absolute top-2 right-2 z-[999] flex items-center space-x-2">
