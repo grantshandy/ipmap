@@ -71,10 +71,6 @@ impl IpcService for Service {
     }
 
     fn traceroute(parent: &ipc::Parent, params: RunTraceroute) -> Result<Vec<Vec<IpAddr>>, Error> {
-        // I've found that trippy_core sometimes panics, so you have to do this B.S.
-        // Also, [Parent] doesn't go across the catch_unwind boundary so it makes it
-        // much worse.
-
         if !Self::has_net_raw()? {
             return Err(Error::insufficient_permissions(
                 std::env::current_exe().unwrap_or(child_ipc::EXE_NAME.into()),
