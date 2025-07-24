@@ -6,7 +6,6 @@
   import Search from "$lib/pages/Search.svelte";
   import Traceroute from "$lib/pages/Traceroute.svelte";
   import Capture from "$lib/pages/Capture.svelte";
-  import GlobeCapture from "$lib/pages/GlobeCapture.svelte";
 
   import { database, Pcap, utils } from "$lib/bindings";
   import { basename } from "@tauri-apps/api/path";
@@ -16,11 +15,6 @@
   let page: Page = $state((localStorage.page as Page) ?? "search");
   $effect(() => {
     localStorage.page = page;
-  });
-
-  let globe: boolean = $state(localStorage.globe ?? false);
-  $effect(() => {
-    localStorage.globe = globe;
   });
 
   let pcapResult = Pcap.init();
@@ -47,11 +41,6 @@
 
       <button class="btn btn-sm" onclick={utils.openAboutWindow}>?</button>
 
-      {#if page === "capture"}
-        <input id="globe" type="checkbox" bind:checked={globe} class="toggle" />
-        <label for="globe">3D</label>
-      {/if}
-
       <Databases />
     </div>
 
@@ -62,11 +51,7 @@
     {:else if page === "capture"}
       {#await pcapResult then result}
         {#if result.status == "ok"}
-          {#if globe}
-            <GlobeCapture pcap={result.data} />
-          {:else}
-            <Capture pcap={result.data} />
-          {/if}
+          <Capture pcap={result.data} />
         {:else}
           <ErrorScreen error={result.error} />
         {/if}

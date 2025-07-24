@@ -1,23 +1,19 @@
 <script lang="ts">
-  import MapView from "$lib/components/Map.svelte";
   import CaptureStart from "$lib/components/CaptureStart.svelte";
+  import GenericMap from "$lib/components/GenericMap.svelte";
 
   import {
-    CAPTURE_SHOW_ARCS,
     CAPTURE_COLORS,
     CAPTURE_SHOW_NOT_FOUND,
     database,
     renderLocationName,
     throughputInfo,
     type Pcap,
-    type Coordinate,
     type CaptureLocation,
     type Connection,
   } from "$lib/bindings";
-  import { type Marker, type Map } from "leaflet";
   import { onDestroy } from "svelte";
-  import type { GeodesicLine } from "leaflet.geodesic";
-  import { markerIcon, newArc, newMarker, updateArc } from "$lib/leaflet-utils";
+  import { type MapInterface } from "$lib/map-interface.svelte";
 
   const UP_ARROW = "&#8593;";
   const DOWN_ARROW = "&#8595;";
@@ -25,19 +21,14 @@
 
   const { pcap }: { pcap: Pcap } = $props();
 
-  onDestroy(() => {
-    pcap.stopCapture();
-  });
-
-  let map: Map | null = $state(null);
+  let map: MapInterface | undefined = $state();
   let focused: string | null = $state(null);
+  let globe: boolean = $state(true);
 
-  type ArcMarker = { arc: GeodesicLine; marker: Marker; ipCount: number };
-
-  let locations: Record<string, ArcMarker> = {};
+  onDestroy(() => pcap.stopCapture());
 
   // TODO: tie to backend further? return from startCapture?
-  let myLocation: Coordinate = { lat: 0, lng: 0 };
+  let myLocation = $state({ lat: 0, lng: 0 });
   database.myLocation().then((l) => {
     if (l.status == "ok") {
       myLocation = l.data.crd;
@@ -46,78 +37,38 @@
     }
   });
 
-  $effect(() => {
-    if (map) map.on("click", () => setFocused(null));
-  });
-
-  const setFocused = (crd: string | null) => {
-    if (!pcap.capture) return;
-
-    if (focused && focused in pcap.capture.connections)
-      locations[focused].marker.setIcon(
-        markerIcon(pcap.capture.connections[focused], false),
-      );
-
-    focused = crd && crd in locations ? crd : null;
-    if (!focused) return;
-
-    locations[focused].marker.setIcon(
-      markerIcon(pcap.capture.connections[focused], true),
-    );
+  export const locationAdded = (crd: string, loc: CaptureLocation) => {
+    if (!map) return;
+    map.createMarker(crd, loc.crd, Object.keys(loc.ips).length);
+    map.createArc(crd, myLocation, loc.crd, loc.thr, loc.dir);
   };
 
-  const locationAdded = (crd: string, loc: CaptureLocation) => {
-    if (!map || !pcap.capture || !(crd in pcap.capture.connections)) return;
-
-    const record = pcap.capture.connections[crd];
-
-    const arc = newArc(myLocation, record, pcap.capture.maxThroughput);
-
-    if (CAPTURE_SHOW_ARCS) arc.addTo(map);
-
-    locations[crd] = {
-      marker: newMarker(record)
-        .on("click", () => setFocused(crd))
-        .addTo(map),
-      arc,
-      ipCount: Object.keys(loc.ips).length,
-    };
+  export const locationRemoved = (crd: string) => {
+    if (!map) return;
+    map.removeMarker(crd);
+    map.removeArc(crd);
   };
 
-  const locationRemoved = (crd: string) => {
-    if (focused == crd) setFocused(null);
-
-    if (crd in locations) {
-      locations[crd].arc.remove();
-      locations[crd].marker.remove();
-      delete locations[crd];
-    }
-  };
-
-  const update = async (crd: string, loc: CaptureLocation) => {
-    if (pcap.capture && crd in locations) {
-      updateArc(loc, locations[crd].arc, pcap.capture.maxThroughput);
-
-      const ipCount = Object.keys(loc.ips).length;
-
-      if (locations[crd].ipCount != ipCount) {
-        locations[crd].ipCount = ipCount;
-        locations[crd].marker.setIcon(markerIcon(loc, crd === focused));
-      }
-    }
+  export const update = async (crd: string, loc: CaptureLocation) => {
+    if (!map) return;
+    map.updateMarker(crd, loc.crd, Object.keys(loc.ips).length);
+    map.updateArc(crd, myLocation, loc.crd, loc.thr, loc.dir);
   };
 </script>
 
-<MapView bind:map>
+<GenericMap bind:map capture={pcap.capture} {globe} bind:focused>
   <div class="absolute top-2 right-2 z-[999] flex flex-col items-end space-y-2">
-    <CaptureStart
-      {pcap}
-      callbacks={{
-        locationAdded,
-        locationRemoved,
-        update,
-      }}
-    />
+    {#if map}
+      <CaptureStart
+        bind:globe
+        {pcap}
+        callbacks={{
+          locationAdded,
+          locationRemoved,
+          update,
+        }}
+      />
+    {/if}
 
     {#if pcap.capture != null && CAPTURE_COLORS}
       <div
@@ -158,7 +109,7 @@
       {@render connectionStats(pcap.capture.session)}
     </div>
   {/if}
-</MapView>
+</GenericMap>
 
 {#snippet directionIndicator(arrow: string, bgVar: string)}
   <div class="flex items-center px-2 py-0.5 text-center text-xs">

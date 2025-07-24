@@ -1,5 +1,5 @@
 import { Ellipsoid, Entity, LonLat, math, Vec3 } from "@openglobus/og";
-import { type CaptureLocation, type Coordinate } from "./bindings";
+import { type ConnectionDirection, type Coordinate } from "./bindings";
 
 type FixedSizeArray<N extends number, T> = Array<T> & { length: N };
 
@@ -14,19 +14,20 @@ export const OSCILATION_RANGE =
 export type ArcPath = FixedSizeArray<typeof ARC_POINTS, Vec3>;
 export type DashedPaths = Vec3[][];
 
-export type LocationRecord = {
-  ent: Entity;
+export type ArcRecord = {
+  arc: Entity;
   animIndex: number;
   fullPath: ArcPath;
+  direction: ConnectionDirection;
 };
 
 export const getPath = (
   ell: Ellipsoid,
   from: Coordinate,
-  loc: CaptureLocation,
+  to: Coordinate,
 ): ArcPath => {
   const start = new LonLat(from.lng, from.lat);
-  const end = new LonLat(loc.crd.lng, loc.crd.lat);
+  const end = new LonLat(to.lng, to.lat);
 
   const { distance, initialAzimuth } = ell.inverse(start, end);
 

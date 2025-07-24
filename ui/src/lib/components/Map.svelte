@@ -1,37 +1,26 @@
 <script lang="ts">
   import "leaflet/dist/leaflet.css";
   import "leaflet";
-  import {
-    LatLngBounds,
-    type Map,
-    type DivIcon,
-    type LatLngExpression,
-  } from "leaflet";
+  import { LatLngBounds, type Marker, type Map } from "leaflet";
   import * as leaflet from "leaflet";
+  import { GeodesicLine } from "leaflet.geodesic";
   import "leaflet-edgebuffer";
-  import type { Snippet } from "svelte";
+  import {
+    CAPTURE_COLORS,
+    CAPTURE_VARY_SIZE,
+    lerp,
+    type ConnectionDirection,
+    type Coordinate,
+  } from "$lib/bindings";
 
-  import markerIconUrl from "leaflet/dist/images/marker-icon.png";
-  import markerIconRetinaUrl from "leaflet/dist/images/marker-icon-2x.png";
-  import markerShadowUrl from "leaflet/dist/images/marker-shadow.png";
-  leaflet.Icon.Default.prototype.options.iconUrl = markerIconUrl;
-  leaflet.Icon.Default.prototype.options.iconRetinaUrl = markerIconRetinaUrl;
-  leaflet.Icon.Default.prototype.options.shadowUrl = markerShadowUrl;
-  leaflet.Icon.Default.imagePath = "";
+  import type { MapArgs } from "$lib/map-interface.svelte";
 
-  let { map = $bindable(), children }: { map: Map | null; children?: Snippet } =
-    $props();
+  let { capture, focused = $bindable(), children }: MapArgs = $props();
 
-  export const DEFAULT_POS: LatLngExpression = [25, 0];
-  export const DEFAULT_ZOOM = 2;
+  let map: Map | null = $state(null);
 
-  export const mkIcon = (count: number | null, active?: boolean): DivIcon =>
-    leaflet.divIcon({
-      html: `<div class="${active ? "marker-icon-active" : "marker-icon"}">${count ? count : ""}</div>`,
-      className: "dummyclass",
-      iconSize: active ? [30, 30] : [20, 20],
-      iconAnchor: active ? [15, 15] : [10, 10],
-    });
+  const arcs: Record<string, GeodesicLine> = {};
+  const markers: Record<string, { mrk: Marker; count: number }> = {};
 
   const mapAction = (cont: HTMLDivElement) => {
     map = leaflet.map(cont, {
@@ -40,9 +29,11 @@
       maxZoom: 15,
       zoomControl: false,
     });
-    map.setView(DEFAULT_POS, DEFAULT_ZOOM);
+    map.setView([25, 0], 2);
     map.attributionControl.remove();
     map.setMaxBounds(new LatLngBounds([-150, -300], [150, 400]));
+    map.on("click", () => setFocused(null));
+
     leaflet
       .tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         noWrap: true,
@@ -58,11 +49,137 @@
       destroy: () => map?.remove(),
     };
   };
+
+  const updateIcon = (key: string) => {
+    if (!(key in markers)) return;
+
+    const iconSize = focused === key ? 30 : 20;
+    const iconAnchor = iconSize / 2;
+
+    markers[key].mrk.setIcon(
+      leaflet.divIcon({
+        html: `<span>${markers[key].count}</span>`,
+        className: focused === key ? "marker-icon-active" : "marker-icon",
+        iconSize: [iconSize, iconSize],
+        iconAnchor: [iconAnchor, iconAnchor],
+      }),
+    );
+  };
+
+  const calcWeight = (v: number) =>
+    lerp(v, 0, capture?.maxThroughput ?? 1, 1.5, 6);
+  const calcOpacity = (v: number) =>
+    lerp(v, 0, capture?.maxThroughput ?? 1, 0.25, 1);
+
+  const setFocused = (key: string | null) => {
+    if (!capture) return;
+
+    const old = focused;
+    focused = key;
+
+    if (focused) updateIcon(focused);
+    if (old) updateIcon(old);
+  };
+
+  export const createMarker = (key: string, crd: Coordinate, count: number) => {
+    if (!map) return;
+
+    markers[key] = {
+      count,
+      mrk: leaflet.marker(crd).on("click", () => setFocused(key)),
+    };
+
+    // set icon after marker[key].count is set, markerIcon reads from that.
+    updateIcon(key);
+
+    markers[key].mrk.addTo(map);
+  };
+
+  export const updateMarker = (key: string, crd: Coordinate, count: number) => {
+    if (!(key in markers)) {
+      createMarker(key, crd, count);
+      return;
+    }
+
+    // only update icon count when locCount updates.
+    if (markers[key].count != count) {
+      markers[key].count = count;
+      updateIcon(key);
+    }
+  };
+
+  export const removeMarker = (key: string) => {
+    if (focused === key) setFocused(null);
+
+    if (key in markers) {
+      markers[key].mrk.remove();
+      delete markers[key];
+    }
+  };
+
+  export const createArc = (
+    key: string,
+    from: Coordinate,
+    to: Coordinate,
+    thr: number,
+    dir: ConnectionDirection,
+  ) => {
+    if (!map) return;
+
+    arcs[key] = new GeodesicLine([from, to], {
+      steps: 5,
+      // TODO: default styles other than basic blue?
+      className: CAPTURE_COLORS ? dir : "",
+      weight: CAPTURE_VARY_SIZE ? calcWeight(thr) : 2,
+      opacity: CAPTURE_VARY_SIZE ? calcOpacity(thr) : 0.8,
+    }).addTo(map);
+  };
+
+  export const updateArc = (
+    key: string,
+    from: Coordinate,
+    to: Coordinate,
+    thr: number,
+    dir: ConnectionDirection,
+  ) => {
+    if (!(key in arcs)) {
+      createArc(key, from, to, thr, dir);
+      return;
+    }
+
+    const arc = arcs[key];
+
+    if (CAPTURE_COLORS) {
+      const svgElement = arc.getElement();
+      if (svgElement) {
+        svgElement.setAttribute("class", `leaflet-interactive ${dir}`);
+      }
+    }
+
+    if (CAPTURE_VARY_SIZE) {
+      arc.setStyle({
+        weight: calcWeight(thr),
+        opacity: calcOpacity(thr),
+      });
+    }
+  };
+
+  export const removeArc = (key: string) => {
+    if (key in arcs) {
+      arcs[key].remove();
+    }
+
+    delete arcs[key];
+  };
+
+  export const flyToPoint = (crd: Coordinate, zoom: number) => {
+    if (map) map.flyTo(crd, lerp(zoom, 0, 1, 2, 13), { duration: 2 });
+  };
 </script>
 
 <svelte:window on:resize={() => map?.invalidateSize()} />
 
-<div use:mapAction class="overflow-none relative z-20 grow select-none">
+<div class="overflow-none relative flex grow select-none">
   <div class="join join-vertical absolute top-2 left-2 z-[999] select-none">
     <button
       onclick={() => map?.zoomIn()}
@@ -75,5 +192,6 @@
       >&#x2212;</button
     >
   </div>
+  <div use:mapAction class="grow"></div>
   {@render children?.()}
 </div>

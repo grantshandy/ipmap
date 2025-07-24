@@ -1,5 +1,5 @@
 <script lang="ts">
-  import MapView from "$lib/components/Map.svelte";
+  import GenericMap from "$lib/components/GenericMap.svelte";
   import IpSearchBox from "$lib/components/IpSearchBox.svelte";
 
   import {
@@ -9,13 +9,12 @@
     type Result,
     renderLocationName,
   } from "$lib/bindings";
-  import { marker, Marker, type Map } from "leaflet";
   import { fade } from "svelte/transition";
+  import type { MapInterface } from "$lib/map-interface.svelte";
 
-  const SEARCH_ZOOM = 10;
-
-  let map: Map | null = $state(null);
+  let map: MapInterface | undefined = $state();
   let result: { info: LookupInfo; ip: string } | string | null = $state(null);
+  let globe = $state(false);
 
   const search = async (input: Result<string, string> | null) => {
     if (input == null) {
@@ -37,43 +36,38 @@
     result = { info, ip };
   };
 
-  let mrk: Marker = $state(marker({ lat: 0, lng: 0 }));
-
   $effect(() => {
     if (!map) return;
 
     if (result != null && typeof result == "object") {
-      mrk.setLatLng(result.info.crd).addTo(map);
-
-      if (map.getZoom() > SEARCH_ZOOM) {
-        map.panTo(result.info.crd);
-      } else {
-        map.flyTo(result.info.crd, SEARCH_ZOOM, { duration: 1.5 });
-      }
+      map.createMarker("", result.info.crd, 1);
+      map.flyToPoint(result.info.crd, 0.8);
     } else {
-      mrk.removeFrom(map);
+      map.removeMarker("");
     }
   });
 </script>
 
-<div class="flex grow">
-  <MapView bind:map>
-    <div class="rounded-box bg-base-300 absolute top-2 right-2 z-[999] border">
+<GenericMap bind:map {globe}>
+  <div class=" absolute top-2 right-2 z-[999] flex items-center space-x-2">
+    <input id="globe" type="checkbox" bind:checked={globe} class="toggle" />
+    <label for="globe">3D</label>
+    <div class="rounded-box bg-base-300 border">
       <IpSearchBox {search} />
     </div>
+  </div>
 
-    {#if typeof result == "string"}
-      <p
-        transition:fade={{ duration: 200 }}
-        class="rounded-box bg-error absolute bottom-2 left-2 z-[999] p-2 text-sm select-none"
-      >
-        {result}
-      </p>
-    {:else if result != null && typeof result == "object"}
-      {@render renderIpInfo(result.ip, result.info.loc)}
-    {/if}
-  </MapView>
-</div>
+  {#if typeof result == "string"}
+    <p
+      transition:fade={{ duration: 200 }}
+      class="rounded-box bg-error absolute bottom-2 left-2 z-[999] p-2 text-sm select-none"
+    >
+      {result}
+    </p>
+  {:else if result != null && typeof result == "object"}
+    {@render renderIpInfo(result.ip, result.info.loc)}
+  {/if}
+</GenericMap>
 
 {#snippet renderIpInfo(ip: string, loc: Location)}
   <div

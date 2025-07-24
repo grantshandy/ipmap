@@ -1,14 +1,9 @@
 <script lang="ts">
-  import MapView from "./Map.svelte";
+  import GenericMap from "./GenericMap.svelte";
 
-  import {
-    database,
-    renderLocationName,
-    type Coordinate,
-    type Hop,
-  } from "$lib/bindings";
-  import { geodesic, marker, type Map } from "leaflet";
+  import { database, renderLocationName, type Hop } from "$lib/bindings";
   import { fade, fly } from "svelte/transition";
+  import type { MapInterface } from "$lib/map-interface.svelte";
 
   type Props = {
     ip: string;
@@ -16,19 +11,10 @@
     close: () => void;
   };
 
-  const VIEW_ZOOM = 10;
-
   let { hops, close, ip }: Props = $props();
   let hopsOpen = $state(false);
-  let map: Map | null = $state(null);
-
-  const addGeodesicLine = (from: Coordinate, to: Coordinate) => {
-    if (map)
-      geodesic([from, to], {
-        weight: 3,
-        className: "trace",
-      }).addTo(map);
-  };
+  let map: MapInterface | undefined = $state();
+  let globe = $state(false);
 
   $effect(() => {
     if (!map) return;
@@ -38,7 +24,7 @@
     if (locations.length > 0) {
       const myLoc = locations[0].loc;
       if (myLoc == null) return; // for ts
-      marker(myLoc.crd).addTo(map);
+      map.createMarker("1", myLoc.crd, 1);
     }
 
     for (let i = 1; i < locations.length; i++) {
@@ -46,33 +32,37 @@
       const to = locations[i].loc;
 
       if (!from || !to) continue; // shouldn't happen, for ts
-
-      addGeodesicLine(from.crd, to.crd);
+      map.createArc(String(i), from.crd, to.crd, 0.75, "mixed");
     }
 
     const endpoint = locations[locations.length - 1].loc?.crd;
-    if (endpoint) marker(endpoint).addTo(map);
+    if (endpoint) map.createMarker(String(locations.length), endpoint, 1);
   });
 </script>
 
-<div class="flex h-full grow space-x-2 overflow-hidden">
-  <MapView bind:map>
+<GenericMap bind:map {globe}>
+  <div class="absolute bottom-2 left-2 z-[999] flex items-center">
+    <input id="globe" type="checkbox" bind:checked={globe} class="toggle" />
+    <label for="globe">3D</label>
+  </div>
+
+  <div class="absolute top-2 right-2 z-[999] flex items-center space-x-2">
     <button
       onclick={close}
-      class="btn btn-sm join-item absolute top-2 left-14 z-[999] border-white text-xl select-none"
+      class="btn btn-sm join-item border-white text-xl select-none"
     >
       &#11148;
     </button>
 
     <h1
-      class="bg-base-200 rounded-box absolute top-2 right-2 z-[999] px-2 py-1 text-xl font-semibold"
+      class="bg-base-200 rounded-box border border-white px-2 py-1 text-xl font-semibold"
     >
       {ip}
     </h1>
+  </div>
 
-    {@render hopsPopup()}
-  </MapView>
-</div>
+  {@render hopsPopup()}
+</GenericMap>
 
 {#snippet hopsPopup()}
   {#if !hopsOpen}
@@ -128,10 +118,7 @@
       <button
         onclick={() => {
           if (!map || !hop.loc) return;
-          map.setView(
-            hop.loc.crd,
-            map.getZoom() > VIEW_ZOOM ? map.getZoom() : VIEW_ZOOM,
-          );
+          map.flyToPoint(hop.loc.crd, 0.8);
         }}
         class="link text-left text-xs"
       >
