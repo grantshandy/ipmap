@@ -17,8 +17,11 @@
   let result: { info: LookupInfo; ip: string } | string | null = $state(null);
 
   const search = async (input: Result<string, string> | null) => {
+    if (!map) return;
+
+    map.removeMarker("");
+
     if (input == null) {
-      result = null;
       return;
     } else if (input.status == "error") {
       result = input.error;
@@ -34,18 +37,9 @@
     }
 
     result = { info, ip };
+    map.createMarker("", info.crd, 1);
+    map.flyToPoint(info.crd, 0.8);
   };
-
-  $effect(() => {
-    if (!map) return;
-
-    if (result != null && typeof result == "object") {
-      map.createMarker("", result.info.crd, 1);
-      map.flyToPoint(result.info.crd, 0.8);
-    } else {
-      map.removeMarker("");
-    }
-  });
 </script>
 
 <GenericMap bind:map>
@@ -57,18 +51,13 @@
   </div>
 
   {#if typeof result == "string"}
-    <p
-      transition:fade={{ duration: 200 }}
-      class="rounded-box bg-error absolute bottom-2 left-2 z-[999] p-2 text-sm select-none"
-    >
-      {result}
-    </p>
+    {@render error(result)}
   {:else if result != null && typeof result == "object"}
-    {@render renderIpInfo(result.ip, result.info.loc)}
+    {@render info(result.ip, result.info.loc)}
   {/if}
 </GenericMap>
 
-{#snippet renderIpInfo(ip: string, loc: Location)}
+{#snippet info(ip: string, loc: Location)}
   <div
     transition:fade={{ duration: 200 }}
     class="bg-base-200 rounded-box absolute right-2 bottom-2 z-[999] border p-2 text-right select-none"
@@ -81,4 +70,13 @@
       {/if}
     {/await}
   </div>
+{/snippet}
+
+{#snippet error(msg: string)}
+  <p
+    transition:fade={{ duration: 200 }}
+    class="rounded-box bg-error absolute bottom-2 left-2 z-[999] p-2 text-sm select-none"
+  >
+    {msg}
+  </p>
 {/snippet}
