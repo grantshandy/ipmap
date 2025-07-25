@@ -1,9 +1,11 @@
 #![doc = include_str!("../README.md")]
 
 use std::{
+    fs::File,
     io::{Read, Seek, SeekFrom},
     net::{AddrParseError, IpAddr, Ipv4Addr, Ipv6Addr},
     num::{ParseFloatError, ParseIntError},
+    path::Path,
     str::Utf8Error,
 };
 
@@ -11,25 +13,30 @@ use compact_str::CompactString;
 use flate2::read::GzDecoder;
 use serde::{Deserialize, Serialize};
 
+mod csv_reader;
 mod database;
 mod location;
+mod mmdb_reader;
 
 pub use database::{Database, GenericIp, Ipv4Database, Ipv6Database};
 pub use location::{Coordinate, Location, LookupInfo};
 
 /// Automatically detects the format of the database and parses it.
-pub fn from_read(mut source: impl Read + Seek + 'static) -> Result<GenericDatabase> {
-    let info = DatabaseType::detect(&mut source)?;
-
-    let read: Box<dyn Read> = if info.is_gzip {
-        Box::new(GzDecoder::new(source))
-    } else {
-        Box::new(source)
-    };
-
-    match info.is_ipv6 {
-        true => Database::from_read(read, info.is_num).map(GenericDatabase::Ipv6),
-        false => Database::from_read(read, info.is_num).map(GenericDatabase::Ipv4),
+pub fn detect(path: &Path) -> Result<GenericDatabase> {
+    match DatabaseType::detect(File::open(path)?)? {
+        DatabaseType::Csv {
+            reader,
+            is_num,
+            is_ipv6,
+        } => match is_ipv6 {
+            true => Database::from_csv(reader, is_num).map(GenericDatabase::Ipv6),
+            false => Database::from_csv(reader, is_num).map(GenericDatabase::Ipv4),
+        },
+        DatabaseType::Maxminddb { reader } => match reader.metadata.ip_version {
+            4 => Database::from_mmdb(reader).map(GenericDatabase::Ipv4),
+            6 => Database::from_mmdb(reader).map(GenericDatabase::Ipv6),
+            _ => Err(Error::MalformedMaxMindDb),
+        },
     }
 }
 
@@ -49,39 +56,79 @@ impl GenericDatabase {
     }
 }
 
-struct DatabaseType {
-    is_gzip: bool,
-    is_num: bool,
-    is_ipv6: bool,
+impl DatabaseTrait<IpAddr> for GenericDatabase {
+    fn get_coordinate(&self, ip: IpAddr) -> Option<Coordinate> {
+        match (ip, self) {
+            (IpAddr::V4(ip), GenericDatabase::Ipv4(db)) => db.get_coordinate(ip),
+            (IpAddr::V6(ip), GenericDatabase::Ipv6(db)) => db.get_coordinate(ip),
+            _ => None,
+        }
+    }
+
+    fn get_location(&self, crd: Coordinate) -> Option<Location> {
+        match self {
+            GenericDatabase::Ipv4(db) => db.get_location(crd),
+            GenericDatabase::Ipv6(db) => db.get_location(crd),
+        }
+    }
+}
+
+enum DatabaseType {
+    Csv {
+        reader: Box<dyn Read>,
+        is_num: bool,
+        is_ipv6: bool,
+    },
+    Maxminddb {
+        reader: maxminddb::Reader<Vec<u8>>,
+    },
 }
 
 impl DatabaseType {
-    fn detect(mut source: impl Read + Seek) -> Result<Self> {
+    fn detect(f: File) -> Result<Self> {
+        match Self::parse_csv(f)? {
+            Ok(r) => Ok(r),
+            Err(f) => Self::parse_mmdb(f),
+        }
+    }
+
+    fn parse_mmdb(mut f: File) -> Result<Self> {
+        let mut buf = Vec::new();
+
+        f.read_to_end(&mut buf)?;
+
+        match maxminddb::Reader::from_source(buf) {
+            Ok(reader) => Ok(Self::Maxminddb { reader }),
+            Err(e) => Err(Error::MaxMindDb(e)),
+        }
+    }
+
+    fn parse_csv(mut f: File) -> Result<std::result::Result<Self, File>> {
         const GZIP_MAGIC: [u8; 2] = [0x1f, 0x8b];
 
         let mut head = [0; 2];
-        source.read_exact(&mut head)?;
-        source.seek(SeekFrom::Start(0))?;
+        f.read_exact(&mut head)?;
+        f.seek(SeekFrom::Start(0))?;
         let is_gzip = head == GZIP_MAGIC;
 
         // fill scratch_buff and move to the beginning
         let mut scratch_buff = [0u8; 50];
         if is_gzip {
-            let mut decoder = GzDecoder::new(source);
+            let mut decoder = GzDecoder::new(f);
             decoder.read_exact(&mut scratch_buff)?;
-            source = decoder.into_inner();
+            f = decoder.into_inner();
         } else {
-            source.read_exact(&mut scratch_buff)?;
+            f.read_exact(&mut scratch_buff)?;
         }
-        source.seek(SeekFrom::Start(0))?;
+        f.seek(SeekFrom::Start(0))?;
 
-        // Read the first record
-        let ip_str = CompactString::from_utf8(
-            scratch_buff
-                .split(|&b| b == b',')
-                .next()
-                .ok_or(Error::NoRecords)?,
-        )?;
+        let Some(Ok(ip_str)) = scratch_buff
+            .split(|&b| b == b',')
+            .next()
+            .map(CompactString::from_utf8)
+        else {
+            return Ok(Err(f));
+        };
 
         let parsed_ip = ip_str.parse::<IpAddr>();
 
@@ -90,7 +137,7 @@ impl DatabaseType {
         let is_u128 = ip_str.parse::<u128>().is_ok();
 
         if is_num && !is_u32 && !is_u128 {
-            return Err(Error::MalformedIp);
+            return Ok(Err(f));
         }
 
         // *most* IPv6 addresses are not valid u32s (?), so we can use that to check for ipv6-num format??
@@ -100,11 +147,17 @@ impl DatabaseType {
             parsed_ip.is_ok_and(|ip| ip.is_ipv6())
         };
 
-        Ok(Self {
-            is_gzip,
+        let reader: Box<dyn Read> = if is_gzip {
+            Box::new(GzDecoder::new(f))
+        } else {
+            Box::new(f)
+        };
+
+        Ok(Ok(Self::Csv {
+            reader,
             is_num,
             is_ipv6,
-        })
+        }))
     }
 }
 
@@ -135,6 +188,10 @@ pub enum Error {
     DatabaseMetadataOverflow,
     #[error("No records found")]
     NoRecords,
+    #[error("MaxmindDB error: {0}")]
+    MaxMindDb(maxminddb::MaxMindDbError),
+    #[error("Invalid Maxminddb database")]
+    MalformedMaxMindDb,
 }
 
 // TODO: rename

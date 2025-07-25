@@ -234,7 +234,6 @@ impl From<InactiveConnectionRecord> for ActiveConnectionTracker {
                 total_bytes: value.down_total,
                 ..Default::default()
             },
-            ..Default::default()
         }
     }
 }

@@ -94,8 +94,8 @@ impl CaptureLocations {
     pub fn new(db: &DbState, conn: Connections, active: &mut HashSet<CoordKey>) -> Self {
         let max_throughput = conn
             .updates
-            .iter()
-            .map(|(_, info)| info.throughput())
+            .values()
+            .map(|info| info.throughput())
             .reduce(f64::max)
             .unwrap_or(0.0);
 
@@ -109,18 +109,15 @@ impl CaptureLocations {
                 continue;
             };
 
-            conn_by_coord
-                .entry(crd)
-                .or_insert(HashMap::new())
-                .insert(ip, info);
+            conn_by_coord.entry(crd).or_default().insert(ip, info);
         }
 
         let updates = conn_by_coord
             .into_iter()
             .map(|(crd, ips)| {
                 let (up_s, down_s) = ips
-                    .iter()
-                    .map(|(_, c)| (c.up.avg_s, c.down.avg_s))
+                    .values()
+                    .map(|c| (c.up.avg_s, c.down.avg_s))
                     .fold((0.0, 0.0), |(ua, da), (u, d)| (ua + u, da + d));
 
                 (

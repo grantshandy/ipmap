@@ -22,7 +22,9 @@ pub struct Raw {
     pcap_findalldevs:        unsafe extern "C" fn(alldevsp: *mut *mut pcap_if_t, errbuf: *mut c_char) -> c_int,
     pcap_freealldevs:        unsafe extern "C" fn(alldevs: *mut pcap_if_t),
     pcap_lib_version:        unsafe extern "C" fn() -> *const c_char,
-    pcap_set_immediate_mode: unsafe extern "C" fn(p: *mut pcap_t, immediate_mode: c_int) -> c_int,
+
+    // This function became available in libpcap release 1.5.0, so it's only run if we have it
+    pcap_set_immediate_mode: Option<unsafe extern "C" fn(p: *mut pcap_t, immediate_mode: c_int) -> c_int>,
 }
 
 impl Raw {

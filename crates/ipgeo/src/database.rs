@@ -1,39 +1,22 @@
 use std::{
-    collections::{HashMap, hash_map::Entry},
-    io::{BufReader, Read},
-    net::{AddrParseError, Ipv4Addr, Ipv6Addr},
+    collections::HashMap,
+    net::{AddrParseError, IpAddr, Ipv4Addr, Ipv6Addr},
     num::{NonZero, ParseIntError},
-    ops::RangeInclusive,
     str::FromStr,
 };
 
 use compact_str::CompactString;
-use csv::ReaderBuilder;
 use heck::ToTitleCase;
 use indexmap::IndexSet;
+use ipnetwork::IpNetwork;
 use rangemap::{RangeInclusiveMap, StepLite};
 use rustc_hash::FxBuildHasher;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    DatabaseTrait, Error, Result,
+    DatabaseTrait, Result,
     location::{Coordinate, CountryCode, Location},
 };
-use csv_format::*;
-
-/// CSV indexes for city-ipv[4/6][-num].csv format
-/// https://github.com/sapics/ip-location-db?tab=readme-ov-file#city-csv-format
-pub(crate) mod csv_format {
-    pub const NUM_RECORDS: usize = 9;
-
-    pub const IP_RANGE_START_IDX: usize = 0;
-    pub const IP_RANGE_END_IDX: usize = 1;
-    pub const COUNTRY_CODE_IDX: usize = 2;
-    pub const REGION_IDX: usize = 3;
-    pub const CITY_IDX: usize = 5;
-    pub const LATITUDE_IDX: usize = 7;
-    pub const LONGITUDE_IDX: usize = 8;
-}
 
 pub type Ipv4Database = Database<Ipv4Addr>;
 pub type Ipv6Database = Database<Ipv6Addr>;
@@ -41,59 +24,9 @@ pub type Ipv6Database = Database<Ipv6Addr>;
 /// IpAddr -(map)-> PackedCoordinate -(locations)-> LocationIndices -(strings)-> Location
 #[derive(PartialEq, Serialize, Deserialize)]
 pub struct Database<Ip: GenericIp> {
-    coordinates: RangeInclusiveMap<Ip::Bits, Coordinate>,
-    locations: HashMap<Coordinate, LocationIndices, FxBuildHasher>,
-    strings: StringDict,
-}
-
-impl<Ip: GenericIp> Database<Ip> {
-    pub(crate) fn from_read(read: impl Read, is_num: bool) -> Result<Self> {
-        let mut db = Self {
-            coordinates: RangeInclusiveMap::new(),
-            locations: HashMap::default(),
-            strings: StringDict::default(),
-        };
-
-        let ip_parser = if is_num {
-            Ip::bits_from_num_bytes
-        } else {
-            Ip::bits_from_str_bytes
-        };
-
-        for record in ReaderBuilder::new()
-            .has_headers(false)
-            .from_reader(BufReader::new(read))
-            .byte_records()
-        {
-            let record = record?;
-
-            if record.len() < NUM_RECORDS {
-                return Err(Error::NotEnoughColumns);
-            }
-
-            let range = RangeInclusive::new(
-                ip_parser(&record[IP_RANGE_START_IDX])?,
-                ip_parser(&record[IP_RANGE_END_IDX])?,
-            );
-
-            let coord = Coordinate {
-                lat: CompactString::from_utf8(&record[LATITUDE_IDX])?.parse::<f32>()?,
-                lng: CompactString::from_utf8(&record[LONGITUDE_IDX])?.parse::<f32>()?,
-            };
-
-            if let Entry::Vacant(entry) = db.locations.entry(coord) {
-                entry.insert(LocationIndices {
-                    city: db.strings.insert(&record[CITY_IDX]),
-                    region: db.strings.insert(&record[REGION_IDX]),
-                    country_code: CountryCode::from(&record[COUNTRY_CODE_IDX]),
-                });
-            }
-
-            db.coordinates.insert(range, coord);
-        }
-
-        Ok(db)
-    }
+    pub(crate) coordinates: RangeInclusiveMap<Ip::Bits, Coordinate>,
+    pub(crate) locations: HashMap<Coordinate, LocationIndices, FxBuildHasher>,
+    pub(crate) strings: StringDict,
 }
 
 impl<Ip: GenericIp> DatabaseTrait<Ip> for Database<Ip> {
@@ -125,24 +58,57 @@ pub trait GenericIp: FromStr<Err = AddrParseError> + From<Self::Bits> + Into<Sel
         let bits = CompactString::from_utf8(record)?.parse::<Self::Bits>()?;
         Ok(bits)
     }
+
+    fn full_network() -> IpNetwork;
+    fn bits_from_generic(ip: IpAddr) -> Option<Self::Bits>;
 }
 
 impl GenericIp for Ipv4Addr {
     type Bits = u32;
+
+    fn full_network() -> IpNetwork {
+        "0.0.0.0/0".parse().unwrap()
+    }
+
+    fn bits_from_generic(ip: IpAddr) -> Option<Self::Bits> {
+        match ip {
+            IpAddr::V4(ip) => Some(ip.to_bits()),
+            IpAddr::V6(_) => None,
+        }
+    }
 }
 
 impl GenericIp for Ipv6Addr {
     type Bits = u128;
+
+    fn full_network() -> IpNetwork {
+        "::/0".parse().unwrap()
+    }
+
+    fn bits_from_generic(ip: IpAddr) -> Option<Self::Bits> {
+        match ip {
+            IpAddr::V4(_) => None,
+            IpAddr::V6(ip) => Some(ip.to_bits()),
+        }
+    }
 }
 
 type StringDictKey = NonZero<u32>;
 
 /// A compact database of strings that can store less than u32::MAX items.
 #[derive(PartialEq, Eq, Default, Serialize, Deserialize)]
-struct StringDict(IndexSet<CompactString, FxBuildHasher>);
+pub(crate) struct StringDict(IndexSet<CompactString, FxBuildHasher>);
 
 impl StringDict {
-    pub fn insert(&mut self, item: &[u8]) -> Option<StringDictKey> {
+    pub fn insert_str(&mut self, item: CompactString) -> Option<StringDictKey> {
+        if item.is_empty() {
+            return None;
+        }
+
+        self.insert_bytes(item.as_bytes())
+    }
+
+    pub fn insert_bytes(&mut self, item: &[u8]) -> Option<StringDictKey> {
         if item.is_empty() {
             return None;
         }
@@ -162,10 +128,10 @@ impl StringDict {
 
 /// The city and region are stored as indexes into a string database.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-struct LocationIndices {
-    city: Option<StringDictKey>,
-    region: Option<StringDictKey>,
-    country_code: CountryCode,
+pub(crate) struct LocationIndices {
+    pub(crate) city: Option<StringDictKey>,
+    pub(crate) region: Option<StringDictKey>,
+    pub(crate) country_code: CountryCode,
 }
 
 impl LocationIndices {

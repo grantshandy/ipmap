@@ -45,7 +45,7 @@ impl Capture {
             raw.pcap_open_live(device_name.as_ptr(), 2048, 0, 0, errbuf)
         })?;
 
-        if unsafe { raw.pcap_set_immediate_mode(handle, 1) } == 1 {
+        if unsafe { raw.pcap_set_immediate_mode(handle, 1) } == Some(1) {
             // this shouldn't happen afaik.
             return Err(Error {
                 name: "pcap_set_immediate_mode",
@@ -97,8 +97,6 @@ impl Drop for Capture {
         unsafe {
             self.raw.pcap_breakloop(self.handle.0);
         }
-
-        // TODO: wait until broke before closing?
 
         // close the handle
         unsafe {

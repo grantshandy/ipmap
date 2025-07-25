@@ -14,3 +14,10 @@ rangemap = { version = "1.5.1", features = ["serde1"] }
 thiserror.workspace = true
 specta.workspace = true
 serde.workspace = true
+maxminddb = "0.26.0"
+ipnetwork = "0.21.1"
+
+[dev-dependencies]
+maxminddb = "0.26.0"
+ipnetwork = "0.21.1"
+serde.workspace = true

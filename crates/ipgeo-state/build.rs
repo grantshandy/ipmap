@@ -1,8 +1,4 @@
-use std::{
-    env,
-    fs::{self, File},
-    path::PathBuf,
-};
+use std::{env, fs, path::PathBuf};
 
 use ipgeo::GenericDatabase;
 
@@ -25,6 +21,10 @@ fn main() -> Result<()> {
     let Ok(db_preloads) = env::var(IN_ENV) else {
         return Ok(());
     };
+
+    if db_preloads.is_empty() {
+        return Ok(());
+    }
 
     let mut ipv4 = Vec::new();
     let mut ipv6 = Vec::new();
@@ -56,7 +56,7 @@ fn parse_db_preload_path(path: &str) -> Result<(PathBuf, GenericDatabase)> {
     let path = PathBuf::from(path).canonicalize()?;
     println!("cargo:rerun-if-changed={}", path.to_string_lossy());
 
-    let db = ipgeo::from_read(File::open(&path)?)?;
+    let db = ipgeo::detect(&path)?;
 
     Ok((path, db))
 }

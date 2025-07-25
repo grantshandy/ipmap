@@ -38,7 +38,7 @@ class Database implements DbStateInfo {
       filters: [
         {
           name: "IP Geolocation City Database",
-          extensions: ["csv", "csv.gz"],
+          extensions: ["csv", "csv.gz", "mmdb"],
         },
       ],
     });

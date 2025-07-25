@@ -1,4 +1,4 @@
-use std::{fs::File, net::IpAddr, path::PathBuf, thread};
+use std::{net::IpAddr, path::PathBuf, thread};
 
 use ipgeo::{DatabaseTrait, GenericDatabase, LookupInfo};
 use tauri::{AppHandle, Manager, State};
@@ -56,9 +56,7 @@ fn load_database_internal(
 
     tracing::info!("loading database from {path:?}");
 
-    let db = File::open(&path)
-        .map_err(|e| e.to_string())
-        .and_then(|f| ipgeo::from_read(f).map_err(|e| e.to_string()))?;
+    let db = ipgeo::detect(&path).map_err(|e| e.to_string())?;
 
     match db {
         GenericDatabase::Ipv4(db) => state.ipv4_db.insert(&path, db),

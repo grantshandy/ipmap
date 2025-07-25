@@ -83,7 +83,7 @@ flowchart TD
  - [ ] Simplify page UI.
  - [ ] Reverse location-to-ip-block search
  - [ ] Heatmap generation (custom webview protocol that serves leaflet tiles?)
- - [ ] MMDB database support.
+ - [x] MMDB database support.
  - [ ] Find a new project name (?).
  - [ ] Animated demo in readme.
  - [x] Unify error types.
@@ -92,7 +92,7 @@ flowchart TD
  - [ ] Light/dark mode with system. Try to match native UI?
  - [ ] Translate user interface.
  - [ ] Get default network interfaces with native APIs.
- - [ ] Rename "packet capture" to something more non-technical?
+ - [x] Rename "packet capture" to something more non-technical?
  - [ ] Add multi-lingual readmes (zh, es).
  - [ ] Remove `public-ip-address` bloated dependency, create our own solution.
  - [ ] Add settings dialog.
