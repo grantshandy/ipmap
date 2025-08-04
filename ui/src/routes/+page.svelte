@@ -7,7 +7,7 @@
   import Traceroute from "$lib/pages/Traceroute.svelte";
   import Capture from "$lib/pages/Capture.svelte";
 
-  import { database, Pcap, utils } from "$lib/bindings";
+  import { database, Pcap, openAboutWindow } from "$lib/bindings";
   import { basename } from "@tauri-apps/api/path";
 
   type Page = "capture" | "search" | "trace";
@@ -39,7 +39,7 @@
         <option value="trace">Traceroute</option>
       </select>
 
-      <button class="btn btn-sm" onclick={utils.openAboutWindow}>?</button>
+      <button class="btn btn-sm" onclick={openAboutWindow}>?</button>
 
       <Databases />
     </div>

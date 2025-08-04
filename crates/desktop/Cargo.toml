@@ -25,3 +25,4 @@ specta-typescript = "0.0.9"
 
 pcap-state = { path = "../pcap-state" }
 ipgeo-state = { path = "../ipgeo-state" }
+child-ipc = { path = "../child-ipc", features = ["specta"] }

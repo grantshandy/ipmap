@@ -13,8 +13,6 @@ pub fn run() {
         ])
         .commands(tauri_specta::collect_commands![
             utils::open_about_window,
-            utils::platform,
-            utils::version,
             ipgeo_state::commands::load_database,
             ipgeo_state::commands::unload_database,
             ipgeo_state::commands::load_internals,
@@ -30,7 +28,10 @@ pub fn run() {
             pcap_state::commands::traceroute_enabled,
             pcap_state::commands::run_traceroute,
             pcap_state::commands::print_error,
-        ]);
+        ])
+        .constant("PCAP_ERROR_KINDS", utils::pcap_error_kinds())
+        .constant("PLATFORM", utils::Platform::current())
+        .constant("APP_VERSION", env!("CARGO_PKG_VERSION"));
 
     // TODO: export in build script
     #[cfg(all(debug_assertions, not(mobile)))]

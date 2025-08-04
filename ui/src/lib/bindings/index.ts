@@ -1,10 +1,11 @@
 import { message } from "@tauri-apps/plugin-dialog";
 import {
   commands,
+  PCAP_ERROR_KINDS,
+  PLATFORM as PLATFORM_CONST,
   type Device,
   type Duration,
   type Error,
-  type ErrorKind,
   type Location,
   type Result,
   type Throughput,
@@ -22,35 +23,11 @@ export const traceroute = {
   enabled: commands.tracerouteEnabled,
 };
 
-export const utils = {
-  openAboutWindow: commands.openAboutWindow,
-  version: commands.version,
-  platform: commands.platform,
-};
+export const openAboutWindow = commands.openAboutWindow;
 
-export const isError = (value: unknown): value is Error => {
-  if (typeof value !== "object" || value === null) return false;
+export { APP_VERSION } from "./raw";
 
-  if (!("kind" in value) || !("message" in value)) return false;
-  if (typeof value.kind !== "string") return false;
-
-  const validKinds: ErrorKind[] = [
-    "UnexpectedType",
-    "TerminatedUnexpectedly",
-    "Ipc",
-    "InsufficientPermissions",
-    "LibLoading",
-    "Runtime",
-    "ChildNotFound",
-    "EstablishConnection",
-    "Io",
-  ];
-
-  if (!validKinds.includes(value.kind as ErrorKind)) return false;
-  if (typeof value.message !== "string" && value.message !== null) return false;
-
-  return true;
-};
+export const PLATFORM: string = PLATFORM_CONST;
 
 export const printError = commands.printError;
 
@@ -105,7 +82,7 @@ export const CAPTURE_VARY_SIZE = true;
 export const CAPTURE_SHOW_NOT_FOUND = true;
 
 export const renderDeviceName = async (device: Device): Promise<string> => {
-  if ((await utils.platform()) == "windows") {
+  if (PLATFORM === "windows") {
     return device.description ?? device.name;
   } else {
     return `${device.name}${device.description ? ": (" + device.description + ")" : ""}`;
@@ -120,6 +97,13 @@ export const humanFileSize = (size: number) => {
     ["B", "kB", "MB", "GB", "TB"][i]
   );
 };
+
+export const isError = (value: unknown): value is Error =>
+  value !== null &&
+  typeof value === "object" &&
+  (!("message" in value) || typeof value.message === "string") &&
+  "kind" in value &&
+  PCAP_ERROR_KINDS.includes(value.kind as any);
 
 export const throughputInfo = (info: Throughput): string =>
   `${humanFileSize(info.avgS)}/s | ${humanFileSize(info.total)}`;

@@ -30,9 +30,10 @@ ipc-channel = "0.20.0"
 tokio.workspace = true
 
 [features]
-parent = ["ipc", "dep:tracing", "dep:specta", "dep:windows-sys", "dep:tokio"]
+parent = ["ipc", "dep:tracing", "specta", "dep:windows-sys", "dep:tokio"]
 child = ["ipc"]
 ipc = ["dep:base64", "dep:ipc-channel", "dep:postcard"]
+specta = ["dep:specta"]
 
 [[example]]
 name = "parent"

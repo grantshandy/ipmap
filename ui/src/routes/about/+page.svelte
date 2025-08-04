@@ -1,14 +1,11 @@
 <script lang="ts">
-  import { utils } from "$lib/bindings";
+  import { APP_VERSION, PLATFORM } from "$lib/bindings";
   import Link from "$lib/components/Link.svelte";
 </script>
 
 <div class="flex h-screen w-screen flex-col items-center space-y-3 p-4">
   <h1 class="text-2xl">
-    Ipmap
-    {#await utils.version() then version}
-      v{version}
-    {/await}
+    Ipmap v{APP_VERSION}
   </h1>
 
   <table class="table-xs border-base-200 table border">
@@ -53,13 +50,11 @@
           <Link href="https://tauri.app">Tauri</Link>,
           <Link href="https://svelte.dev">Svelte</Link>,
 
-          {#await utils.platform() then platform}
-            {#if platform == "windows"}
-              <Link href="https://npcap.com">Npcap</Link>,
-            {:else}
-              <Link href="https://www.tcpdump.org">Libpcap</Link>,
-            {/if}
-          {/await}
+          {#if PLATFORM === "windows"}
+            <Link href="https://npcap.com">Npcap</Link>,
+          {:else}
+            <Link href="https://www.tcpdump.org">Libpcap</Link>,
+          {/if}
 
           <Link href="https://daisyui.com">DaisyUI</Link>
         </td>

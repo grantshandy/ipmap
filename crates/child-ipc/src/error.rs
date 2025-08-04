@@ -3,7 +3,7 @@ use std::{fmt, io, path::PathBuf};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "parent", derive(specta::Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub enum ErrorKind {
     UnexpectedType,
     TerminatedUnexpectedly,
@@ -37,7 +37,7 @@ impl fmt::Display for ErrorKind {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "parent", derive(specta::Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct Error {
     pub kind: ErrorKind,
     pub message: Option<String>,

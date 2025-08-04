@@ -71,7 +71,7 @@ impl Command {
 
 /// A network device reported from libpcap, e.g. "wlp3s0".
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "parent", derive(specta::Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct Device {
     /// Name, e.g. "wlp3s0"
     pub name: String,
@@ -101,7 +101,7 @@ impl Connections {
 }
 
 #[derive(Copy, Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
-#[cfg_attr(feature = "parent", derive(specta::Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct Connection {
     pub up: Throughput,
     pub down: Throughput,
@@ -121,7 +121,7 @@ impl Connection {
 
 /// Current stats for a single connection direction (up or down)
 #[derive(Copy, Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
-#[cfg_attr(feature = "parent", derive(specta::Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct Throughput {
     /// Total number of bytes since the start of the capture session
@@ -131,14 +131,14 @@ pub struct Throughput {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature = "parent", derive(specta::Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct PcapStatus {
     pub devices: Vec<Device>,
     pub version: String,
 }
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "parent", derive(specta::Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct RunTraceroute {
     pub ip: IpAddr,
@@ -146,7 +146,7 @@ pub struct RunTraceroute {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature = "parent", derive(specta::Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct RunCapture {
     pub device: Device,

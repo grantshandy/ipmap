@@ -1,5 +1,6 @@
+use child_ipc::ErrorKind;
 use serde::{Deserialize, Serialize};
-use specta::Type;
+use specta::{Generics, Type, TypeCollection, datatype::DataType};
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 
 const ABOUT_WINDOW_ID: &str = "about";
@@ -37,19 +38,6 @@ pub async fn open_about_window(app: AppHandle) {
     w.build().unwrap();
 }
 
-#[tauri::command]
-#[specta::specta]
-pub fn platform() -> Platform {
-    #[cfg(target_os = "linux")]
-    return Platform::Linux;
-
-    #[cfg(target_os = "windows")]
-    return Platform::Windows;
-
-    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
-    return Platform::MacOS;
-}
-
 #[derive(Serialize, Deserialize, Clone, Debug, Type)]
 #[serde(rename_all = "lowercase")]
 pub enum Platform {
@@ -58,8 +46,37 @@ pub enum Platform {
     MacOS,
 }
 
-#[tauri::command]
-#[specta::specta]
-pub fn version() -> String {
-    env!("CARGO_PKG_VERSION").to_string()
+impl Platform {
+    #[allow(unreachable_code)]
+    pub const fn current() -> Self {
+        #[cfg(target_os = "linux")]
+        return Platform::Linux;
+
+        #[cfg(target_os = "windows")]
+        return Platform::Windows;
+
+        #[cfg(target_os = "macos")]
+        return Platform::MacOS;
+
+        unimplemented!()
+    }
+}
+
+pub fn pcap_error_kinds() -> Vec<String> {
+    #[cfg(debug_assertions)]
+    {
+        let DataType::Enum(e) =
+            ErrorKind::inline(&mut TypeCollection::default(), Generics::Definition)
+        else {
+            unreachable!();
+        };
+
+        e.variants()
+            .iter()
+            .map(|(name, _)| name.to_string())
+            .collect()
+    }
+
+    #[cfg(not(debug_assertions))]
+    vec![]
 }
