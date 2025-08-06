@@ -43,7 +43,7 @@ impl Eq for Coordinate {}
 
 impl PartialOrd for Coordinate {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(&other))
+        Some(self.cmp(other))
     }
 }
 
@@ -84,5 +84,17 @@ impl fmt::Display for CountryCode {
                 char::from_u32_unchecked(b as u32).fmt(f)
             },
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::CountryCode;
+
+    #[test]
+    fn country_code() {
+        assert_eq!("us", CountryCode::from("us").to_string());
+        assert_eq!("us", CountryCode::from("usa").to_string());
+        assert_eq!("??", CountryCode::from("!").to_string());
     }
 }

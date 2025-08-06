@@ -2,6 +2,7 @@ use std::{
     collections::HashMap,
     net::{AddrParseError, IpAddr, Ipv4Addr, Ipv6Addr},
     num::{NonZero, ParseIntError},
+    ops::{self, BitXor, RangeInclusive},
     str::FromStr,
 };
 
@@ -9,9 +10,10 @@ use compact_str::CompactString;
 use heck::ToTitleCase;
 use indexmap::IndexSet;
 use ipnetwork::IpNetwork;
-use rangemap::{RangeInclusiveMap, StepLite};
+use rangemap::StepLite;
 use rustc_hash::FxBuildHasher;
 use serde::{Deserialize, Serialize};
+use treebitmap::IpLookupTable;
 
 use crate::{
     DatabaseTrait, Result,
@@ -24,14 +26,14 @@ pub type Ipv6Database = Database<Ipv6Addr>;
 /// IpAddr -(map)-> PackedCoordinate -(locations)-> LocationIndices -(strings)-> Location
 #[derive(PartialEq, Serialize, Deserialize)]
 pub struct Database<Ip: GenericIp> {
-    pub(crate) coordinates: RangeInclusiveMap<Ip::Bits, Coordinate>,
+    pub(crate) coordinates: IpLookupTable<Ip, Coordinate>,
     pub(crate) locations: HashMap<Coordinate, LocationIndices, FxBuildHasher>,
     pub(crate) strings: StringDict,
 }
 
 impl<Ip: GenericIp> DatabaseTrait<Ip> for Database<Ip> {
     fn get_coordinate(&self, ip: Ip) -> Option<Coordinate> {
-        self.coordinates.get(&ip.into()).copied()
+        self.coordinates.longest_match(ip).map(|(_, _, c)| *c)
     }
 
     fn get_location(&self, crd: Coordinate) -> Option<Location> {
@@ -40,13 +42,25 @@ impl<Ip: GenericIp> DatabaseTrait<Ip> for Database<Ip> {
 }
 
 /// A trait representing either Ipv4Addr or Ipv6Addr for the needs in the database.
-pub trait GenericIp: FromStr<Err = AddrParseError> + From<Self::Bits> + Into<Self::Bits> {
+pub trait GenericIp:
+    FromStr<Err = AddrParseError>
+    + From<Self::Bits>
+    + Into<Self::Bits>
+    + treebitmap::Address
+    + std::fmt::Debug
+    + Ord
+{
     type Bits: FromStr<Err = ParseIntError>
         + StepLite
         + Ord
         + Clone
         + Copy
         + Serialize
+        + From<u32>
+        + BitXor<Output = Self::Bits>
+        + ops::Not<Output = Self::Bits>
+        + ops::Shl<Output = Self::Bits>
+        + ops::BitAnd<Output = Self::Bits>
         + for<'de> Deserialize<'de>;
 
     fn bits_from_str_bytes(record: &[u8]) -> Result<Self::Bits> {
@@ -61,6 +75,10 @@ pub trait GenericIp: FromStr<Err = AddrParseError> + From<Self::Bits> + Into<Sel
 
     fn full_network() -> IpNetwork;
     fn bits_from_generic(ip: IpAddr) -> Option<Self::Bits>;
+
+    fn bit_leading_zeros(b: Self::Bits) -> u32;
+
+    fn bit_range_to_network(range: RangeInclusive<Self::Bits>) -> (Self, u32);
 }
 
 impl GenericIp for Ipv4Addr {
@@ -76,6 +94,28 @@ impl GenericIp for Ipv4Addr {
             IpAddr::V6(_) => None,
         }
     }
+
+    fn bit_leading_zeros(b: Self::Bits) -> u32 {
+        b.leading_zeros()
+    }
+
+    fn bit_range_to_network(range: RangeInclusive<u32>) -> (Ipv4Addr, u32) {
+        let start = *range.start();
+        let end = *range.end();
+
+        let mut masklen = 32;
+        while masklen > 0 {
+            let mask = (!0u32) << (32 - masklen);
+            let network = start & mask;
+            let broadcast = network | !mask;
+            if network == start && broadcast == end {
+                return (Ipv4Addr::from(network), masklen);
+            }
+            masklen -= 1;
+        }
+        // For /0, always use 0.0.0.0
+        (Ipv4Addr::from(0), 0)
+    }
 }
 
 impl GenericIp for Ipv6Addr {
@@ -90,6 +130,28 @@ impl GenericIp for Ipv6Addr {
             IpAddr::V4(_) => None,
             IpAddr::V6(ip) => Some(ip.to_bits()),
         }
+    }
+
+    fn bit_leading_zeros(b: Self::Bits) -> u32 {
+        b.leading_zeros()
+    }
+
+    fn bit_range_to_network(range: RangeInclusive<u128>) -> (Ipv6Addr, u32) {
+        let start = *range.start();
+        let end = *range.end();
+
+        let mut masklen = 128;
+        while masklen > 0 {
+            let mask = (!0u128) << (128 - masklen);
+            let network = start & mask;
+            let broadcast = network | !mask;
+            if network == start && broadcast == end {
+                return (Ipv6Addr::from(network), masklen);
+            }
+            masklen -= 1;
+        }
+        // For /0, always use ::
+        (Ipv6Addr::from(0), 0)
     }
 }
 
@@ -141,5 +203,24 @@ impl LocationIndices {
             region: self.region.and_then(|i| strings.get(i)),
             country_code: self.country_code.to_string(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn string_dict() {
+        let mut s = StringDict::default();
+
+        let city = "A Region".to_string();
+        let region = "City Name Here".to_string();
+
+        let city_idx = s.insert_str(city.clone().into()).unwrap();
+        let region_idx = s.insert_bytes(region.as_bytes()).unwrap();
+
+        assert_eq!(Some(city), s.get(city_idx));
+        assert_eq!(Some(region), s.get(region_idx));
     }
 }

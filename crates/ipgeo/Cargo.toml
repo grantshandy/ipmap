@@ -16,6 +16,7 @@ specta.workspace = true
 serde.workspace = true
 maxminddb = "0.26.0"
 ipnetwork = "0.21.1"
+treebitmap = { path = "../treebitmap", features = ["serde"] }
 
 [dev-dependencies]
 maxminddb = "0.26.0"

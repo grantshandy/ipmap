@@ -7,7 +7,7 @@ use std::{
 use compact_str::CompactString;
 use csv::ReaderBuilder;
 use csv_format::*;
-use rangemap::RangeInclusiveMap;
+use treebitmap::IpLookupTable;
 
 use crate::{
     Coordinate, Database, Error, GenericIp, Result,
@@ -32,7 +32,7 @@ pub(crate) mod csv_format {
 impl<Ip: GenericIp> Database<Ip> {
     pub(crate) fn from_csv(read: impl Read, is_num: bool) -> Result<Self> {
         let mut db = Self {
-            coordinates: RangeInclusiveMap::new(),
+            coordinates: IpLookupTable::new(),
             locations: HashMap::default(),
             strings: StringDict::default(),
         };
@@ -72,9 +72,96 @@ impl<Ip: GenericIp> Database<Ip> {
                 });
             }
 
-            db.coordinates.insert(range, coord);
+            let (lower, masklen) = Ip::bit_range_to_network(range);
+            db.coordinates.insert(lower, masklen, coord);
         }
 
         Ok(db)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{Coordinate, DatabaseTrait, Ipv4Database, Ipv6Database, Location, LookupInfo};
+    use std::net::{Ipv4Addr, Ipv6Addr};
+
+    #[test]
+    fn parse() {
+        let info = LookupInfo {
+            crd: Coordinate {
+                lat: 23.1317,
+                lng: 113.266,
+            },
+            loc: Location {
+                city: Some("Guangzhou".to_string()),
+                region: Some("Guangdong".to_string()),
+                country_code: "CN".to_string(),
+            },
+        };
+
+        let format_csv_line = |lower: String, higher: String| {
+            format!(
+                "{lower},{higher},{},{},,{},,{},{},",
+                info.loc.country_code.clone(),
+                info.loc.region.clone().unwrap_or_default(),
+                info.loc.city.clone().unwrap_or_default(),
+                info.crd.lat,
+                info.crd.lng
+            )
+        };
+
+        let ipv4_lower: Ipv4Addr = "1.0.8.0".parse().unwrap();
+        let ipv4_higher: Ipv4Addr = "1.0.15.255".parse().unwrap();
+        let ipv4_valid: Ipv4Addr = "1.0.9.80".parse().unwrap();
+        let ipv4_invalid: Ipv4Addr = "19.0.9.80".parse().unwrap();
+
+        let ipv4_db = Ipv4Database::from_csv(
+            format_csv_line(ipv4_lower.to_string(), ipv4_higher.to_string()).as_bytes(),
+            false,
+        )
+        .unwrap();
+
+        assert_eq!(Some(info.clone()), ipv4_db.get(ipv4_valid));
+        assert_eq!(None, ipv4_db.get(ipv4_invalid));
+
+        let ipv4_num_db = Ipv4Database::from_csv(
+            format_csv_line(
+                ipv4_lower.to_bits().to_string(),
+                ipv4_higher.to_bits().to_string(),
+            )
+            .as_bytes(),
+            true,
+        )
+        .unwrap();
+
+        assert_eq!(Some(info.clone()), ipv4_num_db.get(ipv4_valid));
+        assert_eq!(None, ipv4_num_db.get(ipv4_invalid));
+
+        let ipv6_lower: Ipv6Addr = "2001:2::".parse().unwrap();
+        let ipv6_higher: Ipv6Addr = "2001:2::ffff:ffff:ffff:ffff:ffff".parse().unwrap();
+        let ipv6_valid: Ipv6Addr = "2001:2::9".parse().unwrap();
+        let ipv6_invalid: Ipv6Addr = "3001:2::9".parse().unwrap();
+
+        let ipv6_db = Ipv6Database::from_csv(
+            format_csv_line(ipv6_lower.to_string(), ipv6_higher.to_string()).as_bytes(),
+            false,
+        )
+        .unwrap();
+
+        assert_eq!(Some(info.clone()), ipv6_db.get(ipv6_valid));
+        assert_eq!(None, ipv6_db.get(ipv6_invalid));
+
+        let ipv6_num_db = Ipv6Database::from_csv(
+            format_csv_line(
+                ipv6_lower.to_bits().to_string(),
+                ipv6_higher.to_bits().to_string(),
+            )
+            .as_bytes(),
+            true,
+        )
+        .unwrap();
+
+        assert_eq!(Some(info.clone()), ipv6_num_db.get(ipv6_valid));
+        assert_eq!(None, ipv6_num_db.get(ipv6_invalid));
     }
 }

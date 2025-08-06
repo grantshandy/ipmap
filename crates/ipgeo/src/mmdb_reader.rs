@@ -5,8 +5,8 @@ use std::{
 
 use compact_str::CompactString;
 use maxminddb::Reader;
-use rangemap::RangeInclusiveMap;
 use serde::Deserialize;
+use treebitmap::IpLookupTable;
 
 use crate::{
     Coordinate, Database, Error, GenericIp, Result,
@@ -17,7 +17,7 @@ use crate::{
 impl<Ip: GenericIp> Database<Ip> {
     pub fn from_mmdb<S: AsRef<[u8]>>(reader: Reader<S>) -> Result<Self> {
         let mut db = Self {
-            coordinates: RangeInclusiveMap::new(),
+            coordinates: IpLookupTable::new(),
             locations: HashMap::default(),
             strings: StringDict::default(),
         };
@@ -47,7 +47,8 @@ impl<Ip: GenericIp> Database<Ip> {
                 });
             }
 
-            db.coordinates.insert(range, coord);
+            let (lower, masklen) = Ip::bit_range_to_network(range);
+            db.coordinates.insert(lower, masklen, coord);
         }
 
         Ok(db)

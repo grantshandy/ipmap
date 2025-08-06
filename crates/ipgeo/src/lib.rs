@@ -18,9 +18,6 @@ mod database;
 mod location;
 mod mmdb_reader;
 
-#[cfg(test)]
-mod tests;
-
 pub use database::{Database, GenericIp, Ipv4Database, Ipv6Database};
 pub use location::{Coordinate, Location, LookupInfo};
 
