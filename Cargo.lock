@@ -2140,6 +2140,7 @@ version = "0.1.0"
 dependencies = [
  "dashmap",
  "dns-lookup",
+ "flate2",
  "ipgeo",
  "postcard",
  "public-ip-address",

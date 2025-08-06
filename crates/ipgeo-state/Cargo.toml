@@ -11,14 +11,18 @@ specta.workspace = true
 tauri-specta.workspace = true
 tracing.workspace = true
 tokio.workspace = true
-postcard.workspace = true
 tauri-plugin-dialog.workspace = true
 
 ipgeo = { path = "../ipgeo" }
 dns-lookup = "2.0.4"
 public-ip-address = "0.3.4"
 
+postcard.workspace = true
+flate2.workspace = true
+
 [build-dependencies]
 ipgeo = { path = "../ipgeo" }
+
+flate2.workspace = true
 postcard.workspace = true
 serde.workspace = true

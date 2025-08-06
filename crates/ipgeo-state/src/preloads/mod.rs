@@ -1,9 +1,11 @@
 use std::{
+    io::Read,
     path::PathBuf,
     sync::{Arc, LazyLock},
     time::Instant,
 };
 
+use flate2::read::GzDecoder;
 use ipgeo::{Ipv4Database, Ipv6Database};
 
 mod shared;
@@ -19,7 +21,17 @@ pub static DB_PRELOADS: LazyLock<PreloadedDatabases> = LazyLock::new(|| {
     tracing::info!("Loading internal databases");
 
     let start = Instant::now();
-    let (ipv4, ipv6) = postcard::from_bytes::<shared::DiskDatabases>(DB_PRELOADS_BIN).unwrap();
+
+    // TODO: use reader to avoid allocating it all...?
+    let mut uncompressed = Vec::new();
+    GzDecoder::new(DB_PRELOADS_BIN)
+        .read_to_end(&mut uncompressed)
+        .unwrap();
+
+    let (ipv4, ipv6) = postcard::from_bytes::<shared::DiskDatabases>(&uncompressed).unwrap();
+
+    drop(uncompressed);
+
     tracing::info!(
         "Loading internal databases took {}ms",
         start.elapsed().as_millis()

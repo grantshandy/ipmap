@@ -1,5 +1,6 @@
-use std::{env, fs, path::PathBuf};
+use std::{env, fs, io::Write, path::PathBuf};
 
+use flate2::{Compression, write::GzEncoder};
 use ipgeo::GenericDatabase;
 
 #[path = "src/preloads/shared.rs"]
@@ -40,8 +41,11 @@ fn main() -> Result<()> {
 
     let encoded = postcard::to_allocvec::<shared::DiskDatabases>(&(ipv4, ipv6))?;
 
+    let mut compressor = GzEncoder::new(Vec::new(), Compression::best());
+    compressor.write_all(&encoded)?;
+
     let dest_path = PathBuf::from(env::var("OUT_DIR")?).join("db_preloads.bin");
-    fs::write(&dest_path, encoded)?;
+    fs::write(&dest_path, compressor.finish()?)?;
 
     println!("cargo:rustc-cfg=db_preloads");
     println!(
