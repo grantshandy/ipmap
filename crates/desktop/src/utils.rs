@@ -1,6 +1,5 @@
-use child_ipc::ErrorKind;
 use serde::{Deserialize, Serialize};
-use specta::{Generics, Type, TypeCollection, datatype::DataType};
+use specta::Type;
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 
 const ABOUT_WINDOW_ID: &str = "about";
@@ -65,6 +64,9 @@ impl Platform {
 pub fn pcap_error_kinds() -> Vec<String> {
     #[cfg(debug_assertions)]
     {
+        use child_ipc::ErrorKind;
+        use specta::{Generics, TypeCollection, datatype::DataType};
+
         let DataType::Enum(e) =
             ErrorKind::inline(&mut TypeCollection::default(), Generics::Definition)
         else {

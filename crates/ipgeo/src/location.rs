@@ -18,7 +18,7 @@ pub struct Location {
 }
 
 /// A latitude/longitude coordinate.
-#[derive(Copy, Clone, Debug, Type, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Type, Default, Serialize, Deserialize)]
 pub struct Coordinate {
     pub lat: f32,
     pub lng: f32,

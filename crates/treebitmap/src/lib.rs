@@ -24,12 +24,14 @@ mod address;
 pub use address::Address;
 
 /// A fast, compressed IP lookup table.
+#[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct IpLookupTable<A, T> {
     inner: TreeBitmap<T>,
     _addrtype: PhantomData<A>,
 }
 
-impl<A, T> IpLookupTable<A, T>
+impl<A, T: Copy + Clone + Default> IpLookupTable<A, T>
 where
     A: Address,
 {
@@ -326,6 +328,7 @@ where
 
 impl<A, T> Default for IpLookupTable<A, T>
 where
+    T: Clone + Copy + Default,
     A: Address,
 {
     fn default() -> Self {
@@ -333,7 +336,7 @@ where
     }
 }
 
-impl<A: Address + Ord, T: Clone + Copy + Ord> PartialEq for IpLookupTable<A, T> {
+impl<A: Address + Ord, T: Clone + Copy + Ord + Default> PartialEq for IpLookupTable<A, T> {
     fn eq(&self, other: &Self) -> bool {
         let mut self_entries: Vec<(A, u32, &T)> = self.iter().collect();
         let mut other_entries: Vec<(A, u32, &T)> = other.iter().collect();
@@ -360,6 +363,7 @@ impl<A: Address + Ord, T: Clone + Copy + Ord> PartialEq for IpLookupTable<A, T> 
 
 impl<'a, A, T: 'a> Iterator for Iter<'a, A, T>
 where
+    T: Clone + Copy + Default,
     A: Address,
 {
     type Item = (A, u32, &'a T);
@@ -373,6 +377,7 @@ where
 
 impl<'a, A, T: 'a> Iterator for IterMut<'a, A, T>
 where
+    T: Clone + Copy + Default,
     A: Address,
 {
     type Item = (A, u32, &'a mut T);
@@ -386,6 +391,7 @@ where
 
 impl<A, T> Iterator for IntoIter<A, T>
 where
+    T: Clone + Copy + Default,
     A: Address,
 {
     type Item = (A, u32, T);
@@ -399,6 +405,7 @@ where
 
 impl<A, T> IntoIterator for IpLookupTable<A, T>
 where
+    T: Clone + Copy + Default,
     A: Address,
 {
     type Item = (A, u32, T);
@@ -436,13 +443,14 @@ pub struct IntoIter<A, T> {
     _addrtype: PhantomData<A>,
 }
 
-struct MatchesIter<'a, T, A> {
+struct MatchesIter<'a, T: Copy + Clone + Default, A> {
     inner: Matches<'a, T>,
     ip: A,
 }
 
 impl<'a, T, A> Iterator for MatchesIter<'a, T, A>
 where
+    T: Copy + Clone + Default,
     A: Address,
 {
     type Item = (A, u32, &'a T);
@@ -454,24 +462,72 @@ where
     }
 }
 
-#[cfg(feature = "serde")]
-impl<A: Address + serde::Serialize, T: serde::Serialize> serde::Serialize for IpLookupTable<A, T> {
-    fn serialize<S>(&self, _serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        todo!()
-    }
-}
+#[cfg(test)]
+mod test {
+    use super::*;
 
-#[cfg(feature = "serde")]
-impl<'de, A: Address + serde::Deserialize<'de>, T: serde::Deserialize<'de>> serde::Deserialize<'de>
-    for IpLookupTable<A, T>
-{
-    fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        todo!()
+    #[rustfmt::skip]
+    #[test]
+    fn test_partial_eq() {
+        let mut tbl1 = IpLookupTable::<core::net::Ipv4Addr, i32>::new();
+        tbl1.insert(core::net::Ipv4Addr::new(10, 0, 0, 1), 17, 1);
+        tbl1.insert(core::net::Ipv4Addr::new(172, 16, 0, 1), 17, 2);
+        tbl1.insert(core::net::Ipv4Addr::new(192, 168, 1, 1), 17, 3);
+        tbl1.insert(core::net::Ipv4Addr::new(8, 8, 8, 8), 17, 4);
+
+        // insertion order shouldn't affect equality
+        let mut tbl2 = IpLookupTable::<core::net::Ipv4Addr, i32>::new();
+        tbl2.insert(core::net::Ipv4Addr::new(172, 16, 0, 1), 17, 2);
+        tbl2.insert(core::net::Ipv4Addr::new(10, 0, 0, 1), 17, 1);
+        tbl2.insert(core::net::Ipv4Addr::new(8, 8, 8, 8), 17, 4);
+        tbl2.insert(core::net::Ipv4Addr::new(192, 168, 1, 1), 17, 3);
+        assert_eq!(tbl1, tbl2);
+
+        // mismatching data
+        let mut tbl3 = IpLookupTable::<core::net::Ipv4Addr, i32>::new();
+        tbl3.insert(core::net::Ipv4Addr::new(10, 0, 0, 1), 17, 100);
+        tbl3.insert(core::net::Ipv4Addr::new(172, 16, 0, 1), 17, 2);
+        tbl3.insert(core::net::Ipv4Addr::new(192, 168, 1, 1), 17, 3);
+        tbl3.insert(core::net::Ipv4Addr::new(8, 8, 8, 8), 17, 4);
+        assert_ne!(tbl1, tbl3);
+
+        // IP missing
+        let mut tbl4 = IpLookupTable::<core::net::Ipv4Addr, i32>::new();
+        tbl4.insert(core::net::Ipv4Addr::new(10, 0, 0, 1), 17, 1);
+        tbl4.insert(core::net::Ipv4Addr::new(172, 16, 0, 1), 17, 2);
+        tbl4.insert(core::net::Ipv4Addr::new(192, 168, 1, 1), 17, 3);
+        assert_ne!(tbl1, tbl4);
+
+        // Extra IP
+        let mut tbl5 = IpLookupTable::<core::net::Ipv4Addr, i32>::new();
+        tbl5.insert(core::net::Ipv4Addr::new(10, 0, 0, 1), 17, 1);
+        tbl5.insert(core::net::Ipv4Addr::new(172, 16, 0, 1), 17, 2);
+        tbl5.insert(core::net::Ipv4Addr::new(192, 168, 1, 1), 17, 3);
+        tbl5.insert(core::net::Ipv4Addr::new(8, 8, 8, 8), 17, 4);
+        tbl5.insert(core::net::Ipv4Addr::new(1, 1, 1, 1), 17, 4);
+        assert_ne!(tbl1, tbl5);
+
+
+        // IPV6
+        let mut tbl6 = IpLookupTable::<core::net::Ipv6Addr, i32>::new();
+        tbl6.insert(core::net::Ipv6Addr::new(0x2001, 0x0db8, 0x85a3, 0, 0, 0x8a2e, 0x0370, 0x7334), 128, 1);
+        tbl6.insert(core::net::Ipv6Addr::new(0x2607, 0xf8b0, 0x400d, 0x0, 0x0, 0x0, 0x0, 0x200e), 128, 2);
+        tbl6.insert(core::net::Ipv6Addr::new(0x2a00, 0x1450, 0x4001, 0x80b, 0x0, 0x0, 0x0, 0x2003), 128, 3);
+        tbl6.insert(core::net::Ipv6Addr::new(0x2404, 0x6800, 0x4003, 0x802, 0x0, 0x0, 0x0, 0x200e), 128, 4);
+
+        let mut tbl7 = IpLookupTable::<core::net::Ipv6Addr, i32>::new();
+        tbl7.insert(core::net::Ipv6Addr::new(0x2607, 0xf8b0, 0x400d, 0x0, 0x0, 0x0, 0x0, 0x200e), 128, 2);
+        tbl7.insert(core::net::Ipv6Addr::new(0x2001, 0x0db8, 0x85a3, 0, 0, 0x8a2e, 0x0370, 0x7334), 128, 1);
+        tbl7.insert(core::net::Ipv6Addr::new(0x2404, 0x6800, 0x4003, 0x802, 0x0, 0x0, 0x0, 0x200e), 128, 4);
+        tbl7.insert(core::net::Ipv6Addr::new(0x2a00, 0x1450, 0x4001, 0x80b, 0x0, 0x0, 0x0, 0x2003), 128, 3);
+        assert_eq!(tbl6, tbl7);
+
+        let mut tbl8 = IpLookupTable::<core::net::Ipv6Addr, i32>::new();
+        tbl8.insert(core::net::Ipv6Addr::new(0x2001, 0x0db8, 0x85a3, 0, 0, 0x8a2e, 0x0370, 0x7334), 128, 1);
+        tbl8.insert(core::net::Ipv6Addr::new(0x2607, 0xf8b0, 0x400d, 0x0, 0x0, 0x0, 0x0, 0x200e), 128, 200);
+        tbl8.insert(core::net::Ipv6Addr::new(0x2a00, 0x1450, 0x4001, 0x80b, 0x0, 0x0, 0x0, 0x2003), 128, 3);
+        tbl8.insert(core::net::Ipv6Addr::new(0x2404, 0x6800, 0x4003, 0x802, 0x0, 0x0, 0x0, 0x200e), 128, 4);
+        assert_ne!(tbl6, tbl8);
+
     }
 }

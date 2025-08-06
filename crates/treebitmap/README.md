@@ -1,7 +1,10 @@
 # Tree-Bitmap: Fast lookup table for IPv4/IPv6 prefixes
 
 > Forked from https://github.com/hroi/treebitmap
+>
 > Then forked from https://github.com/JakubOnderka/treebitmap
+>
+> Changes have been applied from @bocharov in [pull/11](https://github.com/JakubOnderka/treebitmap/pull/11/files) to add serde support.
 
 This crate provides a datastructure for fast IP address lookups.
 It aims at fast lookup times, and a reasonable memory footprint.

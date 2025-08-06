@@ -97,10 +97,11 @@ pub fn gen_bitmap(prefix: u8, masklen: u32) -> u32 {
 /// If bit N is set it means that a child node with segment value N is present.
 /// The pointer to the child node is then computed with the ```child_ptr``` base
 /// pointer and the number of bits set left of N.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Node {
     /// child/result bitmap
-    bitmap: u32, // first 16 bits: internal, last 16 bits: child bitmap
+    pub(crate) bitmap: u32, // first 16 bits: internal, last 16 bits: child bitmap
     /// child base pointer
     pub child_ptr: u32,
     /// results base pointer
@@ -278,7 +279,7 @@ impl Node {
                 "set_internal: attempted to set external bit"
             );
         }
-        self.bitmap |= bitmap
+        self.bitmap |= bitmap;
     }
 
     /// Unset an internal bit.
@@ -302,7 +303,7 @@ impl Node {
                 "unset_internal: attempted to set external bit"
             );
         }
-        self.bitmap ^= bitmap
+        self.bitmap ^= bitmap;
     }
 
     /// Set an external bit.
