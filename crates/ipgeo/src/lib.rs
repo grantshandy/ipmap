@@ -18,12 +18,15 @@ mod database;
 mod location;
 mod mmdb_reader;
 
+#[cfg(test)]
+mod tests;
+
 pub use database::{Database, GenericIp, Ipv4Database, Ipv6Database};
 pub use location::{Coordinate, Location, LookupInfo};
 
 /// Automatically detects the format of the database and parses it.
 pub fn detect(path: &Path) -> Result<GenericDatabase> {
-    match DatabaseType::detect(File::open(path)?)? {
+    match DatabaseType::detect(path)? {
         DatabaseType::Csv {
             reader,
             is_num,
@@ -85,25 +88,21 @@ enum DatabaseType {
 }
 
 impl DatabaseType {
-    fn detect(f: File) -> Result<Self> {
-        match Self::parse_csv(f)? {
-            Ok(r) => Ok(r),
-            Err(f) => Self::parse_mmdb(f),
+    fn detect(path: &Path) -> Result<Self> {
+        match path.extension().and_then(|s| s.to_str()) {
+            Some("mmdb") => Self::parse_mmdb(path),
+            _ => Self::parse_csv(File::open(path)?),
         }
     }
 
-    fn parse_mmdb(mut f: File) -> Result<Self> {
-        let mut buf = Vec::new();
-
-        f.read_to_end(&mut buf)?;
-
-        match maxminddb::Reader::from_source(buf) {
+    fn parse_mmdb(path: &Path) -> Result<Self> {
+        match maxminddb::Reader::open_readfile(path) {
             Ok(reader) => Ok(Self::Maxminddb { reader }),
             Err(e) => Err(Error::MaxMindDb(e)),
         }
     }
 
-    fn parse_csv(mut f: File) -> Result<std::result::Result<Self, File>> {
+    fn parse_csv(mut f: File) -> Result<Self> {
         const GZIP_MAGIC: [u8; 2] = [0x1f, 0x8b];
 
         let mut head = [0; 2];
@@ -127,7 +126,7 @@ impl DatabaseType {
             .next()
             .map(CompactString::from_utf8)
         else {
-            return Ok(Err(f));
+            return Err(Error::NoRecords);
         };
 
         let parsed_ip = ip_str.parse::<IpAddr>();
@@ -137,7 +136,7 @@ impl DatabaseType {
         let is_u128 = ip_str.parse::<u128>().is_ok();
 
         if is_num && !is_u32 && !is_u128 {
-            return Ok(Err(f));
+            return Err(Error::InvalidFormat);
         }
 
         // *most* IPv6 addresses are not valid u32s (?), so we can use that to check for ipv6-num format??
@@ -153,11 +152,11 @@ impl DatabaseType {
             Box::new(f)
         };
 
-        Ok(Ok(Self::Csv {
+        Ok(Self::Csv {
             reader,
             is_num,
             is_ipv6,
-        }))
+        })
     }
 }
 
@@ -192,6 +191,8 @@ pub enum Error {
     MaxMindDb(maxminddb::MaxMindDbError),
     #[error("Invalid Maxminddb database")]
     MalformedMaxMindDb,
+    #[error("Invalid Database Format")]
+    InvalidFormat,
 }
 
 // TODO: rename

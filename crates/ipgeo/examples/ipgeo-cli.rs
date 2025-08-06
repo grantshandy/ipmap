@@ -10,7 +10,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let db = ipgeo::detect(&path)?;
 
-    println!("{:#?}", db.get(ip));
+    println!("{:?}", db.get(ip));
 
     Ok(())
 }

@@ -24,13 +24,34 @@ pub struct Coordinate {
     pub lng: f32,
 }
 
+impl Coordinate {
+    fn as_bytes(&self) -> u64 {
+        let mut out = [0; 8];
+        let (one, two) = out.split_at_mut(4);
+        one.copy_from_slice(self.lat.to_ne_bytes().as_slice());
+        two.copy_from_slice(self.lng.to_ne_bytes().as_slice());
+        u64::from_ne_bytes(out)
+    }
+}
+
 impl PartialEq for Coordinate {
     fn eq(&self, other: &Self) -> bool {
-        self.lat.to_ne_bytes() == other.lat.to_ne_bytes()
-            && self.lng.to_ne_bytes() == other.lng.to_ne_bytes()
+        self.as_bytes() == other.as_bytes()
     }
 }
 impl Eq for Coordinate {}
+
+impl PartialOrd for Coordinate {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(&other))
+    }
+}
+
+impl Ord for Coordinate {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.as_bytes().cmp(&other.as_bytes())
+    }
+}
 
 impl std::hash::Hash for Coordinate {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {

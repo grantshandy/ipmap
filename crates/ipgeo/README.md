@@ -4,7 +4,7 @@ Datasets can be downloaded at [`sapics/ip-location`](https://github.com/sapics/i
 They are labeled `(ipdb/geolite2)-city-ipv(4/6)[-num].csv[.gz]` depending on the name/format, note that the `-num` ones are smaller/faster to parse. It also supports maxmindb files in the same format.
 All formats (including `.gz`) files are automatically detected and decompressed, except for `.7z` archives.
 
-```rust
+```rust,no_run
 use std::{env, net::IpAddr, path::PathBuf};
 
 use ipgeo::DatabaseTrait;
