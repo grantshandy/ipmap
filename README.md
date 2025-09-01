@@ -13,9 +13,9 @@ which can display your computer's live network traffic and perform trace routes.
 | ![search](./screenshots/search.png) | ![capture](./screenshots/capture.png) | ![traceroute](./screenshots/traceroute.png) |
 
 ## Requirements
-On Linux, install [webkitgtk](https://repology.org/project/webkitgtk/versions).
+On Linux, install [WebKitGTK](https://repology.org/project/webkitgtk/versions).
 
-### Packet Capture
+### Network Monitor
  - On Linux, install [`libpcap`](https://repology.org/project/libpcap/versions).
  - On Windows, install [Npcap](https://npcap.org) with network capture for non-administrator users.
  - On MacOS, `libpcap` is already installed.
@@ -33,9 +33,13 @@ Enable-NetFirewallRule ICMPv6_IPMAP_ALLOW
 
 ## Building
 Requirements:
+ - [General tauri prerequisites](https://tauri.app/start/prerequisites/)
  - [Rust](https://rust-lang.org)
  - [`tauri-cli`](https://v2.tauri.app/reference/cli/)
  - [`pnpm`](https://pnpm.io/)
+
+While compiling, it reads the environment variable `DB_PRELOADS` as a list
+(deliminated by ':' on unix, and ';' on windows) of IP-geo databases to embed into the executable.
 
 ```sh
  $ pnpm install -C ui
@@ -78,25 +82,16 @@ flowchart TD
 ## TODO:
  - [ ] Check MacOS compatibility.
  - [ ] Improve logging.
- - [ ] Improve error handling in `pcap-dev`, and windows `ipmap-child` IPC and add comments on unsafe blocks.
- - [ ] Add file association.
- - [ ] Simplify page UI.
- - [ ] Reverse location-to-ip-block search
- - [ ] Heatmap generation (custom webview protocol that serves leaflet tiles?)
- - [x] MMDB database support.
+ - [ ] Add database file association.
  - [ ] Find a new project name (?).
  - [ ] Animated demo in readme.
- - [x] Unify error types.
- - [ ] Document builtin databases (env var `DATABASE_PRELOADS`).
- - [ ] Auto-build builtin database binaries with CI (?).
  - [ ] Light/dark mode with system. Try to match native UI?
  - [ ] Translate user interface.
  - [ ] Get default network interfaces with native APIs.
- - [x] Rename "packet capture" to something more non-technical?
  - [ ] Add multi-lingual readmes (zh, es).
  - [ ] Remove `public-ip-address` bloated dependency, create our own solution.
  - [ ] Add settings dialog.
    - [ ] Different map layers?
    - [ ] Capture report frequency and connection timeout.
- - [ ] Fix button icons.
- - [ ] Create application icon.
+ - [ ] Reverse location-to-ip-block search
+ - [ ] Location Heatmap generation (custom webview protocol that serves leaflet tiles?)
