@@ -1,46 +1,36 @@
-use std::collections::{HashMap, hash_map::Entry};
-
 use compact_str::CompactString;
-use maxminddb::Reader;
+use maxminddb::{Reader, WithinItem};
 use serde::Deserialize;
-use treebitmap::IpLookupTable;
 
 use crate::{
-    Coordinate, Database, Error, GenericIp, Result,
-    database::{LocationIndices, StringDict},
+    Coordinate, Database, Error, GenericIp, Result, database::LocationIndices,
     location::CountryCode,
 };
 
 impl<Ip: GenericIp> Database<Ip> {
     pub fn from_mmdb<S: AsRef<[u8]>>(reader: Reader<S>) -> Result<Self> {
-        let mut db = Self {
-            coordinates: IpLookupTable::new(),
-            locations: HashMap::default(),
-            strings: StringDict::default(),
-        };
+        let mut db = Self::empty();
 
         for res in reader
             .within::<CityFormat>(Ip::FULL_NETWORK)
             .map_err(Error::MaxMindDb)?
         {
-            let location = res.map_err(Error::MaxMindDb)?;
+            let WithinItem { ip_net, info } = res.map_err(Error::MaxMindDb)?;
 
             let coord = Coordinate {
-                lat: location.info.latitude,
-                lng: location.info.longitude,
+                lat: info.latitude,
+                lng: info.longitude,
             };
 
-            if let Entry::Vacant(entry) = db.locations.entry(coord) {
-                entry.insert(LocationIndices {
-                    city: db.strings.insert_str(location.info.city),
-                    region: db.strings.insert_str(location.info.state1),
-                    country_code: CountryCode::from(location.info.country_code),
-                });
-            }
+            db.insert_location(coord, |strings| LocationIndices {
+                city: strings.insert_str(info.city),
+                region: strings.insert_str(info.state1),
+                country_code: CountryCode::from(info.country_code),
+            });
 
-            db.coordinates.insert(
-                Ip::from_generic(location.ip_net.ip()).ok_or(Error::MalformedMaxMindDb)?,
-                location.ip_net.prefix().into(),
+            db.ips.insert(
+                Ip::from_generic(ip_net.ip()).ok_or(Error::MalformedMaxMindDb)?,
+                ip_net.prefix().into(),
                 coord,
             );
         }

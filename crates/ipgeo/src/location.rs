@@ -55,14 +55,13 @@ impl Ord for Coordinate {
 
 impl std::hash::Hash for Coordinate {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.lat.to_ne_bytes().hash(state);
-        self.lng.to_ne_bytes().hash(state);
+        self.as_bytes().hash(state);
     }
 }
 
 /// An ISO 3166 2-digit ASCII country code.
-// Takes advantage of their compact representation.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+// Takes advantage of its compact representation.
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 #[repr(transparent)]
 pub struct CountryCode(u16);
 

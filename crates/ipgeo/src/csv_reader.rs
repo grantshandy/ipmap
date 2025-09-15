@@ -1,40 +1,28 @@
-use std::{
-    collections::{HashMap, hash_map::Entry},
-    io::{BufReader, Read},
-};
+use std::io::{BufReader, Read};
 
 use compact_str::CompactString;
 use csv::ReaderBuilder;
-use csv_format::*;
-use treebitmap::IpLookupTable;
 
 use crate::{
-    Coordinate, Database, Error, GenericIp, Result,
-    database::{LocationIndices, StringDict},
+    Coordinate, Database, Error, GenericIp, Result, database::LocationIndices,
     location::CountryCode,
 };
 
 /// CSV indexes for city-ipv[4/6][-num].csv format
 /// https://github.com/sapics/ip-location-db?tab=readme-ov-file#city-csv-format
-pub(crate) mod csv_format {
-    pub const NUM_RECORDS: usize = 9;
+const NUM_RECORDS: usize = 9;
 
-    pub const IP_RANGE_START_IDX: usize = 0;
-    pub const IP_RANGE_END_IDX: usize = 1;
-    pub const COUNTRY_CODE_IDX: usize = 2;
-    pub const REGION_IDX: usize = 3;
-    pub const CITY_IDX: usize = 5;
-    pub const LATITUDE_IDX: usize = 7;
-    pub const LONGITUDE_IDX: usize = 8;
-}
+const IP_RANGE_START_IDX: usize = 0;
+const IP_RANGE_END_IDX: usize = 1;
+const COUNTRY_CODE_IDX: usize = 2;
+const REGION_IDX: usize = 3;
+const CITY_IDX: usize = 5;
+const LATITUDE_IDX: usize = 7;
+const LONGITUDE_IDX: usize = 8;
 
 impl<Ip: GenericIp> Database<Ip> {
     pub(crate) fn from_csv(read: impl Read, is_num: bool) -> Result<Self> {
-        let mut db = Self {
-            coordinates: IpLookupTable::new(),
-            locations: HashMap::default(),
-            strings: StringDict::default(),
-        };
+        let mut db = Self::empty();
 
         let ip_parser = if is_num {
             Ip::from_num_bytes
@@ -58,21 +46,17 @@ impl<Ip: GenericIp> Database<Ip> {
                 lng: CompactString::from_utf8(&record[LONGITUDE_IDX])?.parse::<f32>()?,
             };
 
-            if let Entry::Vacant(entry) = db.locations.entry(coord) {
-                entry.insert(LocationIndices {
-                    city: db.strings.insert_bytes(&record[CITY_IDX]),
-                    region: db.strings.insert_bytes(&record[REGION_IDX]),
-                    country_code: CountryCode::from(&record[COUNTRY_CODE_IDX]),
-                });
-            }
+            db.insert_location(coord, |strings| LocationIndices {
+                city: strings.insert_bytes(&record[CITY_IDX]),
+                region: strings.insert_bytes(&record[REGION_IDX]),
+                country_code: CountryCode::from(&record[COUNTRY_CODE_IDX]),
+            });
 
-            let subnets = Ip::range_subnets(
+            for (addr, len) in Ip::range_subnets(
                 ip_parser(&record[IP_RANGE_START_IDX])?,
                 ip_parser(&record[IP_RANGE_END_IDX])?,
-            );
-
-            for (addr, len) in subnets {
-                db.coordinates.insert(addr, len, coord);
+            ) {
+                db.ips.insert(addr, len, coord);
             }
         }
 

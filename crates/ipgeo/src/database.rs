@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, hash_map::Entry},
     net::{AddrParseError, IpAddr, Ipv4Addr, Ipv6Addr},
     num::{NonZero, ParseIntError},
     str::FromStr,
@@ -22,25 +22,70 @@ use crate::{
 pub type Ipv4Database = Database<Ipv4Addr>;
 pub type Ipv6Database = Database<Ipv6Addr>;
 
-/// IpAddr -(map)-> PackedCoordinate -(locations)-> LocationIndices -(strings)-> Location
+/// A memory-efficient store of IP networks and their associated locations.
+///
+/// Internal maps:
+/// ```
+/// IpAddr  --(ips)----------> Coordinate
+///         --(coordinates)--> LocationKey
+///         --(locations)----> LocationIndices
+///         --(strings x 2)--> Location
+/// ```
 #[derive(PartialEq, Serialize, Deserialize)]
 pub struct Database<Ip: GenericIp> {
-    pub(crate) coordinates: IpLookupTable<Ip, Coordinate>,
-    pub(crate) locations: HashMap<Coordinate, LocationIndices, FxBuildHasher>,
+    /// IP address to a single coordinate
+    pub(crate) ips: IpLookupTable<Ip, Coordinate>,
+    /// Coordinate to a single identifiable "location" (city) key
+    pub(crate) coordinates: HashMap<Coordinate, LocationKey, FxBuildHasher>,
+    /// Location key to associated string keys for city and region
+    pub(crate) locations: IndexSet<LocationIndices, FxBuildHasher>,
+    /// Deduplicated location name strings
     pub(crate) strings: StringDict,
+}
+
+impl<Ip: GenericIp> Database<Ip> {
+    pub(crate) fn empty() -> Self {
+        Self {
+            ips: IpLookupTable::new(),
+            coordinates: HashMap::default(),
+            locations: IndexSet::default(),
+            strings: StringDict::default(),
+        }
+    }
+
+    pub(crate) fn insert_location(
+        &mut self,
+        coord: Coordinate,
+        create_location: impl FnOnce(&mut StringDict) -> LocationIndices,
+    ) {
+        // only allocating if the location is new saves millions of parses/allocations per database.
+        if let Entry::Vacant(entry) = self.coordinates.entry(coord) {
+            entry.insert(
+                self.locations
+                    .insert_full(create_location(&mut self.strings))
+                    .0,
+            );
+        }
+    }
 }
 
 impl<Ip: GenericIp> DatabaseTrait<Ip> for Database<Ip> {
     fn get_coordinate(&self, ip: Ip) -> Option<Coordinate> {
-        self.coordinates.longest_match(ip).map(|(_, _, c)| *c)
+        self.ips.longest_match(ip).map(|(_, _, c)| *c)
     }
 
     fn get_location(&self, crd: Coordinate) -> Option<Location> {
-        self.locations.get(&crd).map(|i| i.populate(&self.strings))
+        self.coordinates.get(&crd).map(|i| {
+            // UNWRAP: self.locations and self.coordinates are updated at the same time in Self::insert_location
+            self.locations
+                .get_index(*i)
+                .unwrap()
+                .populate(&self.strings)
+        })
     }
 }
 
-/// A trait representing either Ipv4Addr or Ipv6Addr for the needs in the database.
+/// A trait representing either an `Ipv4Addr` or `Ipv6Addr` for the needs in the database.
 pub trait GenericIp:
     FromStr<Err = AddrParseError> + From<Self::Bits> + treebitmap::Address + std::fmt::Debug + Ord
 {
@@ -95,6 +140,7 @@ impl GenericIp for Ipv6Addr {
     }
 }
 
+type LocationKey = usize;
 type StringDictKey = NonZero<u32>;
 
 /// A compact database of strings that can store less than u32::MAX items.
@@ -129,7 +175,7 @@ impl StringDict {
 }
 
 /// The city and region are stored as indexes into a string database.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub(crate) struct LocationIndices {
     pub(crate) city: Option<StringDictKey>,
     pub(crate) region: Option<StringDictKey>,
