@@ -1,12 +1,17 @@
 <script lang="ts">
   import { APP_VERSION, PLATFORM } from "$lib/bindings";
   import Link from "$lib/components/Link.svelte";
+  import AppLogo from "../../../../crates/desktop/icons/icon.svg?raw";
 </script>
 
 <div class="flex h-screen w-screen flex-col items-center space-y-3 p-4">
   <h1 class="text-2xl">
     Ipmap v{APP_VERSION}
   </h1>
+
+  <div>
+    {@html AppLogo}
+  </div>
 
   <table class="table-xs border-base-200 table border">
     <tbody>

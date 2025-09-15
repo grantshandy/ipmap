@@ -20,7 +20,7 @@ pub async fn open_about_window(app: AppHandle) {
         .title("About")
         .minimizable(false)
         .maximizable(false)
-        .inner_size(350.0, 400.0)
+        .inner_size(350.0, 500.0)
         .resizable(false);
 
     if let Some(main) = app.get_webview_window("main") {
