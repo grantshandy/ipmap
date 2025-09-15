@@ -33,6 +33,11 @@ fn main() -> Result<()> {
     for db in db_preloads.split(SEPARATOR).map(parse_db_preload_path) {
         let (path, db) = db?;
 
+        let path = path
+            .file_name()
+            .expect("DB_PRELOADS must contain files not paths")
+            .into();
+
         match db {
             GenericDatabase::Ipv4(db) => ipv4.push((path, db)),
             GenericDatabase::Ipv6(db) => ipv6.push((path, db)),

@@ -17,7 +17,7 @@ ipgeo = { path = "../ipgeo" }
 dns-lookup = "2.0.4"
 public-ip-address = "0.3.4"
 
-postcard.workspace = true
+postcard = { workspace = true, features = ["use-std"] }
 flate2.workspace = true
 
 [build-dependencies]

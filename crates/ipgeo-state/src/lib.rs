@@ -16,7 +16,8 @@ pub mod commands;
 pub mod my_loc;
 
 #[cfg(db_preloads)]
-mod preloads;
+#[doc(hidden)]
+pub mod preloads;
 
 pub use ipgeo::LookupInfo;
 
