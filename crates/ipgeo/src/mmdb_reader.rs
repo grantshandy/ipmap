@@ -1,7 +1,4 @@
-use std::{
-    collections::{HashMap, hash_map::Entry},
-    ops::RangeInclusive,
-};
+use std::collections::{HashMap, hash_map::Entry};
 
 use compact_str::CompactString;
 use maxminddb::Reader;
@@ -23,16 +20,10 @@ impl<Ip: GenericIp> Database<Ip> {
         };
 
         for res in reader
-            .within::<CityFormat>(Ip::full_network())
+            .within::<CityFormat>(Ip::FULL_NETWORK)
             .map_err(Error::MaxMindDb)?
         {
             let location = res.map_err(Error::MaxMindDb)?;
-
-            let range = RangeInclusive::new(
-                Ip::bits_from_generic(location.ip_net.ip()).ok_or(Error::MalformedMaxMindDb)?,
-                Ip::bits_from_generic(location.ip_net.broadcast())
-                    .ok_or(Error::MalformedMaxMindDb)?,
-            );
 
             let coord = Coordinate {
                 lat: location.info.latitude,
@@ -47,8 +38,11 @@ impl<Ip: GenericIp> Database<Ip> {
                 });
             }
 
-            let (lower, masklen) = Ip::bit_range_to_network(range);
-            db.coordinates.insert(lower, masklen, coord);
+            db.coordinates.insert(
+                Ip::from_generic(location.ip_net.ip()).ok_or(Error::MalformedMaxMindDb)?,
+                location.ip_net.prefix().into(),
+                coord,
+            );
         }
 
         Ok(db)

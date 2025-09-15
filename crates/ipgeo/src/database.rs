@@ -2,15 +2,14 @@ use std::{
     collections::HashMap,
     net::{AddrParseError, IpAddr, Ipv4Addr, Ipv6Addr},
     num::{NonZero, ParseIntError},
-    ops::{self, BitXor, RangeInclusive},
     str::FromStr,
 };
 
 use compact_str::CompactString;
 use heck::ToTitleCase;
 use indexmap::IndexSet;
-use ipnetwork::IpNetwork;
-use rangemap::StepLite;
+use ipnet::{Ipv4Subnets, Ipv6Subnets};
+use ipnetwork::{IpNetwork, Ipv4Network, Ipv6Network};
 use rustc_hash::FxBuildHasher;
 use serde::{Deserialize, Serialize};
 use treebitmap::IpLookupTable;
@@ -43,115 +42,56 @@ impl<Ip: GenericIp> DatabaseTrait<Ip> for Database<Ip> {
 
 /// A trait representing either Ipv4Addr or Ipv6Addr for the needs in the database.
 pub trait GenericIp:
-    FromStr<Err = AddrParseError>
-    + From<Self::Bits>
-    + Into<Self::Bits>
-    + treebitmap::Address
-    + std::fmt::Debug
-    + Ord
+    FromStr<Err = AddrParseError> + From<Self::Bits> + treebitmap::Address + std::fmt::Debug + Ord
 {
-    type Bits: FromStr<Err = ParseIntError>
-        + StepLite
-        + Ord
-        + Clone
-        + Copy
-        + Serialize
-        + From<u32>
-        + BitXor<Output = Self::Bits>
-        + ops::Not<Output = Self::Bits>
-        + ops::Shl<Output = Self::Bits>
-        + ops::BitAnd<Output = Self::Bits>
-        + for<'de> Deserialize<'de>;
+    type Bits: FromStr<Err = ParseIntError>;
+    const FULL_NETWORK: IpNetwork;
 
-    fn bits_from_str_bytes(record: &[u8]) -> Result<Self::Bits> {
-        let bits = CompactString::from_utf8(record)?.parse::<Self>()?.into();
-        Ok(bits)
+    fn from_str_bytes(record: &[u8]) -> Result<Self> {
+        Ok(CompactString::from_utf8(record)?.parse::<Self>()?)
     }
 
-    fn bits_from_num_bytes(record: &[u8]) -> Result<Self::Bits> {
-        let bits = CompactString::from_utf8(record)?.parse::<Self::Bits>()?;
-        Ok(bits)
+    fn from_num_bytes(record: &[u8]) -> Result<Self> {
+        Ok(CompactString::from_utf8(record)?
+            .parse::<Self::Bits>()?
+            .into())
     }
 
-    fn full_network() -> IpNetwork;
-    fn bits_from_generic(ip: IpAddr) -> Option<Self::Bits>;
-
-    fn bit_leading_zeros(b: Self::Bits) -> u32;
-
-    fn bit_range_to_network(range: RangeInclusive<Self::Bits>) -> (Self, u32);
+    fn from_generic(ip: IpAddr) -> Option<Self>;
+    fn range_subnets(start: Self, end: Self) -> impl Iterator<Item = (Self, u32)>;
 }
 
 impl GenericIp for Ipv4Addr {
     type Bits = u32;
+    const FULL_NETWORK: IpNetwork =
+        IpNetwork::V4(Ipv4Network::new_checked(Ipv4Addr::UNSPECIFIED, 0).unwrap());
 
-    fn full_network() -> IpNetwork {
-        "0.0.0.0/0".parse().unwrap()
-    }
-
-    fn bits_from_generic(ip: IpAddr) -> Option<Self::Bits> {
+    fn from_generic(ip: IpAddr) -> Option<Self> {
         match ip {
-            IpAddr::V4(ip) => Some(ip.to_bits()),
+            IpAddr::V4(ip) => Some(ip),
             IpAddr::V6(_) => None,
         }
     }
 
-    fn bit_leading_zeros(b: Self::Bits) -> u32 {
-        b.leading_zeros()
-    }
-
-    fn bit_range_to_network(range: RangeInclusive<u32>) -> (Ipv4Addr, u32) {
-        let start = *range.start();
-        let end = *range.end();
-
-        let mut masklen = 32;
-        while masklen > 0 {
-            let mask = (!0u32) << (32 - masklen);
-            let network = start & mask;
-            let broadcast = network | !mask;
-            if network == start && broadcast == end {
-                return (Ipv4Addr::from(network), masklen);
-            }
-            masklen -= 1;
-        }
-        // For /0, always use 0.0.0.0
-        (Ipv4Addr::from(0), 0)
+    fn range_subnets(start: Self, end: Self) -> impl Iterator<Item = (Self, u32)> {
+        Ipv4Subnets::new(start, end, 0).map(|net| (net.addr(), net.prefix_len().into()))
     }
 }
 
 impl GenericIp for Ipv6Addr {
     type Bits = u128;
+    const FULL_NETWORK: IpNetwork =
+        IpNetwork::V6(Ipv6Network::new_checked(Ipv6Addr::UNSPECIFIED, 0).unwrap());
 
-    fn full_network() -> IpNetwork {
-        "::/0".parse().unwrap()
-    }
-
-    fn bits_from_generic(ip: IpAddr) -> Option<Self::Bits> {
+    fn from_generic(ip: IpAddr) -> Option<Self> {
         match ip {
             IpAddr::V4(_) => None,
-            IpAddr::V6(ip) => Some(ip.to_bits()),
+            IpAddr::V6(ip) => Some(ip),
         }
     }
 
-    fn bit_leading_zeros(b: Self::Bits) -> u32 {
-        b.leading_zeros()
-    }
-
-    fn bit_range_to_network(range: RangeInclusive<u128>) -> (Ipv6Addr, u32) {
-        let start = *range.start();
-        let end = *range.end();
-
-        let mut masklen = 128;
-        while masklen > 0 {
-            let mask = (!0u128) << (128 - masklen);
-            let network = start & mask;
-            let broadcast = network | !mask;
-            if network == start && broadcast == end {
-                return (Ipv6Addr::from(network), masklen);
-            }
-            masklen -= 1;
-        }
-        // For /0, always use ::
-        (Ipv6Addr::from(0), 0)
+    fn range_subnets(start: Self, end: Self) -> impl Iterator<Item = (Self, u32)> {
+        Ipv6Subnets::new(start, end, 0).map(|net| (net.addr(), net.prefix_len().into()))
     }
 }
 

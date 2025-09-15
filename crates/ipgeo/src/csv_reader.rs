@@ -1,7 +1,6 @@
 use std::{
     collections::{HashMap, hash_map::Entry},
     io::{BufReader, Read},
-    ops::RangeInclusive,
 };
 
 use compact_str::CompactString;
@@ -38,9 +37,9 @@ impl<Ip: GenericIp> Database<Ip> {
         };
 
         let ip_parser = if is_num {
-            Ip::bits_from_num_bytes
+            Ip::from_num_bytes
         } else {
-            Ip::bits_from_str_bytes
+            Ip::from_str_bytes
         };
 
         for record in ReaderBuilder::new()
@@ -53,11 +52,6 @@ impl<Ip: GenericIp> Database<Ip> {
             if record.len() < NUM_RECORDS {
                 return Err(Error::NotEnoughColumns);
             }
-
-            let range = RangeInclusive::new(
-                ip_parser(&record[IP_RANGE_START_IDX])?,
-                ip_parser(&record[IP_RANGE_END_IDX])?,
-            );
 
             let coord = Coordinate {
                 lat: CompactString::from_utf8(&record[LATITUDE_IDX])?.parse::<f32>()?,
@@ -72,8 +66,14 @@ impl<Ip: GenericIp> Database<Ip> {
                 });
             }
 
-            let (lower, masklen) = Ip::bit_range_to_network(range);
-            db.coordinates.insert(lower, masklen, coord);
+            let subnets = Ip::range_subnets(
+                ip_parser(&record[IP_RANGE_START_IDX])?,
+                ip_parser(&record[IP_RANGE_END_IDX])?,
+            );
+
+            for (addr, len) in subnets {
+                db.coordinates.insert(addr, len, coord);
+            }
         }
 
         Ok(db)
