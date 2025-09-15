@@ -2182,7 +2182,6 @@ dependencies = [
  "serde_json",
  "trippy-core",
  "trippy-privilege",
- "windows-sys 0.60.2",
 ]
 
 [[package]]

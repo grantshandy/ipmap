@@ -10,14 +10,3 @@ child-ipc = { path = "../child-ipc", features = ["child"] }
 pcap-dyn = { path = "../pcap-dyn" }
 trippy-core = "0.13.0"
 trippy-privilege = "0.13.0"
-
-[target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.60.2", features = [
-    "Win32_UI_WindowsAndMessaging",
-    "Win32_UI",
-    "Win32_Foundation",
-    "Win32_Security",
-    "Win32_Storage_FileSystem",
-    "Win32_System_Pipes",
-    "Win32_System_IO",
-] }

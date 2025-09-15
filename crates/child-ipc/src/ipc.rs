@@ -16,9 +16,7 @@ mod child {
     pub type Parent = ipc_channel::ipc::IpcSender<Message>;
 
     pub fn get_command() -> (Command, Parent) {
-        let mut args = env::args();
-
-        let _exe_name = args.next();
+        let mut args = env::args().skip(1);
 
         let Some(command) = args
             .next()
@@ -111,11 +109,10 @@ mod parent {
         #[cfg(not(windows))]
         let stop = spawn_child(child_path, args)?;
 
-        let accept = async { server.accept() };
-
-        let (recv, first) = tokio::time::timeout(CHILD_CONNECTION_TIMEOUT, accept)
-            .await
-            .map_err(|_| Error::basic(ErrorKind::ChildTimeout))??;
+        let (recv, first) =
+            tokio::time::timeout(CHILD_CONNECTION_TIMEOUT, async { server.accept() })
+                .await
+                .map_err(|_| Error::basic(ErrorKind::ChildTimeout))??;
 
         match first {
             Ok(Response::Connected) => Ok((recv, stop)),
@@ -132,30 +129,29 @@ mod parent {
     fn spawn_child(child_path: PathBuf, args: [String; 2]) -> io::Result<StopCallback> {
         let mut child = ProcessCommand::new(child_path.clone()).args(args).spawn()?;
 
-        Ok(Box::new(move || {
-            match child.try_wait()? {
-                Some(status) => {
-                    if !status.success() {
-                        return Err(io::Error::other(format!(
-                            "Child process exited with code: {}",
-                            status
-                                .code()
-                                .map_or("unknown".to_string(), |c| format!("{c:#x}"))
-                        )));
-                    }
+        let stop = move || {
+            if let Some(status) = child.try_wait()? {
+                if !status.success() {
+                    return Err(io::Error::other(format!(
+                        "Child process exited with code: {}",
+                        status
+                            .code()
+                            .map_or("unknown".to_string(), |c| format!("{c:#x}"))
+                    )));
                 }
-                None => {
-                    // Still running, so terminate it
-                    tracing::debug!("Terminating the child process...");
-                    child.kill()?;
-                    child.wait()?; // Ensure it fully exits
-                }
+            } else {
+                // Still running, so terminate it
+                tracing::debug!("Terminating the child process...");
+                child.kill()?;
+                child.wait()?; // Ensure it fully exits
             }
 
             tracing::debug!("{child_path:?} finished exiting");
 
             Ok(())
-        }))
+        };
+
+        Ok(Box::new(stop))
     }
 
     #[cfg(windows)]
