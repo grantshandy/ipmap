@@ -10,10 +10,13 @@ libc = "0.2.171"
 
 ip_rfc.workspace = true
 tracing.workspace = true
-specta.workspace = true
+specta = { workspace = true, optional = true }
 dashmap.workspace = true
 
 child-ipc = { path = "../child-ipc" }
 
 [dev-dependencies]
 human_bytes = "0.4.3"
+
+[features]
+specta = ["dep:specta", "child-ipc/specta"]
