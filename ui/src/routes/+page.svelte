@@ -62,6 +62,10 @@
 
 {#snippet welcome()}
   <main class="flex h-screen items-center justify-center select-none">
+    <button class="btn absolute top-2 left-2" onclick={openAboutWindow}>
+      ?
+    </button>
+
     <div class="max-w-120 space-y-3 p-5 text-center">
       <h1 class="text-2xl font-semibold">Welcome to Ipmap</h1>
       <p>
