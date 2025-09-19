@@ -6,7 +6,7 @@ use std::{
 };
 
 use dashmap::{DashMap, Entry};
-use ipgeo::{Coordinate, Database, DatabaseTrait, GenericIp, Location};
+use ipgeo::{Coordinate, Database, GenericIp, Location, SingleDatabase};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tauri::{AppHandle, Manager};
@@ -40,7 +40,7 @@ impl DbState {
     }
 }
 
-impl DatabaseTrait<IpAddr> for DbState {
+impl Database<IpAddr> for DbState {
     fn get(&self, ip: IpAddr) -> Option<LookupInfo> {
         match ip {
             IpAddr::V4(ip) => self.ipv4_db.get(ip),
@@ -65,7 +65,7 @@ impl DatabaseTrait<IpAddr> for DbState {
 struct LoadedDb<Ip: GenericIp> {
     path: PathBuf,
     preloaded: bool,
-    db: Arc<Database<Ip>>,
+    db: Arc<SingleDatabase<Ip>>,
 }
 
 struct DbCollection<Ip: GenericIp> {
@@ -83,11 +83,11 @@ impl<Ip: GenericIp> Default for DbCollection<Ip> {
 }
 
 impl<Ip: GenericIp> DbCollection<Ip> {
-    pub fn insert(&self, path: &Path, db: Database<Ip>) {
+    pub fn insert(&self, path: &Path, db: SingleDatabase<Ip>) {
         self.insert_arc(path, Arc::new(db), false);
     }
 
-    pub fn insert_arc(&self, path: &Path, db: Arc<Database<Ip>>, preloaded: bool) {
+    pub fn insert_arc(&self, path: &Path, db: Arc<SingleDatabase<Ip>>, preloaded: bool) {
         let loaded = Arc::new(LoadedDb {
             path: path.to_path_buf(),
             db,
@@ -150,7 +150,7 @@ impl<Ip: GenericIp> DbCollection<Ip> {
 }
 
 // TODO: move all selected call into single helper methods
-impl<Ip: GenericIp> DatabaseTrait<Ip> for DbCollection<Ip> {
+impl<Ip: GenericIp> Database<Ip> for DbCollection<Ip> {
     fn get(&self, ip: Ip) -> Option<LookupInfo> {
         self.selected
             .read()

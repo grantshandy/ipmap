@@ -4,7 +4,7 @@ use std::{
 };
 
 use child_ipc::{Command, Connection, Connections, Error, ErrorKind, Response, RunCapture, ipc};
-use ipgeo::{Coordinate, DatabaseTrait, Location};
+use ipgeo::{Coordinate, Database, Location};
 use ipgeo_state::DbState;
 use serde::{Deserialize, Serialize};
 use specta::Type;

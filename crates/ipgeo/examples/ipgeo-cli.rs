@@ -1,6 +1,6 @@
 use std::{env, net::IpAddr, path::PathBuf};
 
-use ipgeo::DatabaseTrait;
+use ipgeo::Database;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = env::args().skip(1);

@@ -1,6 +1,6 @@
 use std::{net::IpAddr, path::PathBuf, thread};
 
-use ipgeo::{DatabaseTrait, GenericDatabase, LookupInfo};
+use ipgeo::{Database, GenericDatabase, LookupInfo};
 use tauri::{AppHandle, Manager, State};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
 

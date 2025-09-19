@@ -1,212 +1,180 @@
 use std::{
-    collections::{HashMap, hash_map::Entry},
-    net::{AddrParseError, IpAddr, Ipv4Addr, Ipv6Addr},
-    num::{NonZero, ParseIntError},
-    str::FromStr,
+    io::Read,
+    net::{IpAddr, Ipv4Addr, Ipv6Addr},
 };
 
-use compact_str::CompactString;
-use heck::ToTitleCase;
-use indexmap::IndexSet;
-use ipnet::{Ipv4Subnets, Ipv6Subnets};
-use ipnetwork::{IpNetwork, Ipv4Network, Ipv6Network};
-use rustc_hash::FxBuildHasher;
 use serde::{Deserialize, Serialize};
 use treebitmap::IpLookupTable;
 
 use crate::{
-    DatabaseTrait, Result,
-    location::{Coordinate, CountryCode, Location},
+    Database, Error, GenericIp,
+    locations::{Coordinate, Location, LocationStore},
+    reader,
 };
 
-pub type Ipv4Database = Database<Ipv4Addr>;
-pub type Ipv6Database = Database<Ipv6Addr>;
+/// A database that stores IPv4 addresses.
+pub type Ipv4Database = SingleDatabase<Ipv4Addr>;
 
-/// A memory-efficient store of IP networks and their associated locations.
-///
-/// Internal maps:
-/// ```
-/// IpAddr  --(ips)----------> Coordinate
-///         --(coordinates)--> LocationKey
-///         --(locations)----> LocationIndices
-///         --(strings x 2)--> Location
-/// ```
+/// A database that stores IPv6 addresses.
+pub type Ipv6Database = SingleDatabase<Ipv6Addr>;
+
+/// A database for a single address type.
 #[derive(PartialEq, Serialize, Deserialize)]
-pub struct Database<Ip: GenericIp> {
-    /// IP address to a single coordinate
+pub struct SingleDatabase<Ip: GenericIp> {
     pub(crate) ips: IpLookupTable<Ip, Coordinate>,
-    /// Coordinate to a single identifiable "location" (city) key
-    pub(crate) coordinates: HashMap<Coordinate, LocationKey, FxBuildHasher>,
-    /// Location key to associated string keys for city and region
-    pub(crate) locations: IndexSet<LocationIndices, FxBuildHasher>,
-    /// Deduplicated location name strings
-    pub(crate) strings: StringDict,
+    pub(crate) locations: LocationStore,
 }
 
-impl<Ip: GenericIp> Database<Ip> {
-    pub(crate) fn empty() -> Self {
-        Self {
-            ips: IpLookupTable::new(),
-            coordinates: HashMap::default(),
-            locations: IndexSet::default(),
-            strings: StringDict::default(),
-        }
+impl<Ip: GenericIp> SingleDatabase<Ip> {
+    pub fn from_csv(read: impl Read, is_num: bool) -> Result<Self, Error> {
+        let mut ips = IpLookupTable::new();
+        let mut locations = LocationStore::default();
+
+        reader::csv::read(read, is_num, &mut ips, &mut locations)?;
+
+        Ok(Self { ips, locations })
     }
 
-    pub(crate) fn insert_location(
-        &mut self,
-        coord: Coordinate,
-        create_location: impl FnOnce(&mut StringDict) -> LocationIndices,
-    ) {
-        // only allocating if the location is new saves millions of parses/allocations per database.
-        if let Entry::Vacant(entry) = self.coordinates.entry(coord) {
-            entry.insert(
-                self.locations
-                    .insert_full(create_location(&mut self.strings))
-                    .0,
-            );
-        }
+    pub fn from_mmdb<S: AsRef<[u8]>>(reader: maxminddb::Reader<S>) -> Result<Self, Error> {
+        let mut ips = IpLookupTable::new();
+        let mut locations = LocationStore::default();
+
+        reader::mmdb::read(reader, &mut ips, &mut locations)?;
+
+        Ok(Self { ips, locations })
     }
 }
 
-impl<Ip: GenericIp> DatabaseTrait<Ip> for Database<Ip> {
+impl<Ip: GenericIp> Database<Ip> for SingleDatabase<Ip> {
     fn get_coordinate(&self, ip: Ip) -> Option<Coordinate> {
         self.ips.longest_match(ip).map(|(_, _, c)| *c)
     }
 
     fn get_location(&self, crd: Coordinate) -> Option<Location> {
-        self.coordinates.get(&crd).map(|i| {
-            // UNWRAP: self.locations and self.coordinates are updated at the same time in Self::insert_location
-            self.locations
-                .get_index(*i)
-                .unwrap()
-                .populate(&self.strings)
+        self.locations.get(crd)
+    }
+}
+
+/// A database built from both an IPv4 and IPv6 CSV file.
+#[derive(PartialEq, Serialize, Deserialize)]
+pub struct CombinedDatabase {
+    pub(crate) ipv4: IpLookupTable<Ipv4Addr, Coordinate>,
+    pub(crate) ipv6: IpLookupTable<Ipv6Addr, Coordinate>,
+    pub(crate) locations: LocationStore,
+}
+
+impl CombinedDatabase {
+    pub fn from_csv(ipv4_csv: impl Read, ipv6_csv: impl Read, is_num: bool) -> Result<Self, Error> {
+        let mut ipv4 = IpLookupTable::new();
+        let mut ipv6 = IpLookupTable::new();
+        let mut locations = LocationStore::default();
+
+        reader::csv::read(ipv4_csv, is_num, &mut ipv4, &mut locations)?;
+        reader::csv::read(ipv6_csv, is_num, &mut ipv6, &mut locations)?;
+
+        Ok(Self {
+            ipv4,
+            ipv6,
+            locations,
         })
     }
 }
 
-/// A trait representing either an `Ipv4Addr` or `Ipv6Addr` for the needs in the database.
-pub trait GenericIp:
-    FromStr<Err = AddrParseError> + From<Self::Bits> + treebitmap::Address + std::fmt::Debug + Ord
-{
-    type Bits: FromStr<Err = ParseIntError>;
-    const FULL_NETWORK: IpNetwork;
-
-    fn from_str_bytes(record: &[u8]) -> Result<Self> {
-        Ok(CompactString::from_utf8(record)?.parse::<Self>()?)
-    }
-
-    fn from_num_bytes(record: &[u8]) -> Result<Self> {
-        Ok(CompactString::from_utf8(record)?
-            .parse::<Self::Bits>()?
-            .into())
-    }
-
-    fn from_generic(ip: IpAddr) -> Option<Self>;
-    fn range_subnets(start: Self, end: Self) -> impl Iterator<Item = (Self, u32)>;
-}
-
-impl GenericIp for Ipv4Addr {
-    type Bits = u32;
-    const FULL_NETWORK: IpNetwork =
-        IpNetwork::V4(Ipv4Network::new_checked(Ipv4Addr::UNSPECIFIED, 0).unwrap());
-
-    fn from_generic(ip: IpAddr) -> Option<Self> {
+impl Database<IpAddr> for CombinedDatabase {
+    fn get_coordinate(&self, ip: IpAddr) -> Option<Coordinate> {
         match ip {
-            IpAddr::V4(ip) => Some(ip),
-            IpAddr::V6(_) => None,
+            IpAddr::V4(ip) => self.ipv4.longest_match(ip).map(|(_, _, c)| *c),
+            IpAddr::V6(ip) => self.ipv6.longest_match(ip).map(|(_, _, c)| *c),
         }
     }
 
-    fn range_subnets(start: Self, end: Self) -> impl Iterator<Item = (Self, u32)> {
-        Ipv4Subnets::new(start, end, 0).map(|net| (net.addr(), net.prefix_len().into()))
-    }
-}
-
-impl GenericIp for Ipv6Addr {
-    type Bits = u128;
-    const FULL_NETWORK: IpNetwork =
-        IpNetwork::V6(Ipv6Network::new_checked(Ipv6Addr::UNSPECIFIED, 0).unwrap());
-
-    fn from_generic(ip: IpAddr) -> Option<Self> {
-        match ip {
-            IpAddr::V4(_) => None,
-            IpAddr::V6(ip) => Some(ip),
-        }
-    }
-
-    fn range_subnets(start: Self, end: Self) -> impl Iterator<Item = (Self, u32)> {
-        Ipv6Subnets::new(start, end, 0).map(|net| (net.addr(), net.prefix_len().into()))
-    }
-}
-
-type LocationKey = usize;
-type StringDictKey = NonZero<u32>;
-
-/// A compact database of strings that can store less than u32::MAX items.
-#[derive(PartialEq, Eq, Default, Serialize, Deserialize)]
-pub(crate) struct StringDict(IndexSet<CompactString, FxBuildHasher>);
-
-impl StringDict {
-    pub fn insert_str(&mut self, item: CompactString) -> Option<StringDictKey> {
-        if item.is_empty() {
-            return None;
-        }
-
-        self.insert_bytes(item.as_bytes())
-    }
-
-    pub fn insert_bytes(&mut self, item: &[u8]) -> Option<StringDictKey> {
-        if item.is_empty() {
-            return None;
-        }
-
-        let s = CompactString::from_utf8(item).ok()?.to_lowercase();
-        let (idx, _) = self.0.insert_full(s);
-
-        NonZero::new((idx + 1) as u32)
-    }
-
-    pub fn get(&self, idx: StringDictKey) -> Option<String> {
-        self.0
-            .get_index((idx.get() - 1) as usize)
-            .map(|c| c.to_title_case())
-    }
-}
-
-/// The city and region are stored as indexes into a string database.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
-pub(crate) struct LocationIndices {
-    pub(crate) city: Option<StringDictKey>,
-    pub(crate) region: Option<StringDictKey>,
-    pub(crate) country_code: CountryCode,
-}
-
-impl LocationIndices {
-    fn populate(&self, strings: &StringDict) -> Location {
-        Location {
-            city: self.city.and_then(|i| strings.get(i)),
-            region: self.region.and_then(|i| strings.get(i)),
-            country_code: self.country_code.to_string(),
-        }
+    fn get_location(&self, crd: Coordinate) -> Option<Location> {
+        self.locations.get(crd)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::{Coordinate, Database, Ipv4Database, Ipv6Database, Location, LookupInfo};
+    use std::net::{Ipv4Addr, Ipv6Addr};
 
     #[test]
-    fn string_dict() {
-        let mut s = StringDict::default();
+    fn parse() {
+        let info = LookupInfo {
+            crd: Coordinate {
+                lat: 23.1317,
+                lng: 113.266,
+            },
+            loc: Location {
+                city: Some("Guangzhou".to_string()),
+                region: Some("Guangdong".to_string()),
+                country_code: "CN".to_string(),
+            },
+        };
 
-        let city = "A Region".to_string();
-        let region = "City Name Here".to_string();
+        let format_csv_line = |lower: String, higher: String| {
+            format!(
+                "{lower},{higher},{},{},,{},,{},{},",
+                info.loc.country_code.clone(),
+                info.loc.region.clone().unwrap_or_default(),
+                info.loc.city.clone().unwrap_or_default(),
+                info.crd.lat,
+                info.crd.lng
+            )
+        };
 
-        let city_idx = s.insert_str(city.clone().into()).unwrap();
-        let region_idx = s.insert_bytes(region.as_bytes()).unwrap();
+        let ipv4_lower: Ipv4Addr = "1.0.8.0".parse().unwrap();
+        let ipv4_higher: Ipv4Addr = "1.0.15.255".parse().unwrap();
+        let ipv4_valid: Ipv4Addr = "1.0.9.80".parse().unwrap();
+        let ipv4_invalid: Ipv4Addr = "19.0.9.80".parse().unwrap();
 
-        assert_eq!(Some(city), s.get(city_idx));
-        assert_eq!(Some(region), s.get(region_idx));
+        let ipv4_db = Ipv4Database::from_csv(
+            format_csv_line(ipv4_lower.to_string(), ipv4_higher.to_string()).as_bytes(),
+            false,
+        )
+        .unwrap();
+
+        assert_eq!(Some(info.clone()), ipv4_db.get(ipv4_valid));
+        assert_eq!(None, ipv4_db.get(ipv4_invalid));
+
+        let ipv4_num_db = Ipv4Database::from_csv(
+            format_csv_line(
+                ipv4_lower.to_bits().to_string(),
+                ipv4_higher.to_bits().to_string(),
+            )
+            .as_bytes(),
+            true,
+        )
+        .unwrap();
+
+        assert_eq!(Some(info.clone()), ipv4_num_db.get(ipv4_valid));
+        assert_eq!(None, ipv4_num_db.get(ipv4_invalid));
+
+        let ipv6_lower: Ipv6Addr = "2001:2::".parse().unwrap();
+        let ipv6_higher: Ipv6Addr = "2001:2::ffff:ffff:ffff:ffff:ffff".parse().unwrap();
+        let ipv6_valid: Ipv6Addr = "2001:2::9".parse().unwrap();
+        let ipv6_invalid: Ipv6Addr = "3001:2::9".parse().unwrap();
+
+        let ipv6_db = Ipv6Database::from_csv(
+            format_csv_line(ipv6_lower.to_string(), ipv6_higher.to_string()).as_bytes(),
+            false,
+        )
+        .unwrap();
+
+        assert_eq!(Some(info.clone()), ipv6_db.get(ipv6_valid));
+        assert_eq!(None, ipv6_db.get(ipv6_invalid));
+
+        let ipv6_num_db = Ipv6Database::from_csv(
+            format_csv_line(
+                ipv6_lower.to_bits().to_string(),
+                ipv6_higher.to_bits().to_string(),
+            )
+            .as_bytes(),
+            true,
+        )
+        .unwrap();
+
+        assert_eq!(Some(info.clone()), ipv6_num_db.get(ipv6_valid));
+        assert_eq!(None, ipv6_num_db.get(ipv6_invalid));
     }
 }
