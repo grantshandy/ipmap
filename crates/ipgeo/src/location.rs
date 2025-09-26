@@ -12,7 +12,7 @@ use std::{
 
 /// A memory-efficient store of named locations by their coordinates.
 #[derive(Default, PartialEq, Serialize, Deserialize)]
-pub(crate) struct LocationStore {
+pub struct LocationStore {
     /// Coordinate to a single identifiable "location" (city) key
     pub(crate) coordinates: HashMap<Coordinate, LocationKey, FxBuildHasher>,
     /// Location key to associated string keys for city and region
@@ -55,7 +55,7 @@ type StringDictKey = NonZero<u32>;
 
 /// A compact database of strings that can store less than u32::MAX items.
 #[derive(PartialEq, Eq, Default, Serialize, Deserialize)]
-pub(crate) struct StringDict(IndexSet<CompactString, FxBuildHasher>);
+pub struct StringDict(IndexSet<CompactString, FxBuildHasher>);
 
 impl StringDict {
     pub fn insert_str(&mut self, item: CompactString) -> Option<StringDictKey> {
@@ -100,12 +100,12 @@ pub struct Location {
     pub country_code: String,
 }
 
-/// The city and region stored as indexes into a `StringDict` database.
+/// The city and region stored as indexes into a [`StringDict`] database.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
-pub(crate) struct LocationIndices {
-    pub(crate) city: Option<StringDictKey>,
-    pub(crate) region: Option<StringDictKey>,
-    pub(crate) country_code: CountryCode,
+pub struct LocationIndices {
+    pub city: Option<StringDictKey>,
+    pub region: Option<StringDictKey>,
+    pub country_code: CountryCode,
 }
 
 impl LocationIndices {

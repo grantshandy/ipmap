@@ -33,7 +33,7 @@
       <tr>
         <th>Issue Tracker</th>
         <td>
-          <Link href="https://github.com/grantshandy/ipmap/issues">
+          <Link href="https://github.com/grantshandy/ipmap/issues/new">
             Submit an Issue
           </Link>
         </td>

@@ -1,5 +1,7 @@
 use tauri::Manager;
 
+mod client_location;
+mod store;
 mod utils;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -7,27 +9,32 @@ pub fn run() {
     tracing_subscriber::fmt::init();
 
     let ts_export_builder = tauri_specta::Builder::<tauri::Wry>::new()
-        .events(tauri_specta::collect_events![
-            ipgeo_state::DbStateChange,
-            pcap_state::PcapStateChange
-        ])
+        .events(tauri_specta::collect_events![store::DatabaseStoreInfo])
         .commands(tauri_specta::collect_commands![
             utils::open_about_window,
-            ipgeo_state::commands::load_database,
-            ipgeo_state::commands::unload_database,
-            ipgeo_state::commands::load_internals,
-            ipgeo_state::commands::database_state,
-            ipgeo_state::commands::set_selected_database,
-            ipgeo_state::commands::lookup_ip,
-            ipgeo_state::commands::lookup_dns,
-            ipgeo_state::commands::lookup_host,
-            ipgeo_state::commands::my_location,
-            pcap_state::commands::init_pcap,
-            pcap_state::commands::start_capture,
-            pcap_state::commands::stop_capture,
-            pcap_state::commands::traceroute_enabled,
-            pcap_state::commands::run_traceroute,
-            pcap_state::commands::print_error,
+            store::commands::init_cache,
+            store::commands::download,
+            store::commands::load_file,
+            store::commands::database_info,
+            store::commands::set_selected,
+            store::commands::lookup_ip,
+            store::commands::lookup_host,
+            store::commands::lookup_dns,
+            // ipgeo_state::commands::load_database,
+            // ipgeo_state::commands::unload_database,
+            // ipgeo_state::commands::load_internals,
+            // ipgeo_state::commands::database_state,
+            // ipgeo_state::commands::set_selected_database,
+            // ipgeo_state::commands::lookup_ip,
+            // ipgeo_state::commands::lookup_dns,
+            // ipgeo_state::commands::lookup_host,
+            // ipgeo_state::commands::my_location,
+            // pcap_state::commands::init_pcap,
+            // pcap_state::commands::start_capture,
+            // pcap_state::commands::stop_capture,
+            // pcap_state::commands::traceroute_enabled,
+            // pcap_state::commands::run_traceroute,
+            // pcap_state::commands::print_error,
         ])
         .constant("PCAP_ERROR_KINDS", utils::pcap_error_kinds())
         .constant("PLATFORM", utils::Platform::current())
@@ -50,8 +57,8 @@ pub fn run() {
         .setup(move |app| {
             ts_export_builder.mount_events(app);
 
-            app.manage(ipgeo_state::DbState::default());
-            app.manage(pcap_state::PcapState::default());
+            app.manage(store::DatabaseStore::new(app)?);
+            // app.manage(pcap_state::PcapState::default());
 
             Ok(())
         })

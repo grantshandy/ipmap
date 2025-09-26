@@ -1,31 +1,31 @@
 import {
   events,
   commands,
-  type DbStateInfo,
-  type DbCollectionInfo,
+  type DatabaseStoreInfo,
+  type BuiltinDatabaseSources,
 } from "./raw";
 import * as dialog from "@tauri-apps/plugin-dialog";
 import { captureError } from ".";
 
-class Database implements DbStateInfo {
-  ipv4: DbCollectionInfo = $state({ loaded: [], selected: null });
-  ipv6: DbCollectionInfo = $state({ loaded: [], selected: null });
-  loading: string | null = $state(null);
+export interface SourceInfo {
+  kind: BuiltinDatabaseSources;
+}
 
-  ipv4Enabled: boolean = $derived(this.ipv4.selected != null);
-  ipv6Enabled: boolean = $derived(this.ipv6.selected != null);
-
-  anyEnabled: boolean = $derived(this.ipv4Enabled || this.ipv6Enabled);
+class DatabaseStore implements DatabaseStoreInfo {
+  loading: boolean = $state(false);
+  loaded: string[] = $state([]);
+  selected: string | null = $state(null);
+  anyEnabled: boolean = $derived(this.selected != null);
 
   constructor() {
-    commands.databaseState().then(this.update);
-    events.dbStateChange.listen((ev) => this.update(ev.payload));
+    commands.databaseInfo().then(this.update);
+    events.databaseStoreInfo.listen((ev) => this.update(ev.payload));
   }
 
-  private update = (state: DbStateInfo) => {
+  private update = (state: DatabaseStoreInfo) => {
     this.loading = state.loading;
-    this.ipv4 = state.ipv4;
-    this.ipv6 = state.ipv6;
+    this.loaded = state.loaded;
+    this.selected = state.selected;
   };
 
   open = async () => {
@@ -46,22 +46,24 @@ class Database implements DbStateInfo {
     if (!file) return;
 
     console.log("opening database", file);
-    commands.loadDatabase(file);
+    commands.loadFile(file);
   };
 
+  download = commands.download;
+
   setSelected = (name: string | null | undefined) => {
-    if (name) commands.setSelectedDatabase(name);
+    if (name) commands.setSelected(name);
   };
 
   unload = (name: string | null) => {
-    if (name) captureError(commands.unloadDatabase, name);
+    // if (name) captureError(commands.unloadDatabase, name);
   };
 
   lookupIp = commands.lookupIp;
   lookupDns = commands.lookupDns;
   lookupHost = commands.lookupHost;
-  loadInternals = commands.loadInternals;
-  myLocation = commands.myLocation;
+  initCache = commands.initCache;
+  // myLocation = commands.myLocation;
 }
 
-export default new Database();
+export default new DatabaseStore();

@@ -50,7 +50,7 @@ pub async fn run_traceroute(
             Ok(Response::Traceroute(resp)) => {
                 exit()?;
 
-                let my_location = match ipgeo_state::my_loc::get().await {
+                let my_location = match ipgeo_state::client_location::get().await {
                     Ok((ip, Some(info))) => Some(Hop {
                         ips: vec![ip],
                         loc: Some(info),

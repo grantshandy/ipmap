@@ -5,9 +5,10 @@ use treebitmap::IpLookupTable;
 
 use crate::{
     Coordinate, Error, GenericIp,
-    locations::{CountryCode, LocationIndices, LocationStore},
+    location::{CountryCode, LocationIndices, LocationStore},
 };
 
+/// Read a mmdb file into an [`IpLookupTable`] and [`LocationStore`].
 pub fn read<Ip: GenericIp, S: AsRef<[u8]>>(
     reader: Reader<S>,
     ips: &mut IpLookupTable<Ip, Coordinate>,

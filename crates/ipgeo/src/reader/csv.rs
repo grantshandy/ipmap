@@ -5,7 +5,7 @@ use treebitmap::IpLookupTable;
 
 use crate::{
     Coordinate, Error, GenericIp,
-    locations::{CountryCode, LocationIndices, LocationStore},
+    location::{CountryCode, LocationIndices, LocationStore},
 };
 
 /// CSV indexes for city-ipv[4/6][-num].csv format
@@ -20,6 +20,7 @@ const CITY_IDX: usize = 5;
 const LATITUDE_IDX: usize = 7;
 const LONGITUDE_IDX: usize = 8;
 
+/// Read a csv file into an [`IpLookupTable`] and [`LocationStore`].
 pub fn read<Ip: GenericIp>(
     read: impl Read,
     is_num: bool,

@@ -7,8 +7,8 @@ use serde::{Deserialize, Serialize};
 use treebitmap::IpLookupTable;
 
 use crate::{
-    Database, Error, GenericIp,
-    locations::{Coordinate, Location, LocationStore},
+    Database, Error, GenericDatabase, GenericIp,
+    location::{Coordinate, Location, LocationStore},
     reader,
 };
 
@@ -64,6 +64,18 @@ pub struct CombinedDatabase {
 }
 
 impl CombinedDatabase {
+    pub fn new(
+        ipv4: IpLookupTable<Ipv4Addr, Coordinate>,
+        ipv6: IpLookupTable<Ipv6Addr, Coordinate>,
+        locations: LocationStore,
+    ) -> Self {
+        Self {
+            ipv4,
+            ipv6,
+            locations,
+        }
+    }
+
     pub fn from_csv(ipv4_csv: impl Read, ipv6_csv: impl Read, is_num: bool) -> Result<Self, Error> {
         let mut ipv4 = IpLookupTable::new();
         let mut ipv6 = IpLookupTable::new();
@@ -90,6 +102,35 @@ impl Database<IpAddr> for CombinedDatabase {
 
     fn get_location(&self, crd: Coordinate) -> Option<Location> {
         self.locations.get(crd)
+    }
+}
+
+impl From<GenericDatabase> for CombinedDatabase {
+    fn from(value: GenericDatabase) -> Self {
+        match value {
+            GenericDatabase::Ipv4(db) => db.into(),
+            GenericDatabase::Ipv6(db) => db.into(),
+        }
+    }
+}
+
+impl From<SingleDatabase<Ipv4Addr>> for CombinedDatabase {
+    fn from(SingleDatabase { ips, locations }: SingleDatabase<Ipv4Addr>) -> Self {
+        Self {
+            ipv4: ips,
+            ipv6: IpLookupTable::new(),
+            locations,
+        }
+    }
+}
+
+impl From<SingleDatabase<Ipv6Addr>> for CombinedDatabase {
+    fn from(SingleDatabase { ips, locations }: SingleDatabase<Ipv6Addr>) -> Self {
+        Self {
+            ipv4: IpLookupTable::new(),
+            ipv6: ips,
+            locations,
+        }
     }
 }
 

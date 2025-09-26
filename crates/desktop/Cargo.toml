@@ -13,16 +13,27 @@ child-ipc = { path = "../child-ipc" }
 
 [dependencies]
 tauri = { workspace = true, features = [] }
+tokio.workspace = true
 specta.workspace = true
 serde.workspace = true
 tracing.workspace = true
 tauri-specta.workspace = true
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
-
 tauri-plugin-opener = "2"
 tauri-plugin-dialog.workspace = true
 specta-typescript = "0.0.9"
+dns-lookup = "2.0.4"
 
-pcap-state = { path = "../pcap-state" }
-ipgeo-state = { path = "../ipgeo-state" }
+flate2.workspace = true
+postcard = { workspace = true, features = ["use-std"] }
+dashmap.workspace = true
+futures = "0.3.31"
+anyhow = "1.0.100"
+reqwest = { version = "0.12.23", features = ["stream"] }
+pipe = "0.4.0"
+time = "0.3.44"
+public-ip-address = "0.3.4"
+compact_str.workspace = true
+
+ipgeo = { path = "../ipgeo" }
 child-ipc = { path = "../child-ipc", features = ["specta"] }

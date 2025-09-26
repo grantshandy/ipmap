@@ -57,7 +57,7 @@ impl Platform {
         #[cfg(target_os = "macos")]
         return Platform::MacOS;
 
-        unimplemented!()
+        unimplemented!("only currently support Linux, Windows, and MacOS");
     }
 }
 

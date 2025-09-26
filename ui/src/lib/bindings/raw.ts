@@ -8,60 +8,38 @@ export const commands = {
 async openAboutWindow() : Promise<void> {
     await TAURI_INVOKE("open_about_window");
 },
-/**
- * Load a IP-Geolocation database into the program from the filename.
- */
-async loadDatabase(path: string) : Promise<void> {
-    await TAURI_INVOKE("load_database", { path });
-},
-/**
- * Unload the database, freeing up memory.
- */
-async unloadDatabase(path: string) : Promise<Result<null, string>> {
+async initCache() : Promise<Result<null, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("unload_database", { path }) };
+    return { status: "ok", data: await TAURI_INVOKE("init_cache") };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
 },
-async loadInternals() : Promise<Result<null, string>> {
+async download(source: BuiltinDatabaseSources, stage: TAURI_CHANNEL<string>, progress: TAURI_CHANNEL<number>) : Promise<Result<null, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("load_internals") };
+    return { status: "ok", data: await TAURI_INVOKE("download", { source, stage, progress }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
 },
-/**
- * Retrieve the current state of the database.
- * This info is given out in [`DbStateChange`], but this is useful for getting it at page load, for example.
- */
-async databaseState() : Promise<DbStateInfo> {
-    return await TAURI_INVOKE("database_state");
+async loadFile(path: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("load_file", { path }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 },
-/**
- * Set the given database as the selected database for lookups.
- */
-async setSelectedDatabase(path: string) : Promise<void> {
-    await TAURI_INVOKE("set_selected_database", { path });
+async databaseInfo() : Promise<DatabaseStoreInfo> {
+    return await TAURI_INVOKE("database_info");
 },
-/**
- * Lookup a given IP address in the currently selected database(s).
- */
+async setSelected(name: string) : Promise<void> {
+    await TAURI_INVOKE("set_selected", { name });
+},
 async lookupIp(ip: string) : Promise<LookupInfo | null> {
     return await TAURI_INVOKE("lookup_ip", { ip });
-},
-/**
- * Get a hostname with the system for a given IP address.
- */
-async lookupDns(ip: string) : Promise<Result<string | null, null>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("lookup_dns", { ip }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
 },
 /**
  * Get a hostname with the system for a given IP address.
@@ -75,61 +53,15 @@ async lookupHost(host: string) : Promise<Result<string | null, null>> {
 }
 },
 /**
- * Attempt to get the user's current location
+ * Get a hostname with the system for a given IP address.
  */
-async myLocation() : Promise<Result<LookupInfo, string>> {
+async lookupDns(ip: string) : Promise<Result<string | null, null>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("my_location") };
+    return { status: "ok", data: await TAURI_INVOKE("lookup_dns", { ip }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
-},
-async initPcap() : Promise<Result<PcapStateInfo, Error>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("init_pcap") };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async startCapture(params: RunCapture, conns: TAURI_CHANNEL<CaptureLocations>) : Promise<Result<null, Error>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("start_capture", { params, conns }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-/**
- * Stop the current capture.
- */
-async stopCapture() : Promise<Result<null, Error>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("stop_capture") };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async tracerouteEnabled() : Promise<Result<null, Error>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("traceroute_enabled") };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async runTraceroute(params: RunTraceroute, progress: TAURI_CHANNEL<number>) : Promise<Result<Hop[], Error>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("run_traceroute", { params, progress }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async printError(error: Error) : Promise<string> {
-    return await TAURI_INVOKE("print_error", { error });
 }
 }
 
@@ -137,117 +69,42 @@ async printError(error: Error) : Promise<string> {
 
 
 export const events = __makeEvents__<{
-dbStateChange: DbStateChange,
-pcapStateChange: PcapStateChange
+databaseStoreInfo: DatabaseStoreInfo
 }>({
-dbStateChange: "db-state-change",
-pcapStateChange: "pcap-state-change"
+databaseStoreInfo: "database-store-info"
 })
 
 /** user-defined constants **/
 
-export const PLATFORM = "linux" as const;
 export const APP_VERSION = "5.0.0" as const;
+export const PLATFORM = "linux" as const;
 export const PCAP_ERROR_KINDS = ["UnexpectedType","TerminatedUnexpectedly","ChildTimeout","Ipc","InsufficientPermissions","LibLoading","Runtime","ChildNotFound","EstablishConnection","Io"] as const;
 
 /** user-defined types **/
 
+export type BuiltinDatabaseSources = "dbip" | "geolite2"
 /**
- * A location and it's associated active IPs and their connections.
+ * A basic latitude/longitude pair.
  */
-export type CaptureLocation = { ips: Partial<{ [key in string]: Connection }>; loc: Location; crd: Coordinate; dir: ConnectionDirection; thr: number }
-export type CaptureLocations = { 
+export type Coordinate = { 
 /**
- * The current state of locations and their connections.
+ * Latitude
  */
-updates: Partial<{ [key in string]: CaptureLocation }>; started: string[]; ended: string[]; 
+lat: number; 
 /**
- * Connections that we couldn't find in the ip-geo database.
+ * Longitude
  */
-notFound: Partial<{ [key in string]: Connection }>; 
+lng: number }
+export type DatabaseStoreInfo = { loaded: string[]; selected: string | null; loading: boolean }
 /**
- * A single Connection representing the entire capture session.
- */
-session: Connection; 
-/**
- * The maximum connection throughput found.
- */
-maxThroughput: number; 
-/**
- * Indicate to the client this is the last update in the session.
- */
-last: boolean }
-export type Connection = { up: Throughput; down: Throughput }
-export type ConnectionDirection = "mixed" | "up" | "down"
-/**
- * A latitude/longitude coordinate.
- */
-export type Coordinate = { lat: number; lng: number }
-export type DbCollectionInfo = { loaded: DbInfo[]; selected: string | null }
-export type DbInfo = { path: string; preloaded: boolean }
-/**
- * Fired any time the state of loaded or selected databases are changed on the backend.
- */
-export type DbStateChange = DbStateInfo
-export type DbStateInfo = { ipv4: DbCollectionInfo; ipv6: DbCollectionInfo; loading: string | null }
-/**
- * A network device reported from libpcap, e.g. "wlp3s0".
- */
-export type Device = { 
-/**
- * Name, e.g. "wlp3s0"
- */
-name: string; 
-/**
- * Note: for physical devices this is usually only on Windows.
- */
-description: string | null; 
-/**
- * If the device is up and running.
- */
-ready: boolean; 
-/**
- * If the device is a wireless device.
- */
-wireless: boolean }
-export type Duration = { secs: number; nanos: number }
-export type Error = { kind: ErrorKind; message: string | null }
-export type ErrorKind = "UnexpectedType" | "TerminatedUnexpectedly" | "ChildTimeout" | "Ipc" | "InsufficientPermissions" | "LibLoading" | "Runtime" | "ChildNotFound" | "EstablishConnection" | "Io"
-export type Hop = { ips: string[]; loc: LookupInfo | null }
-/**
- * Location metadata.
+ * A [`Coordinate`]'s associated city, region, and country.
  */
 export type Location = { city: string | null; region: string | null; countryCode: string }
+/**
+ * A [`Coordinate`]/[`Location`] pair.
+ */
 export type LookupInfo = { crd: Coordinate; loc: Location }
-export type PcapStateChange = ({ status: "Ok" } & PcapStateInfo) | ({ status: "Err" } & Error)
-export type PcapStateInfo = { 
-/**
- * The version information about the currently loaded libpcap
- */
-version: string; 
-/**
- * The list of available network devices for capture
- */
-devices: Device[]; 
-/**
- * The currently-captured on device, if any
- */
-capture: Device | null }
-export type RunCapture = { device: Device; connectionTimeout: Duration; reportFrequency: Duration }
-export type RunTraceroute = { ip: string; rounds: number }
 export type TAURI_CHANNEL<TSend> = null
-/**
- * Current stats for a single connection direction (up or down)
- */
-export type Throughput = { 
-/**
- * Total number of bytes since the start of the capture session
- */
-total: number; 
-/**
- * Number of bytes per second
- */
-avgS: number }
 
 /** tauri-specta globals **/
 

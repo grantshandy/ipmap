@@ -16,7 +16,7 @@ dashmap.workspace = true
 child-ipc = { path = "../child-ipc" }
 
 [dev-dependencies]
-human_bytes = "0.4.3"
+human_bytes.workspace = true
 
 [features]
 specta = ["dep:specta", "child-ipc/specta"]

@@ -20,12 +20,12 @@
   let isDomainName: boolean = $derived(validDomainName.test(trimmedInput));
 
   let ipv4: string | null = $derived(
-    database.ipv4Enabled && Address4.isValid(trimmedInput)
+    Address4.isValid(trimmedInput)
       ? new Address4(trimmedInput).correctForm()
       : null,
   );
   let ipv6: string | null = $derived(
-    database.ipv6Enabled && Address6.isValid(trimmedInput)
+    Address6.isValid(trimmedInput)
       ? new Address6(trimmedInput).correctForm()
       : null,
   );

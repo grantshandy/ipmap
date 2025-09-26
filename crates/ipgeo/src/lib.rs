@@ -11,13 +11,15 @@ use ipnet::{Ipv4Subnets, Ipv6Subnets};
 use ipnetwork::{IpNetwork, Ipv4Network, Ipv6Network};
 
 mod database;
-mod detect;
-mod locations;
-mod reader;
+pub mod detect;
+pub mod location;
+pub mod reader;
 
 pub use database::{CombinedDatabase, Ipv4Database, Ipv6Database, SingleDatabase};
 pub use detect::{GenericDatabase, detect};
-pub use locations::{Coordinate, Location, LookupInfo};
+#[doc(inline)]
+pub use location::{Coordinate, Location, LookupInfo};
+pub use treebitmap::IpLookupTable;
 
 /// A generic way of addressing a [`CombinedDatabase`], [`SingleDatabase`], or [`GenericDatabase`].
 pub trait Database<Ip> {
