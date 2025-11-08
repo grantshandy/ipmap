@@ -1,5 +1,7 @@
 use tauri::Manager;
 
+mod db;
+mod pcap;
 mod utils;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -8,25 +10,25 @@ pub fn run() {
 
     let ts_export_builder = tauri_specta::Builder::<tauri::Wry>::new()
         .events(tauri_specta::collect_events![
-            ipgeo_state::DbStateChange,
-            pcap_state::PcapStateChange
+            db::DbStateChange,
+            pcap::PcapStateChange
         ])
         .commands(tauri_specta::collect_commands![
             utils::open_about_window,
-            ipgeo_state::commands::load_database,
-            ipgeo_state::commands::unload_database,
-            ipgeo_state::commands::database_state,
-            ipgeo_state::commands::set_selected_database,
-            ipgeo_state::commands::lookup_ip,
-            ipgeo_state::commands::lookup_dns,
-            ipgeo_state::commands::lookup_host,
-            ipgeo_state::commands::my_location,
-            pcap_state::commands::init_pcap,
-            pcap_state::commands::start_capture,
-            pcap_state::commands::stop_capture,
-            pcap_state::commands::traceroute_enabled,
-            pcap_state::commands::run_traceroute,
-            pcap_state::commands::print_error,
+            db::commands::load_database,
+            db::commands::unload_database,
+            db::commands::database_state,
+            db::commands::set_selected_database,
+            db::commands::lookup_ip,
+            db::commands::lookup_dns,
+            db::commands::lookup_host,
+            db::commands::my_location,
+            pcap::commands::init_pcap,
+            pcap::commands::start_capture,
+            pcap::commands::stop_capture,
+            pcap::commands::traceroute_enabled,
+            pcap::commands::run_traceroute,
+            pcap::commands::print_error,
         ])
         .constant("PCAP_ERROR_KINDS", utils::pcap_error_kinds())
         .constant("PLATFORM", utils::Platform::current())
@@ -49,8 +51,8 @@ pub fn run() {
         .setup(move |app| {
             ts_export_builder.mount_events(app);
 
-            app.manage(ipgeo_state::DbState::default());
-            app.manage(pcap_state::PcapState::default());
+            app.manage(db::DbState::default());
+            app.manage(pcap::PcapState::default());
 
             Ok(())
         })

@@ -161,13 +161,13 @@ impl<T: Sized + Clone + Copy + Default> TreeBitmap<T> {
     }
 
     /// All matches lookup of ```nibbles```. Returns of iterator of tuples, each containing bits matched as u32 and a reference to T.
-    pub fn matches(&self, nibbles: &[u8]) -> Matches<T> {
+    pub fn matches(&self, nibbles: &[u8]) -> Matches<'_, T> {
         let path = self.matches_internal(nibbles).into_iter();
         Matches { inner: self, path }
     }
 
     /// All matches lookup of ```nibbles```. Returns of iterator of tuples, each containing bits matched as u32 and a mutable reference to T.
-    pub fn matches_mut(&mut self, nibbles: &[u8]) -> MatchesMut<T> {
+    pub fn matches_mut(&mut self, nibbles: &[u8]) -> MatchesMut<'_, T> {
         let path = self.matches_internal(nibbles).into_iter();
         MatchesMut { inner: self, path }
     }
@@ -344,7 +344,7 @@ impl<T: Sized + Clone + Copy + Default> TreeBitmap<T> {
         }
     }
 
-    pub fn iter(&self) -> Iter<T> {
+    pub fn iter(&self) -> Iter<'_, T> {
         let root_hdl = self.root_handle();
         let root_node = *self.trienodes.get(&root_hdl, 0);
         Iter {
@@ -357,7 +357,7 @@ impl<T: Sized + Clone + Copy + Default> TreeBitmap<T> {
         }
     }
 
-    pub fn iter_mut(&mut self) -> IterMut<T> {
+    pub fn iter_mut(&mut self) -> IterMut<'_, T> {
         let root_hdl = self.root_handle();
         let root_node = *self.trienodes.get(&root_hdl, 0);
         IterMut {

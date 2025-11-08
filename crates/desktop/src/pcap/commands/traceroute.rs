@@ -1,7 +1,7 @@
 use std::{iter, net::IpAddr};
 
+use crate::db::{DbState, LookupInfo, commands::my_location};
 use child_ipc::{Command, Error, ErrorKind, Response, RunTraceroute, ipc};
-use ipgeo_state::{DbState, LookupInfo, commands::my_location};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tauri::{AppHandle, Manager, State, ipc::Channel};
@@ -15,7 +15,7 @@ pub async fn traceroute_enabled(app: AppHandle) -> Result<(), Error> {
 
     #[cfg(not(windows))]
     {
-        let path = crate::resolve_child_path(app.path())?;
+        let path = crate::pcap::resolve_child_path(app.path())?;
 
         match ipc::call_child_process(path.clone(), Command::TracerouteStatus).await? {
             Response::TraceStatus(true) => Ok(()),
@@ -36,7 +36,7 @@ pub async fn run_traceroute(
     params: RunTraceroute,
     progress: Channel<usize>,
 ) -> Result<Vec<Hop>, Error> {
-    let child_path = crate::resolve_child_path(app.path())?;
+    let child_path = crate::pcap::resolve_child_path(app.path())?;
 
     let (child, exit) = ipc::spawn_child_process(child_path, Command::Traceroute(params)).await?;
 
@@ -50,7 +50,7 @@ pub async fn run_traceroute(
             Ok(Response::Traceroute(resp)) => {
                 exit()?;
 
-                let my_location = match ipgeo_state::my_loc::get().await {
+                let my_location = match crate::db::my_loc::get().await {
                     Ok((ip, Some(info))) => Some(Hop {
                         ips: vec![ip],
                         loc: Some(info),
@@ -91,7 +91,7 @@ impl Hop {
     pub fn new(ips: Vec<IpAddr>, db: State<'_, DbState>) -> Self {
         let loc = ips
             .iter()
-            .find_map(|ip| ipgeo_state::commands::lookup_ip(db.clone(), *ip));
+            .find_map(|ip| crate::db::commands::lookup_ip(db.clone(), *ip));
 
         Self { ips, loc }
     }

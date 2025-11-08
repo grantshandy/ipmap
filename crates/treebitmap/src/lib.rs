@@ -286,7 +286,7 @@ where
     /// assert_eq!(iter.next(), Some((more_specific, 48, &"bar")));
     /// assert_eq!(iter.next(), None);
     /// ```
-    pub fn iter(&self) -> Iter<A, T> {
+    pub fn iter(&self) -> Iter<'_, A, T> {
         Iter {
             inner: self.inner.iter(),
             _addrtype: PhantomData,
@@ -318,7 +318,7 @@ where
     /// assert_eq!(table.exact_match(y, 56), Some(&12));
     /// assert_eq!(table.exact_match(z, 56), Some(&13));
     /// ```
-    pub fn iter_mut(&mut self) -> IterMut<A, T> {
+    pub fn iter_mut(&mut self) -> IterMut<'_, A, T> {
         IterMut {
             inner: self.inner.iter_mut(),
             _addrtype: PhantomData,

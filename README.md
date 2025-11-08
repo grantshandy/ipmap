@@ -59,10 +59,7 @@ Requirements:
 flowchart TD
     subgraph ipmap["ipmap process"]
         subgraph backend["Rust Backend"]
-            desktop --> pcap-state
-
-            desktop --> ipgeo-state
-            ipgeo-state --> ipgeo
+            desktop -> ipgeo
         end
 
         frontend["Native WebView UI (Svelte)"] <--specta generated typescript IPC--> desktop
@@ -73,7 +70,7 @@ flowchart TD
         pcap-dyn
     end
 
-    pcap-state <--child-ipc types--> child
+    desktop <--child-ipc types--> child
 ```
 
 ## TODO:
@@ -92,3 +89,4 @@ flowchart TD
    - [ ] Capture report frequency and connection timeout.
  - [ ] Reverse location-to-ip-block search
  - [ ] Location Heatmap generation (custom webview protocol that serves leaflet tiles?)
+ - [ ] Set child permissions through UI

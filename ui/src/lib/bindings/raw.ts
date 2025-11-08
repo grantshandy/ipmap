@@ -139,8 +139,8 @@ pcapStateChange: "pcap-state-change"
 /** user-defined constants **/
 
 export const PLATFORM = "linux" as const;
-export const PCAP_ERROR_KINDS = ["UnexpectedType","TerminatedUnexpectedly","ChildTimeout","Ipc","InsufficientPermissions","LibLoading","Runtime","ChildNotFound","EstablishConnection","Io"] as const;
 export const APP_VERSION = "5.0.0" as const;
+export const PCAP_ERROR_KINDS = ["UnexpectedType","TerminatedUnexpectedly","ChildTimeout","Ipc","InsufficientPermissions","LibLoading","Runtime","ChildNotFound","EstablishConnection","Io"] as const;
 
 /** user-defined types **/
 

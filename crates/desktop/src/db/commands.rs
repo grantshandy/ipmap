@@ -4,7 +4,7 @@ use ipgeo::{Database, GenericDatabase, LookupInfo};
 use tauri::{AppHandle, Manager, State};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
 
-use crate::{DNS_LOOKUP_TIMEOUT, DbState, DbStateChange, DbStateInfo};
+use crate::db::{DNS_LOOKUP_TIMEOUT, DbState, DbStateChange, DbStateInfo};
 
 /// Load a IP-Geolocation database into the program from the filename.
 #[tauri::command]
@@ -134,7 +134,7 @@ pub async fn lookup_host(host: &str) -> Result<Option<IpAddr>, ()> {
 #[tauri::command]
 #[specta::specta]
 pub async fn my_location(state: State<'_, DbState>) -> Result<LookupInfo, String> {
-    match crate::my_loc::get().await? {
+    match crate::db::my_loc::get().await? {
         (_, Some(info)) => Ok(info),
         (ip, None) => match lookup_ip(state, ip) {
             Some(info) => Ok(info),

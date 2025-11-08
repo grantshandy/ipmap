@@ -4,8 +4,6 @@ members = [
     "crates/ipgeo",
     "crates/desktop",
     "crates/pcap-dyn",
-    "crates/ipgeo-state",
-    "crates/pcap-state",
     "crates/child",
     "crates/child-ipc",
 ]

@@ -3,14 +3,14 @@ use std::{
     net::IpAddr,
 };
 
+use crate::db::DbState;
 use child_ipc::{Command, Connection, Connections, Error, ErrorKind, Response, RunCapture, ipc};
 use ipgeo::{Coordinate, Database, Location};
-use ipgeo_state::DbState;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tauri::{AppHandle, Manager, State, ipc::Channel};
 
-use crate::{PcapState, PcapStateChange, PcapStateInfo};
+use crate::pcap::{PcapState, PcapStateChange, PcapStateInfo};
 
 #[tauri::command]
 #[specta::specta]
@@ -23,7 +23,7 @@ pub async fn start_capture(
 ) -> Result<(), Error> {
     let device = params.device.clone();
 
-    let child_path = crate::resolve_child_path(app.path())?;
+    let child_path = crate::pcap::resolve_child_path(app.path())?;
     let (child, exit) = ipc::spawn_child_process(child_path, Command::Capture(params)).await?;
 
     pcap.set_capture(device, exit);
