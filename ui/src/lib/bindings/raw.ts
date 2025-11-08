@@ -25,14 +25,6 @@ async unloadDatabase(path: string) : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async loadInternals() : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("load_internals") };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
 /**
  * Retrieve the current state of the database.
  * This info is given out in [`DbStateChange`], but this is useful for getting it at page load, for example.
@@ -147,8 +139,8 @@ pcapStateChange: "pcap-state-change"
 /** user-defined constants **/
 
 export const PLATFORM = "linux" as const;
-export const APP_VERSION = "5.0.0" as const;
 export const PCAP_ERROR_KINDS = ["UnexpectedType","TerminatedUnexpectedly","ChildTimeout","Ipc","InsufficientPermissions","LibLoading","Runtime","ChildNotFound","EstablishConnection","Io"] as const;
+export const APP_VERSION = "5.0.0" as const;
 
 /** user-defined types **/
 
@@ -180,9 +172,17 @@ last: boolean }
 export type Connection = { up: Throughput; down: Throughput }
 export type ConnectionDirection = "mixed" | "up" | "down"
 /**
- * A latitude/longitude coordinate.
+ * A basic latitude/longitude pair.
  */
-export type Coordinate = { lat: number; lng: number }
+export type Coordinate = { 
+/**
+ * Latitude
+ */
+lat: number; 
+/**
+ * Longitude
+ */
+lng: number }
 export type DbCollectionInfo = { loaded: DbInfo[]; selected: string | null }
 export type DbInfo = { path: string; preloaded: boolean }
 /**
@@ -215,9 +215,12 @@ export type Error = { kind: ErrorKind; message: string | null }
 export type ErrorKind = "UnexpectedType" | "TerminatedUnexpectedly" | "ChildTimeout" | "Ipc" | "InsufficientPermissions" | "LibLoading" | "Runtime" | "ChildNotFound" | "EstablishConnection" | "Io"
 export type Hop = { ips: string[]; loc: LookupInfo | null }
 /**
- * Location metadata.
+ * A [`Coordinate`]'s associated city, region, and country.
  */
 export type Location = { city: string | null; region: string | null; countryCode: string }
+/**
+ * A [`Coordinate`]/[`Location`] pair.
+ */
 export type LookupInfo = { crd: Coordinate; loc: Location }
 export type PcapStateChange = ({ status: "Ok" } & PcapStateInfo) | ({ status: "Err" } & Error)
 export type PcapStateInfo = { 

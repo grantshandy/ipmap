@@ -6,18 +6,6 @@ use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
 
 use crate::{DNS_LOOKUP_TIMEOUT, DbState, DbStateChange, DbStateInfo};
 
-#[tauri::command]
-#[specta::specta]
-#[cfg_attr(not(db_preloads), allow(unused_variables))]
-pub async fn load_internals(app: AppHandle, state: State<'_, DbState>) -> Result<(), String> {
-    #[cfg(db_preloads)]
-    crate::preloads::load_builtins(&state);
-
-    DbStateChange::emit(&app);
-
-    Ok(())
-}
-
 /// Load a IP-Geolocation database into the program from the filename.
 #[tauri::command]
 #[specta::specta]

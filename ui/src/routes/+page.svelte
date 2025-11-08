@@ -20,15 +20,11 @@
   let pcapResult = Pcap.init();
 </script>
 
-{#await database.loadInternals()}
-  {@render loading()}
-{:then}
-  {#if !database.anyEnabled}
-    {@render welcome()}
-  {:else}
-    {@render main()}
-  {/if}
-{/await}
+{#if !database.anyEnabled}
+  {@render welcome()}
+{:else}
+  {@render main()}
+{/if}
 
 {#snippet main()}
   <main class="flex h-screen max-h-screen flex-col overscroll-none">
@@ -100,14 +96,5 @@
         {/if}
       </button>
     </div>
-  </main>
-{/snippet}
-
-{#snippet loading()}
-  <main
-    class="flex h-screen w-screen flex-col items-center justify-center space-y-3"
-  >
-    <span class="loading loading-spinner loading-xl"></span>
-    <p class="text-lg">Initializing Internal Databases</p>
   </main>
 {/snippet}

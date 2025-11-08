@@ -38,9 +38,6 @@ Requirements:
  - [`tauri-cli`](https://v2.tauri.app/reference/cli/)
  - [`pnpm`](https://pnpm.io/)
 
-While compiling, it reads the environment variable `DB_PRELOADS` as a list
-(deliminated by ':' on unix, and ';' on windows) of IP-geo databases to embed into the executable.
-
 ```sh
  $ pnpm install -C ui
  $ cargo build --release --package ipmap-child

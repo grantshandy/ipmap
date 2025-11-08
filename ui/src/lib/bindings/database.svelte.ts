@@ -60,7 +60,6 @@ class Database implements DbStateInfo {
   lookupIp = commands.lookupIp;
   lookupDns = commands.lookupDns;
   lookupHost = commands.lookupHost;
-  loadInternals = commands.loadInternals;
   myLocation = commands.myLocation;
 }
 

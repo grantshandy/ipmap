@@ -15,10 +15,6 @@ use tauri_specta::Event;
 pub mod commands;
 pub mod my_loc;
 
-#[cfg(db_preloads)]
-#[doc(hidden)]
-pub mod preloads;
-
 pub use ipgeo::LookupInfo;
 
 const DNS_LOOKUP_TIMEOUT: Duration = Duration::from_millis(300);
