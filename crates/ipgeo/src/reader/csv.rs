@@ -48,11 +48,13 @@ pub fn read<Ip: GenericIp>(
             lng: CompactString::from_utf8(&record[LONGITUDE_IDX])?.parse::<f32>()?,
         };
 
-        locations.insert(coord, |strings| LocationIndices {
-            city: strings.insert_bytes(&record[CITY_IDX]),
-            region: strings.insert_bytes(&record[REGION_IDX]),
-            country_code: CountryCode::from(&record[COUNTRY_CODE_IDX]),
-        });
+        locations.insert(coord, &|strings| {
+            Ok(LocationIndices {
+                city: strings.insert_bytes(&record[CITY_IDX]),
+                region: strings.insert_bytes(&record[REGION_IDX]),
+                country_code: CountryCode::from(&record[COUNTRY_CODE_IDX]),
+            })
+        })?;
 
         for (addr, len) in Ip::range_subnets(
             ip_parser(&record[IP_RANGE_START_IDX])?,

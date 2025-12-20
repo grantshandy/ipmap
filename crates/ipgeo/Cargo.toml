@@ -13,7 +13,7 @@ indexmap = { version = "2.9.0", features = ["serde"] }
 thiserror.workspace = true
 specta.workspace = true
 serde.workspace = true
-maxminddb = "0.26.0"
+maxminddb = "0.27.0"
 ipnetwork = "0.21.1"
 ipnet = "2.11.0"
 treebitmap = { path = "../treebitmap/", features = ["serde"] }

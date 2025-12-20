@@ -1,3 +1,4 @@
+use crate::Error;
 use compact_str::CompactString;
 use heck::ToTitleCase;
 use indexmap::IndexSet;
@@ -26,16 +27,18 @@ impl LocationStore {
     pub fn insert(
         &mut self,
         coord: Coordinate,
-        create_location: impl FnOnce(&mut StringDict) -> LocationIndices,
-    ) {
+        create_location: &dyn Fn(&mut StringDict) -> Result<LocationIndices, Error>,
+    ) -> Result<(), Error> {
         // only allocating if the location is new saves millions of parses/allocations per database.
         if let Entry::Vacant(entry) = self.coordinates.entry(coord) {
             entry.insert(
                 self.locations
-                    .insert_full(create_location(&mut self.strings))
+                    .insert_full(create_location(&mut self.strings)?)
                     .0,
             );
         }
+
+        Ok(())
     }
 
     /// Get the location for an associated coordinate.

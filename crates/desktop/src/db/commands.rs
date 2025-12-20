@@ -122,7 +122,7 @@ pub async fn lookup_host(host: &str) -> Result<Option<IpAddr>, ()> {
     let ip = async {
         dns_lookup::lookup_host(host)
             .ok()
-            .and_then(|i| i.first().copied())
+            .and_then(|mut i| i.next())
     };
 
     tokio::time::timeout(DNS_LOOKUP_TIMEOUT, ip)
