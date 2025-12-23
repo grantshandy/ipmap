@@ -24,7 +24,7 @@ pub(crate) struct LocationStore {
 
 impl LocationStore {
     /// Insert a new location into the store, only allocating/parsing/inserting strings when necessary
-    pub fn insert(
+    pub(crate) fn insert(
         &mut self,
         coord: Coordinate,
         create_location: &dyn Fn(&mut StringDict) -> Result<LocationIndices, Error>,
@@ -53,12 +53,16 @@ impl LocationStore {
     }
 }
 
-type LocationKey = usize;
-type StringDictKey = NonZero<u32>;
+#[doc(hidden)]
+pub type LocationKey = usize;
+
+#[doc(hidden)]
+pub type StringDictKey = NonZero<u32>;
 
 /// A compact database of strings that can store less than u32::MAX items.
+#[doc(hidden)]
 #[derive(PartialEq, Eq, Default, Serialize, Deserialize)]
-pub(crate) struct StringDict(IndexSet<CompactString, FxBuildHasher>);
+pub(crate) struct StringDict(pub(crate) IndexSet<CompactString, FxBuildHasher>);
 
 impl StringDict {
     pub fn insert_str(&mut self, item: CompactString) -> Option<StringDictKey> {

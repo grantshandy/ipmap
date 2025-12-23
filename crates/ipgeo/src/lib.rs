@@ -12,12 +12,16 @@ use ipnetwork::{IpNetwork, Ipv4Network, Ipv6Network};
 
 mod database;
 mod detect;
-mod locations;
+pub mod locations;
 mod reader;
+
+#[cfg(feature = "download")]
+mod download;
 
 pub use database::{CombinedDatabase, Ipv4Database, Ipv6Database, SingleDatabase};
 pub use detect::{GenericDatabase, detect};
 pub use locations::{Coordinate, Location, LookupInfo};
+pub use treebitmap;
 
 /// A generic way of addressing a [`CombinedDatabase`], [`SingleDatabase`], or [`GenericDatabase`].
 pub trait Database<Ip> {
@@ -36,7 +40,14 @@ pub trait Database<Ip> {
 /// A trait representing either an `Ipv4Addr` or `Ipv6Addr` for the needs in the database.
 #[doc(hidden)]
 pub trait GenericIp:
-    FromStr<Err = AddrParseError> + From<Self::Bits> + treebitmap::Address + std::fmt::Debug + Ord
+    FromStr<Err = AddrParseError>
+    + From<Self::Bits>
+    + treebitmap::Address
+    + std::fmt::Debug
+    + Ord
+    + Send
+    + Sync
+    + 'static
 {
     type Bits: FromStr<Err = ParseIntError>;
     const FULL_NETWORK: IpNetwork;
@@ -103,7 +114,7 @@ pub enum Error {
     #[error("Malformed coordinate: {0}")]
     CoordinateParse(#[from] ParseFloatError),
     #[error("Non-utf8 text found: {0}")]
-    Utf8Error(#[from] Utf8Error),
+    Utf8(#[from] Utf8Error),
     #[error("Parsing IP integer: {0}")]
     IpNumParse(#[from] ParseIntError),
     #[error("Parsing IP: {0}")]

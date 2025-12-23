@@ -1,6 +1,7 @@
 use std::io::Read;
 
 use compact_str::CompactString;
+use csv::ByteRecord;
 use treebitmap::IpLookupTable;
 
 use crate::{
@@ -10,15 +11,15 @@ use crate::{
 
 /// CSV indexes for city-ipv[4/6][-num].csv format
 /// https://github.com/sapics/ip-location-db?tab=readme-ov-file#city-csv-format
-const NUM_RECORDS: usize = 9;
+pub const NUM_RECORDS: usize = 9;
 
-const IP_RANGE_START_IDX: usize = 0;
-const IP_RANGE_END_IDX: usize = 1;
-const COUNTRY_CODE_IDX: usize = 2;
-const REGION_IDX: usize = 3;
-const CITY_IDX: usize = 5;
-const LATITUDE_IDX: usize = 7;
-const LONGITUDE_IDX: usize = 8;
+pub const IP_RANGE_START_IDX: usize = 0;
+pub const IP_RANGE_END_IDX: usize = 1;
+pub const COUNTRY_CODE_IDX: usize = 2;
+pub const REGION_IDX: usize = 3;
+pub const CITY_IDX: usize = 5;
+pub const LATITUDE_IDX: usize = 7;
+pub const LONGITUDE_IDX: usize = 8;
 
 pub fn read<Ip: GenericIp>(
     read: impl Read,
@@ -37,31 +38,44 @@ pub fn read<Ip: GenericIp>(
         .from_reader(read)
         .byte_records()
     {
-        let record = record?;
+        read_record(&record?, ip_parser, ips, locations)?;
+    }
 
-        if record.len() < NUM_RECORDS {
-            return Err(Error::NotEnoughColumns);
-        }
+    Ok(())
+}
 
-        let coord = Coordinate {
-            lat: CompactString::from_utf8(&record[LATITUDE_IDX])?.parse::<f32>()?,
-            lng: CompactString::from_utf8(&record[LONGITUDE_IDX])?.parse::<f32>()?,
-        };
+pub fn coord_from_record(record: &ByteRecord) -> Result<Coordinate, crate::Error> {
+    Ok(Coordinate {
+        lat: CompactString::from_utf8(&record[LATITUDE_IDX])?.parse::<f32>()?,
+        lng: CompactString::from_utf8(&record[LONGITUDE_IDX])?.parse::<f32>()?,
+    })
+}
 
-        locations.insert(coord, &|strings| {
-            Ok(LocationIndices {
-                city: strings.insert_bytes(&record[CITY_IDX]),
-                region: strings.insert_bytes(&record[REGION_IDX]),
-                country_code: CountryCode::from(&record[COUNTRY_CODE_IDX]),
-            })
-        })?;
+pub fn read_record<Ip: GenericIp>(
+    record: &ByteRecord,
+    ip_parser: fn(&[u8]) -> Result<Ip, crate::Error>,
+    ips: &mut IpLookupTable<Ip, Coordinate>,
+    locations: &mut LocationStore,
+) -> Result<(), crate::Error> {
+    if record.len() < NUM_RECORDS {
+        return Err(Error::NotEnoughColumns);
+    }
 
-        for (addr, len) in Ip::range_subnets(
-            ip_parser(&record[IP_RANGE_START_IDX])?,
-            ip_parser(&record[IP_RANGE_END_IDX])?,
-        ) {
-            ips.insert(addr, len, coord);
-        }
+    let coord = coord_from_record(record)?;
+
+    locations.insert(coord, &|strings| {
+        Ok(LocationIndices {
+            city: strings.insert_bytes(&record[CITY_IDX]),
+            region: strings.insert_bytes(&record[REGION_IDX]),
+            country_code: CountryCode::from(&record[COUNTRY_CODE_IDX]),
+        })
+    })?;
+
+    for (addr, len) in Ip::range_subnets(
+        ip_parser(&record[IP_RANGE_START_IDX])?,
+        ip_parser(&record[IP_RANGE_END_IDX])?,
+    ) {
+        ips.insert(addr, len, coord);
     }
 
     Ok(())
