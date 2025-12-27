@@ -1,3 +1,5 @@
+#[cfg(feature = "download")]
+use std::borrow::Cow;
 use std::{
     collections::HashMap,
     num::NonZero,
@@ -29,14 +31,22 @@ use unix_time::Instant;
 
 const REPORT_GAP: Duration = Duration::from_secs(1);
 
+#[cfg(feature = "download")]
+#[derive(Debug)]
+pub struct CombinedDatabaseSource<'a> {
+    pub ipv4_csv_url: Cow<'a, str>,
+    pub ipv6_csv_url: Cow<'a, str>,
+    pub is_num: bool,
+}
+
 impl<Ip: GenericIp> SingleDatabase<Ip> {
     #[cfg(feature = "download")]
     pub async fn download(
-        csv_url: &str,
+        csv_url: impl AsRef<str>,
         is_num: bool,
-        report: impl Fn(f32),
+        cb: impl Fn(usize, usize) + Send + Sync + 'static,
     ) -> anyhow::Result<Self> {
-        let resp = reqwest::get(csv_url).await?;
+        let resp = reqwest::get(csv_url.as_ref()).await?;
 
         let content_length = resp.content_length();
 
@@ -49,7 +59,7 @@ impl<Ip: GenericIp> SingleDatabase<Ip> {
             if let Some(content_length) = content_length
                 && last_reported.elapsed() >= REPORT_GAP
             {
-                report((count as f64 / content_length as f64) as f32);
+                cb(count, content_length as usize);
                 last_reported = Instant::now();
             }
         };
@@ -99,17 +109,10 @@ impl<Ip: GenericIp> SingleDatabase<Ip> {
     }
 }
 
-#[cfg(feature = "download")]
-pub struct CombinedDatabaseSource {
-    pub ipv4_csv_url: &'static str,
-    pub ipv6_csv_url: &'static str,
-    pub is_num: bool,
-}
-
 impl CombinedDatabase {
     #[cfg(feature = "download")]
-    pub async fn download(
-        source: CombinedDatabaseSource,
+    pub async fn download<'a>(
+        source: CombinedDatabaseSource<'a>,
         cb: impl Fn(usize, usize) + Send + Sync + 'static,
     ) -> anyhow::Result<Self> {
         let last = Arc::new((AtomicU64::new(0), AtomicU32::new(0)));
@@ -151,14 +154,14 @@ impl CombinedDatabase {
 
         let (ipv4, ipv6) = tokio::join!(
             tokio::spawn(concurrent_table_download(
-                source.ipv4_csv_url,
+                source.ipv4_csv_url.to_string(),
                 source.is_num,
                 locations.clone(),
                 add_total.clone(),
                 add_val.clone()
             )),
             tokio::spawn(concurrent_table_download(
-                source.ipv6_csv_url,
+                source.ipv6_csv_url.to_string(),
                 source.is_num,
                 locations.clone(),
                 add_total,
@@ -179,7 +182,7 @@ impl CombinedDatabase {
 }
 
 async fn concurrent_table_download<Ip: GenericIp>(
-    url: &str,
+    url: String,
     is_num: bool,
     locations: Arc<ConcurrentLocationStore>,
     len_report: impl Fn(usize),

@@ -9,21 +9,21 @@ async openAboutWindow() : Promise<void> {
     await TAURI_INVOKE("open_about_window");
 },
 /**
- * Load a IP-Geolocation database into the program from the filename.
+ * Download a combined database
  */
-async loadDatabase(path: string) : Promise<void> {
-    await TAURI_INVOKE("load_database", { path });
-},
-/**
- * Unload the database, freeing up memory.
- */
-async unloadDatabase(path: string) : Promise<Result<null, string>> {
+async downloadSource(source: DatabaseSource, nameResp: TAURI_CHANNEL<string>, progResp: TAURI_CHANNEL<number>) : Promise<Result<null, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("unload_database", { path }) };
+    return { status: "ok", data: await TAURI_INVOKE("download_source", { source, nameResp, progResp }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+/**
+ * Unload the database, freeing up memory.
+ */
+async unloadDatabase(name: string) : Promise<void> {
+    await TAURI_INVOKE("unload_database", { name });
 },
 /**
  * Retrieve the current state of the database.
@@ -35,8 +35,13 @@ async databaseState() : Promise<DbStateInfo> {
 /**
  * Set the given database as the selected database for lookups.
  */
-async setSelectedDatabase(path: string) : Promise<void> {
-    await TAURI_INVOKE("set_selected_database", { path });
+async setSelectedDatabase(name: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("set_selected_database", { name }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 },
 /**
  * Lookup a given IP address in the currently selected database(s).
@@ -138,8 +143,8 @@ pcapStateChange: "pcap-state-change"
 
 /** user-defined constants **/
 
-export const PLATFORM = "linux" as const;
 export const APP_VERSION = "5.0.0" as const;
+export const PLATFORM = "linux" as const;
 export const PCAP_ERROR_KINDS = ["UnexpectedType","TerminatedUnexpectedly","ChildTimeout","Ipc","InsufficientPermissions","LibLoading","Runtime","ChildNotFound","EstablishConnection","Io"] as const;
 
 /** user-defined types **/
@@ -183,13 +188,13 @@ lat: number;
  * Longitude
  */
 lng: number }
-export type DbCollectionInfo = { loaded: DbInfo[]; selected: string | null }
-export type DbInfo = { path: string; preloaded: boolean }
+export type DatabaseSource = "dbipcombined" | "geolite2combined" | { singlecsvgz: { is_ipv6: boolean; url: string; is_num: boolean } } | { combinedcsvgz: { ipv4: string; ipv6: string; is_num: boolean } } | { file: string }
+export type DbSetInfo = { selected: string | null; loaded: string[] }
 /**
  * Fired any time the state of loaded or selected databases are changed on the backend.
  */
 export type DbStateChange = DbStateInfo
-export type DbStateInfo = { ipv4: DbCollectionInfo; ipv6: DbCollectionInfo; loading: string | null }
+export type DbStateInfo = { ipv4: DbSetInfo; ipv6: DbSetInfo }
 /**
  * A network device reported from libpcap, e.g. "wlp3s0".
  */

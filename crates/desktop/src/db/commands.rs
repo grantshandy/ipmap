@@ -1,92 +1,200 @@
-use std::{net::IpAddr, path::PathBuf, thread};
+use std::{
+    borrow::Cow,
+    net::{IpAddr, Ipv4Addr, Ipv6Addr},
+    path::{Path, PathBuf},
+    thread,
+};
 
-use ipgeo::{Database, GenericDatabase, LookupInfo};
-use tauri::{AppHandle, Manager, State};
+use ipgeo::{
+    CombinedDatabase, Database, GenericDatabase, LookupInfo, SingleDatabase,
+    download::CombinedDatabaseSource,
+};
+use serde::{Deserialize, Serialize};
+use specta::Type;
+use tauri::{
+    AppHandle, Manager, State,
+    async_runtime::{self, Sender},
+    ipc::Channel,
+};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
 
-use crate::db::{DNS_LOOKUP_TIMEOUT, DbState, DbStateChange, DbStateInfo};
+use crate::db::{DNS_LOOKUP_TIMEOUT, DbState, DbStateChange, DbStateInfo, DynamicDatabase};
 
-/// Load a IP-Geolocation database into the program from the filename.
-#[tauri::command]
-#[specta::specta]
-pub fn load_database(app: AppHandle, path: PathBuf) {
-    thread::spawn(move || {
-        if let Err(err) = load_database_internal(app.clone(), app.state(), path) {
-            tracing::error!("Error Loading Database: {err}");
-            app.dialog()
-                .message(&err)
-                .title("Error Loading Database")
-                .buttons(MessageDialogButtons::Ok)
-                .blocking_show();
-        }
-    });
+macro_rules! ip_location_db {
+    ($path:literal) => {
+        std::borrow::Cow::Borrowed(concat!(
+            "https://raw.githubusercontent.com/sapics/ip-location-db/refs/heads/main/",
+            $path
+        ))
+    };
 }
 
-fn load_database_internal(
-    app: AppHandle,
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "lowercase")]
+pub enum DatabaseSource {
+    DbIpCombined,
+    Geolite2Combined,
+    SingleCsvGz {
+        is_ipv6: bool,
+        url: String,
+        is_num: bool,
+    },
+    CombinedCsvGz {
+        ipv4: String,
+        ipv6: String,
+        is_num: bool,
+    },
+    File(PathBuf),
+}
+
+fn filename_guess(path: &str) -> String {
+    path.rsplit_once("/")
+        .unwrap_or(("", "unknown"))
+        .1
+        .to_string()
+}
+
+/// Download a combined database
+#[tauri::command]
+#[specta::specta]
+pub async fn download_source(
+    handle: AppHandle,
     state: State<'_, DbState>,
-    path: PathBuf,
+    source: DatabaseSource,
+    name_resp: Channel<String>,
+    prog_resp: Channel<f64>,
 ) -> Result<(), String> {
-    if state.ipv4_db.exists(&path) || state.ipv6_db.exists(&path) {
-        return Err("Database with the same name already loaded".to_string());
-    }
+    tracing::info!("downloading {source:?}");
 
-    if state.loading.read().expect("read loading").is_some() {
-        return Err("Database is already loading".to_string());
-    }
+    let name = match &source {
+        DatabaseSource::DbIpCombined => "DB-IP City Combined".to_string(),
+        DatabaseSource::Geolite2Combined => "Geolite2 City Combined".to_string(),
+        DatabaseSource::SingleCsvGz { url, .. } => filename_guess(url),
+        DatabaseSource::CombinedCsvGz { ipv4, ipv6, .. } => {
+            format!("{}/{}", filename_guess(&ipv4), filename_guess(&ipv6))
+        }
+        DatabaseSource::File(path) => path
+            .file_name()
+            .map(|name| name.to_string_lossy().to_string())
+            .unwrap_or_else(|| "Unknown File".to_string()),
+    };
 
-    state
-        .loading
-        .write()
-        .expect("write loading")
-        .replace(path.clone());
-    DbStateChange::emit(&app);
+    let _ = name_resp.send(name.clone());
 
-    tracing::info!("loading database from {path:?}");
-
-    let db = ipgeo::detect(&path).map_err(|e| e.to_string())?;
+    let db = match download_source_internal(prog_resp, source).await {
+        Ok(db) => db,
+        Err(err) => {
+            let err = format!("failed to download database: {err}");
+            tracing::error!("{err}");
+            return Err(err);
+        }
+    };
 
     match db {
-        GenericDatabase::Ipv4(db) => state.ipv4_db.insert(&path, db),
-        GenericDatabase::Ipv6(db) => state.ipv6_db.insert(&path, db),
+        DynamicDatabase::Combined(db) => state.combined.insert(name, db),
+        DynamicDatabase::Generic(GenericDatabase::Ipv4(db)) => state.ipv4_db.insert(name, db),
+        DynamicDatabase::Generic(GenericDatabase::Ipv6(db)) => state.ipv6_db.insert(name, db),
     }
 
-    tracing::info!("finished loading database {path:#?}");
-
-    state.loading.write().expect("write loading").take();
-    DbStateChange::emit(&app);
+    state.emit_info(&handle);
 
     Ok(())
+}
+
+async fn download_source_internal(
+    progress_sender: Channel<f64>,
+    source: DatabaseSource,
+) -> anyhow::Result<DynamicDatabase> {
+    let cb = move |val: usize, max: usize| {
+        let _ = progress_sender.send(val as f64 / max as f64);
+    };
+
+    let db = match source {
+        DatabaseSource::DbIpCombined => {
+            let src = CombinedDatabaseSource {
+                ipv4_csv_url: ip_location_db!("dbip-city/dbip-city-ipv4-num.csv.gz"),
+                ipv6_csv_url: ip_location_db!("dbip-city/dbip-city-ipv6-num.csv.gz"),
+                is_num: true,
+            };
+
+            CombinedDatabase::download(src, cb)
+                .await
+                .map(DynamicDatabase::Combined)?
+        }
+        DatabaseSource::Geolite2Combined => {
+            let src = CombinedDatabaseSource {
+                ipv4_csv_url: ip_location_db!("geolite2-city/geolite2-city-ipv4-num.csv.gz"),
+                ipv6_csv_url: ip_location_db!("geolite2-city/geolite2-city-ipv6-num.csv.gz"),
+                is_num: true,
+            };
+
+            CombinedDatabase::download(src, cb)
+                .await
+                .map(DynamicDatabase::Combined)?
+        }
+        DatabaseSource::CombinedCsvGz { ipv4, ipv6, is_num } => {
+            let src = CombinedDatabaseSource {
+                ipv4_csv_url: Cow::Owned(ipv4),
+                ipv6_csv_url: Cow::Owned(ipv6),
+                is_num,
+            };
+
+            CombinedDatabase::download(src, cb)
+                .await
+                .map(DynamicDatabase::Combined)?
+        }
+        DatabaseSource::SingleCsvGz {
+            is_ipv6,
+            url,
+            is_num,
+        } => match is_ipv6 {
+            true => SingleDatabase::<Ipv6Addr>::download(url, is_num, cb)
+                .await
+                .map(GenericDatabase::Ipv6)
+                .map(DynamicDatabase::Generic)?,
+            false => SingleDatabase::<Ipv4Addr>::download(url, is_num, cb)
+                .await
+                .map(GenericDatabase::Ipv4)
+                .map(DynamicDatabase::Generic)?,
+        },
+        DatabaseSource::File(path) => tokio::task::spawn_blocking(move || ipgeo::detect(&path))
+            .await?
+            .map(DynamicDatabase::Generic)?,
+    };
+
+    Ok(db)
 }
 
 /// Unload the database, freeing up memory.
 #[tauri::command]
 #[specta::specta]
-pub async fn unload_database(
-    app: AppHandle,
-    state: State<'_, DbState>,
-    path: PathBuf,
-) -> Result<(), String> {
-    tracing::info!("unloading database {path:#?}");
+pub fn unload_database(app: AppHandle, state: State<'_, DbState>, name: String) {
+    tracing::info!("unloading database {name:#?}");
 
-    state.ipv4_db.remove(&path);
-    state.ipv6_db.remove(&path);
+    state.ipv4_db.remove(&name);
+    state.ipv6_db.remove(&name);
+    state.combined.remove(&name);
 
-    DbStateChange::emit(&app);
-
-    Ok(())
+    state.emit_info(&app);
 }
 
 /// Set the given database as the selected database for lookups.
 #[tauri::command]
 #[specta::specta]
-pub fn set_selected_database(app: AppHandle, state: State<'_, DbState>, path: PathBuf) {
-    tracing::info!("set selected database as {path:#?}");
+pub async fn set_selected_database(
+    app: AppHandle,
+    state: State<'_, DbState>,
+    name: String,
+) -> Result<(), String> {
+    tracing::info!("set selected database as {name:#?}");
 
-    state.ipv4_db.set_selected(&path);
-    state.ipv6_db.set_selected(&path);
+    state.ipv4_db.set_selected(&name);
+    state.ipv6_db.set_selected(&name);
+    state.combined.set_selected(&name);
 
-    DbStateChange::emit(&app);
+    state.emit_info(&app);
+
+    Ok(())
 }
 
 /// Retrieve the current state of the database.

@@ -6,7 +6,9 @@ use std::{
 };
 
 use dashmap::{DashMap, Entry};
-use ipgeo::{Coordinate, Database, GenericIp, Location, SingleDatabase};
+use ipgeo::{
+    CombinedDatabase, Coordinate, Database, GenericDatabase, GenericIp, Location, SingleDatabase,
+};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tauri::{AppHandle, Manager};
@@ -19,21 +21,41 @@ pub use ipgeo::LookupInfo;
 
 const DNS_LOOKUP_TIMEOUT: Duration = Duration::from_millis(300);
 
-#[derive(Default)]
 pub struct DbState {
-    ipv4_db: DbCollection<Ipv4Addr>,
-    ipv6_db: DbCollection<Ipv6Addr>,
-    loading: RwLock<Option<PathBuf>>,
+    ipv4_db: DbSet<SingleDatabase<Ipv4Addr>>,
+    ipv6_db: DbSet<SingleDatabase<Ipv6Addr>>,
+    combined: DbSet<CombinedDatabase>,
+    cache_dir: PathBuf,
+    use_combined: bool,
 }
 
 impl DbState {
+    pub fn new(handle: &AppHandle) -> Result<Self, tauri::Error> {
+        Ok(DbState {
+            ipv4_db: DbSet::default(),
+            ipv6_db: DbSet::default(),
+            combined: DbSet::default(),
+            cache_dir: handle.path().app_data_dir()?.join("dbs"),
+            use_combined: false,
+        })
+    }
+
     fn info(&self) -> DbStateInfo {
         DbStateInfo {
             ipv4: self.ipv4_db.info(),
             ipv6: self.ipv6_db.info(),
-            loading: self.loading.read().map(|s| s.clone()).unwrap_or_default(),
         }
     }
+
+    pub fn emit_info(&self, app: &AppHandle) {
+        let _ = DbStateChange(self.info()).emit(app);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
+pub struct DbStateInfo {
+    pub ipv4: DbSetInfo,
+    pub ipv6: DbSetInfo,
 }
 
 impl Database<IpAddr> for DbState {
@@ -58,18 +80,18 @@ impl Database<IpAddr> for DbState {
     }
 }
 
-struct LoadedDb<Ip: GenericIp> {
-    path: PathBuf,
-    preloaded: bool,
-    db: Arc<SingleDatabase<Ip>>,
+struct DbSet<C> {
+    pub selected: RwLock<Option<(String, Arc<C>)>>,
+    pub loaded: DashMap<String, Arc<C>>,
 }
 
-struct DbCollection<Ip: GenericIp> {
-    pub selected: RwLock<Option<Arc<LoadedDb<Ip>>>>,
-    pub loaded: DashMap<PathBuf, Arc<LoadedDb<Ip>>>,
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+pub struct DbSetInfo {
+    pub selected: Option<String>,
+    pub loaded: Vec<String>,
 }
 
-impl<Ip: GenericIp> Default for DbCollection<Ip> {
+impl<C> Default for DbSet<C> {
     fn default() -> Self {
         Self {
             selected: RwLock::new(None),
@@ -78,81 +100,75 @@ impl<Ip: GenericIp> Default for DbCollection<Ip> {
     }
 }
 
-impl<Ip: GenericIp> DbCollection<Ip> {
-    pub fn insert(&self, path: &Path, db: SingleDatabase<Ip>) {
-        self.insert_arc(path, Arc::new(db), false);
+impl<C> DbSet<C> {
+    pub fn insert(&self, name: impl AsRef<str>, db: C) {
+        self.insert_arc(name, Arc::new(db));
     }
 
-    pub fn insert_arc(&self, path: &Path, db: Arc<SingleDatabase<Ip>>, preloaded: bool) {
-        let loaded = Arc::new(LoadedDb {
-            path: path.to_path_buf(),
-            db,
-            preloaded,
-        });
-
-        self.loaded.insert(path.to_path_buf(), loaded.clone());
+    pub fn insert_arc(&self, name: impl AsRef<str>, db: Arc<C>) {
+        self.loaded.insert(name.as_ref().to_string(), db.clone());
         self.selected
             .write()
             .expect("open selected")
-            .replace(loaded);
+            .replace((name.as_ref().to_string(), db));
     }
 
-    pub fn remove(&self, path: &PathBuf) {
-        // remove the database if it isn't preloaded
-        if let Entry::Occupied(kv) = self.loaded.entry(path.clone()) {
-            if !kv.get().preloaded {
-                kv.remove();
-            } else {
-                return;
-            }
+    pub fn remove(&self, name: impl AsRef<str>) {
+        if let Entry::Occupied(kv) = self.loaded.entry(name.as_ref().to_string()) {
+            kv.remove();
         }
 
         // set the selected as the next database, if it exists
         let mut selected = self.selected.write().expect("open selected");
-        if selected.as_ref().is_some_and(|s| &s.path == path) {
-            *selected = self.loaded.iter().map(|kv| kv.value().clone()).next();
+        if selected.as_ref().is_some_and(|(path, _)| path == path) {
+            *selected = self
+                .loaded
+                .iter()
+                .map(|kv| {
+                    let (a, b) = kv.pair();
+                    (a.clone(), b.clone())
+                })
+                .next();
         }
     }
 
-    pub fn exists(&self, path: &PathBuf) -> bool {
-        self.loaded.contains_key(path)
+    pub fn exists(&self, name: impl Into<String>) -> bool {
+        self.loaded.contains_key(&name.into())
     }
 
-    pub fn info(&self) -> DbCollectionInfo {
+    pub fn info(&self) -> DbSetInfo {
         let selected = self
             .selected
             .read()
             .expect("read selected")
             .as_ref()
-            .map(|selected| selected.path.clone());
+            .map(|(path, _)| path)
+            .cloned();
 
-        let loaded: Vec<DbInfo> = self
-            .loaded
-            .iter()
-            .map(|kv| DbInfo {
-                path: kv.path.clone(),
-                preloaded: kv.preloaded,
-            })
-            .collect();
+        let loaded: Vec<String> = self.loaded.iter().map(|kv| kv.key().clone()).collect();
 
-        DbCollectionInfo { selected, loaded }
+        DbSetInfo { selected, loaded }
     }
 
-    pub fn set_selected(&self, path: &PathBuf) {
-        if let Some(db) = self.loaded.get(path) {
-            *self.selected.write().expect("open selected") = Some(db.value().clone());
+    pub fn set_selected(&self, name: impl Into<String>) {
+        if let Some(kv) = self.loaded.get(&name.into()) {
+            let (path, db) = kv.pair();
+            *self.selected.write().expect("open selected") = Some((path.clone(), db.clone()));
         }
     }
 }
 
 // TODO: move all selected call into single helper methods
-impl<Ip: GenericIp> Database<Ip> for DbCollection<Ip> {
+impl<Ip: GenericIp, C> Database<Ip> for DbSet<C>
+where
+    C: Database<Ip>,
+{
     fn get(&self, ip: Ip) -> Option<LookupInfo> {
         self.selected
             .read()
             .expect("read selected")
             .as_ref()
-            .and_then(|selected| selected.db.get(ip))
+            .and_then(|(_, db)| db.get(ip))
     }
 
     fn get_coordinate(&self, ip: Ip) -> Option<Coordinate> {
@@ -160,7 +176,7 @@ impl<Ip: GenericIp> Database<Ip> for DbCollection<Ip> {
             .read()
             .expect("read selected")
             .as_ref()
-            .and_then(|selected| selected.db.get_coordinate(ip))
+            .and_then(|(_, db)| db.get_coordinate(ip))
     }
 
     fn get_location(&self, crd: Coordinate) -> Option<Location> {
@@ -168,36 +184,16 @@ impl<Ip: GenericIp> Database<Ip> for DbCollection<Ip> {
             .read()
             .expect("read selected")
             .as_ref()
-            .and_then(|selected| selected.db.get_location(crd))
+            .and_then(|(_, db)| db.get_location(crd))
     }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
-pub struct DbStateInfo {
-    pub ipv4: DbCollectionInfo,
-    pub ipv6: DbCollectionInfo,
-    pub loading: Option<PathBuf>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
-pub struct DbCollectionInfo {
-    pub loaded: Vec<DbInfo>,
-    pub selected: Option<PathBuf>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
-pub struct DbInfo {
-    path: PathBuf,
-    preloaded: bool,
 }
 
 /// Fired any time the state of loaded or selected databases are changed on the backend.
 #[derive(Serialize, Deserialize, Debug, Clone, Type, Event)]
 pub struct DbStateChange(DbStateInfo);
 
-impl DbStateChange {
-    pub fn emit(app: &AppHandle) {
-        let state = app.state::<DbState>().inner();
-        let _ = Self(state.info()).emit(app);
-    }
+#[derive(Serialize, Deserialize)]
+enum DynamicDatabase {
+    Combined(CombinedDatabase),
+    Generic(GenericDatabase),
 }

@@ -15,7 +15,7 @@ pub fn run() {
         ])
         .commands(tauri_specta::collect_commands![
             utils::open_about_window,
-            db::commands::load_database,
+            db::commands::download_source,
             db::commands::unload_database,
             db::commands::database_state,
             db::commands::set_selected_database,
@@ -51,7 +51,7 @@ pub fn run() {
         .setup(move |app| {
             ts_export_builder.mount_events(app);
 
-            app.manage(db::DbState::default());
+            app.manage(db::DbState::new(app.handle())?);
             app.manage(pcap::PcapState::default());
 
             Ok(())

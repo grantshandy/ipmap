@@ -20,7 +20,7 @@ specta.workspace = true
 serde.workspace = true
 
 dashmap = { workspace = true, optional = true }
-anyhow = { version = "1.0.100", optional = true }
+anyhow = { workspace = true, optional = true }
 reqwest = { version = "0.12.26", features = ["stream"], optional = true }
 async-compression = { version = "0.4.36", features = ["tokio", "gzip"], optional = true }
 tokio-util = { version = "0.7.17", features = ["io"], optional = true }

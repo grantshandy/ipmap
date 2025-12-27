@@ -16,7 +16,7 @@ pub mod locations;
 mod reader;
 
 #[cfg(feature = "download")]
-mod download;
+pub mod download;
 
 pub use database::{CombinedDatabase, Ipv4Database, Ipv6Database, SingleDatabase};
 pub use detect::{GenericDatabase, detect};

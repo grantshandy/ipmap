@@ -2,18 +2,21 @@ import {
   events,
   commands,
   type DbStateInfo,
-  type DbCollectionInfo,
+  type DbSetInfo,
+  type Result,
 } from "./raw";
 import * as dialog from "@tauri-apps/plugin-dialog";
-import { captureError } from ".";
+import { captureError, displayError } from "./error";
+import { Channel } from "@tauri-apps/api/core";
 
 class Database implements DbStateInfo {
-  ipv4: DbCollectionInfo = $state({ loaded: [], selected: null });
-  ipv6: DbCollectionInfo = $state({ loaded: [], selected: null });
-  loading: string | null = $state(null);
+  ipv4: DbSetInfo = $state({ loaded: [], selected: null });
+  ipv6: DbSetInfo = $state({ loaded: [], selected: null });
 
   ipv4Enabled: boolean = $derived(this.ipv4.selected != null);
   ipv6Enabled: boolean = $derived(this.ipv6.selected != null);
+  loading: { name: string | null; progress: number | null } | null =
+    $state(null);
 
   anyEnabled: boolean = $derived(this.ipv4Enabled || this.ipv6Enabled);
 
@@ -23,12 +26,13 @@ class Database implements DbStateInfo {
   }
 
   private update = (state: DbStateInfo) => {
-    this.loading = state.loading;
     this.ipv4 = state.ipv4;
     this.ipv6 = state.ipv6;
+
+    console.log(state);
   };
 
-  open = async () => {
+  openFile = async () => {
     if (this.loading) return;
 
     const file = await dialog.open({
@@ -46,7 +50,30 @@ class Database implements DbStateInfo {
     if (!file) return;
 
     console.log("opening database", file);
-    commands.loadDatabase(file);
+
+    this.loading = {
+      name: null,
+      progress: null,
+    };
+
+    commands
+      .downloadSource(
+        { file },
+        new Channel(
+          (name: string) => this.loading && (this.loading.name = name),
+        ),
+        new Channel((p: number) => {
+          console.log(p);
+          return this.loading && (this.loading.progress = p);
+        }),
+      )
+      .then((r) => {
+        if (r.status == "error") {
+          displayError(r.error);
+        }
+
+        this.loading = null;
+      });
   };
 
   setSelected = (name: string | null | undefined) => {
@@ -54,7 +81,7 @@ class Database implements DbStateInfo {
   };
 
   unload = (name: string | null) => {
-    if (name) captureError(commands.unloadDatabase, name);
+    if (name) commands.unloadDatabase(name);
   };
 
   lookupIp = commands.lookupIp;

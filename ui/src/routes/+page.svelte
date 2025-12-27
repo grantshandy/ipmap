@@ -81,16 +81,24 @@
         >.
       </p>
       <button
-        onclick={database.open}
+        onclick={database.openFile}
         disabled={database.loading != null}
         class="btn btn-primary mt-4"
       >
         {#if database.loading}
-          <span class="loading loading-spinner loading-xs"></span>
+          {#if database.loading.progress == null}
+            <span class="loading loading-spinner loading-xs"></span>
+          {/if}
+
           Loading
-          {#await basename(database.loading) then filename}
-            {filename ?? ""}...
-          {/await}
+          {#if database.loading.name}
+            {database.loading.name}
+          {/if}
+          ...
+
+          {#if database.loading.progress != null}
+            <progress class="progress w-56" value={40} max={100}></progress>
+          {/if}
         {:else}
           Open Database File
         {/if}
