@@ -6,12 +6,16 @@
 </script>
 
 <div class="float-right flex items-center justify-end space-x-2 select-none">
-  {#if database.ipv4Enabled}
-    {@render databaseSelector(database.ipv4, false)}
+  {#if database.ipv4Enabled && database.ipv4.selected != null}
+    {@render databaseSelector(database.ipv4, "IPv4")}
   {/if}
 
-  {#if database.ipv6Enabled}
-    {@render databaseSelector(database.ipv6, true)}
+  {#if database.ipv6Enabled && database.ipv6.selected != null}
+    {@render databaseSelector(database.ipv4, "IPv6")}
+  {/if}
+
+  {#if database.combinedEnabled}
+    {@render databaseSelector(database.combined, "Combined")}
   {/if}
 
   <button
@@ -27,13 +31,13 @@
   </button>
 </div>
 
-{#snippet databaseSelector(dbs: DbSetInfo, ipv6: boolean)}
+{#snippet databaseSelector(dbs: DbSetInfo, label: string)}
   <div
     class="join join-horizontal max-w-72 items-center rounded-md"
     class:bg-base-200={dbs.loaded.length === 1}
     class:bg-base-300={dbs.loaded.length > 1}
   >
-    <span class="pr-1 pl-2.5 text-xs">IPv{ipv6 ? "6" : "4"}: </span>
+    <span class="pr-1 pl-2.5 text-xs">{label}: </span>
     <select
       class="select select-sm select-ghost join-item grow"
       disabled={dbs.loaded.length < 2}

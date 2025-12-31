@@ -144,8 +144,8 @@ pcapStateChange: "pcap-state-change"
 /** user-defined constants **/
 
 export const APP_VERSION = "5.0.0" as const;
-export const PLATFORM = "linux" as const;
 export const PCAP_ERROR_KINDS = ["UnexpectedType","TerminatedUnexpectedly","ChildTimeout","Ipc","InsufficientPermissions","LibLoading","Runtime","ChildNotFound","EstablishConnection","Io"] as const;
+export const PLATFORM = "linux" as const;
 
 /** user-defined types **/
 
@@ -194,7 +194,7 @@ export type DbSetInfo = { selected: string | null; loaded: string[] }
  * Fired any time the state of loaded or selected databases are changed on the backend.
  */
 export type DbStateChange = DbStateInfo
-export type DbStateInfo = { ipv4: DbSetInfo; ipv6: DbSetInfo }
+export type DbStateInfo = { ipv4: DbSetInfo; ipv6: DbSetInfo; combined: DbSetInfo }
 /**
  * A network device reported from libpcap, e.g. "wlp3s0".
  */

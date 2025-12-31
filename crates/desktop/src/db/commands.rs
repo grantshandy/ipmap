@@ -1,8 +1,7 @@
 use std::{
     borrow::Cow,
     net::{IpAddr, Ipv4Addr, Ipv6Addr},
-    path::{Path, PathBuf},
-    thread,
+    path::PathBuf,
 };
 
 use ipgeo::{
@@ -11,21 +10,14 @@ use ipgeo::{
 };
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tauri::{
-    AppHandle, Manager, State,
-    async_runtime::{self, Sender},
-    ipc::Channel,
-};
-use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
+use tauri::{AppHandle, State, ipc::Channel};
 
-use crate::db::{DNS_LOOKUP_TIMEOUT, DbState, DbStateChange, DbStateInfo, DynamicDatabase};
+use crate::db::{DNS_LOOKUP_TIMEOUT, DbState, DbStateInfo, DynamicDatabase};
 
 macro_rules! ip_location_db {
     ($path:literal) => {
-        std::borrow::Cow::Borrowed(concat!(
-            "https://raw.githubusercontent.com/sapics/ip-location-db/refs/heads/main/",
-            $path
-        ))
+        // TODO: change back
+        std::borrow::Cow::Borrowed(concat!("http://localhost:8000/", $path))
     };
 }
 
@@ -105,7 +97,8 @@ async fn download_source_internal(
     progress_sender: Channel<f64>,
     source: DatabaseSource,
 ) -> anyhow::Result<DynamicDatabase> {
-    let cb = move |val: usize, max: usize| {
+    let cb = move |val: u64, max: u64| {
+        println!("{val}/{max}");
         let _ = progress_sender.send(val as f64 / max as f64);
     };
 

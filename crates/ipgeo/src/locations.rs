@@ -1,6 +1,5 @@
 use crate::Error;
 use compact_str::CompactString;
-use heck::ToTitleCase;
 use indexmap::IndexSet;
 use rustc_hash::FxBuildHasher;
 use serde::{Deserialize, Serialize};
@@ -87,7 +86,7 @@ impl StringDict {
     pub fn get(&self, idx: StringDictKey) -> Option<String> {
         self.0
             .get_index((idx.get() - 1) as usize)
-            .map(|c| c.to_title_case())
+            .map(|s| s.to_string())
     }
 }
 

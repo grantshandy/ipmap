@@ -43,3 +43,6 @@ Some(
     },
 )
 ```
+
+## Download Notes
+Parallel: Downloaded 708.95 MB, decompressing/parsing at 100.03 MB/s in 7 seconds

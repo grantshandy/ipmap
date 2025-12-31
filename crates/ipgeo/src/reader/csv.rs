@@ -1,4 +1,4 @@
-use std::io::Read;
+use std::{io::Read, ops::Index};
 
 use compact_str::CompactString;
 use csv::ByteRecord;
@@ -44,7 +44,9 @@ pub fn read<Ip: GenericIp>(
     Ok(())
 }
 
-pub fn coord_from_record(record: &ByteRecord) -> Result<Coordinate, crate::Error> {
+pub fn coord_from_record(
+    record: &impl Index<usize, Output = [u8]>,
+) -> Result<Coordinate, crate::Error> {
     Ok(Coordinate {
         lat: CompactString::from_utf8(&record[LATITUDE_IDX])?.parse::<f32>()?,
         lng: CompactString::from_utf8(&record[LONGITUDE_IDX])?.parse::<f32>()?,

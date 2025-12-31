@@ -1,6 +1,5 @@
-#[cfg(feature = "download")]
-use std::borrow::Cow;
 use std::{
+    borrow::Cow,
     collections::HashMap,
     num::NonZero,
     sync::{
@@ -20,18 +19,18 @@ use crate::{
 };
 
 use async_compression::tokio::bufread::GzipDecoder;
+use bytesize::ByteSize;
 use compact_str::CompactString;
+use csv_async::AsyncReaderBuilder;
 use dashmap::DashMap;
 use futures::StreamExt;
 use indexmap::IndexSet;
 use rustc_hash::FxBuildHasher;
-use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio_util::io::StreamReader;
 use unix_time::Instant;
 
-const REPORT_GAP: Duration = Duration::from_secs(1);
+const REPORT_GAP: Duration = Duration::from_millis(500);
 
-#[cfg(feature = "download")]
 #[derive(Debug)]
 pub struct CombinedDatabaseSource<'a> {
     pub ipv4_csv_url: Cow<'a, str>,
@@ -40,12 +39,18 @@ pub struct CombinedDatabaseSource<'a> {
 }
 
 impl<Ip: GenericIp> SingleDatabase<Ip> {
-    #[cfg(feature = "download")]
     pub async fn download(
         csv_url: impl AsRef<str>,
         is_num: bool,
-        cb: impl Fn(usize, usize) + Send + Sync + 'static,
+        progress_report: impl Fn(u64, u64) + Send + Sync + 'static,
     ) -> anyhow::Result<Self> {
+        let ip_parser = if is_num {
+            Ip::from_num_bytes
+        } else {
+            Ip::from_str_bytes
+        };
+
+        let start = std::time::Instant::now();
         let resp = reqwest::get(csv_url.as_ref()).await?;
 
         let content_length = resp.content_length();
@@ -53,13 +58,13 @@ impl<Ip: GenericIp> SingleDatabase<Ip> {
         let mut last_reported = Instant::now();
         let mut count = 0;
 
-        let mut cb = |v: usize| {
+        let mut cb = |v: u64| {
             count += v;
 
             if let Some(content_length) = content_length
                 && last_reported.elapsed() >= REPORT_GAP
             {
-                cb(count, content_length as usize);
+                progress_report(count, content_length);
                 last_reported = Instant::now();
             }
         };
@@ -69,41 +74,58 @@ impl<Ip: GenericIp> SingleDatabase<Ip> {
             .map(|item| item.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e)))
             .map(|item| {
                 item.map(|i| {
-                    cb(i.len());
+                    cb(i.len() as u64);
                     i
                 })
             });
-        let stream_reader = StreamReader::new(stream);
 
-        // 2. Wrap it in the GzipDecoder
-        // This handles all the "deflate" logic and header checking for you
-        let mut gz_decoder = BufReader::new(GzipDecoder::new(stream_reader));
+        let mut reader = AsyncReaderBuilder::new()
+            .has_headers(false)
+            .buffer_capacity(64 * 1024) // 64KB internal buffer
+            .create_reader(GzipDecoder::new(StreamReader::new(stream)));
+
+        let mut byte_records = reader.byte_records();
+        let mut size = 0;
 
         let mut ips = IpLookupTable::new();
         let mut locations = LocationStore::default();
 
-        let mut record = csv::ByteRecord::new();
-        let mut line = Vec::new();
+        while let Some(res) = byte_records.next().await {
+            let record = res?;
 
-        let ip_parser = if is_num {
-            Ip::from_num_bytes
-        } else {
-            Ip::from_str_bytes
-        };
-
-        while gz_decoder.read_until(b'\n', &mut line).await? > 0 {
-            if csv::ReaderBuilder::new()
-                .has_headers(false)
-                .from_reader(&line[..])
-                .read_byte_record(&mut record)
-                .is_ok_and(|v| v && record.len() >= NUM_RECORDS)
-            {
-                crate::reader::csv::read_record(&record, ip_parser, &mut ips, &mut locations)?;
+            if record.len() < NUM_RECORDS {
+                return Err(anyhow::anyhow!("Not enough columns"));
             }
 
-            // Important: clear the scratch buffer for the next line
-            line.clear();
+            let coord = coord_from_record(&record)?;
+
+            locations.insert(coord, &|strings| {
+                Ok(LocationIndices {
+                    city: strings.insert_bytes(&record[CITY_IDX]),
+                    region: strings.insert_bytes(&record[REGION_IDX]),
+                    country_code: CountryCode::from(&record[COUNTRY_CODE_IDX]),
+                })
+            })?;
+
+            for (addr, len) in Ip::range_subnets(
+                ip_parser(&record[IP_RANGE_START_IDX])?,
+                ip_parser(&record[IP_RANGE_END_IDX])?,
+            ) {
+                ips.insert(addr, len, coord);
+            }
+
+            size += record.as_slice().len() as u64;
         }
+
+        let size_mb = ByteSize::b(size).as_mb();
+        let elapsed = start.elapsed();
+
+        tracing::debug!(
+            "Downloaded {:.2} MB, decompressing/parsing at {:.2} MB/s in {} seconds",
+            ByteSize::b(content_length.unwrap_or_default()).as_mb(),
+            size_mb / elapsed.as_secs_f64(),
+            elapsed.as_secs()
+        );
 
         Ok(Self { ips, locations })
     }
@@ -113,19 +135,21 @@ impl CombinedDatabase {
     #[cfg(feature = "download")]
     pub async fn download<'a>(
         source: CombinedDatabaseSource<'a>,
-        cb: impl Fn(usize, usize) + Send + Sync + 'static,
+        progress_report: impl Fn(u64, u64) + Send + Sync + 'static,
     ) -> anyhow::Result<Self> {
-        let last = Arc::new((AtomicU64::new(0), AtomicU32::new(0)));
-        let state = Arc::new((AtomicUsize::new(0), AtomicUsize::new(0)));
+        let start = std::time::Instant::now();
 
-        let cb = Arc::new(cb);
+        let last = Arc::new((AtomicU64::new(0), AtomicU32::new(0)));
+        let state = Arc::new((AtomicU64::new(0), AtomicU64::new(0)));
+
+        let cb = Arc::new(progress_report);
 
         // Clone Arcs for the first closure
         let last_clone = last.clone();
         let state_clone = state.clone();
         let cb_clone = cb.clone();
 
-        let add_val = move |v: usize| {
+        let add_val = move |v: u64| {
             let (secs, nanos) = last_clone.as_ref();
             let (val, max) = state_clone.as_ref();
 
@@ -145,7 +169,7 @@ impl CombinedDatabase {
 
         // Clone Arc for second closure
         let state_clone2 = state.clone();
-        let add_total = move |v: usize| {
+        let add_total = move |v: u64| {
             state_clone2.1.fetch_add(v, Ordering::SeqCst);
         };
 
@@ -169,13 +193,26 @@ impl CombinedDatabase {
             ))
         );
 
+        let (ipv4, ipv4_len) = ipv4??;
+        let (ipv6, ipv6_len) = ipv6??;
+
+        let size_mb = ByteSize::b(ipv4_len + ipv6_len).as_mb();
+        let elapsed = start.elapsed();
+
+        tracing::debug!(
+            "Downloaded {:.2} MB, decompressing/parsing at {:.2} MB/s in {} seconds",
+            ByteSize::b(state.1.load(Ordering::SeqCst)).as_mb(),
+            size_mb / elapsed.as_secs_f64(),
+            elapsed.as_secs()
+        );
+
         let locations = Arc::try_unwrap(locations)
             .map_err(|_| anyhow::anyhow!("Failed to unwrap locations Arc"))?
             .into_store();
 
         Ok(CombinedDatabase {
-            ipv4: ipv4??,
-            ipv6: ipv6??,
+            ipv4,
+            ipv6,
             locations,
         })
     }
@@ -185,70 +222,69 @@ async fn concurrent_table_download<Ip: GenericIp>(
     url: String,
     is_num: bool,
     locations: Arc<ConcurrentLocationStore>,
-    len_report: impl Fn(usize),
-    chunk_report: impl Fn(usize),
-) -> anyhow::Result<IpLookupTable<Ip, Coordinate>> {
-    let resp = reqwest::get(url).await?;
-    if let Some(cl) = resp.content_length() {
-        len_report(cl as usize);
-    }
-
-    // 1. Convert the Stream into an AsyncRead
-    let stream = resp
-        .bytes_stream()
-        .map(|item| item.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e)))
-        .map(|item| {
-            item.map(|i| {
-                chunk_report(i.len());
-                i
-            })
-        });
-    let stream_reader = StreamReader::new(stream);
-
-    // 2. Wrap it in the GzipDecoder
-    // This handles all the "deflate" logic and header checking for you
-    let mut gz_decoder = BufReader::new(GzipDecoder::new(stream_reader));
-
-    let mut table = IpLookupTable::new();
-    let mut record = csv::ByteRecord::new();
-    let mut line = Vec::new();
-
+    len_report: impl Fn(u64) + Send + Sync,
+    chunk_report: impl Fn(u64) + Send + Sync,
+) -> anyhow::Result<(IpLookupTable<Ip, Coordinate>, u64)> {
     let ip_parser = if is_num {
         Ip::from_num_bytes
     } else {
         Ip::from_str_bytes
     };
 
-    while gz_decoder.read_until(b'\n', &mut line).await? > 0 {
-        if csv::ReaderBuilder::new()
-            .has_headers(false)
-            .from_reader(&line[..])
-            .read_byte_record(&mut record)
-            .is_ok_and(|v| v && record.len() >= NUM_RECORDS)
-        {
-            let coord = coord_from_record(&record)?;
+    let resp = reqwest::get(url).await?;
 
-            locations.insert(coord, &|strings| {
-                Ok(LocationIndices {
-                    city: strings.insert_bytes(&record[CITY_IDX]),
-                    region: strings.insert_bytes(&record[REGION_IDX]),
-                    country_code: CountryCode::from(&record[COUNTRY_CODE_IDX]),
-                })
-            })?;
-
-            for (addr, len) in Ip::range_subnets(
-                ip_parser(&record[IP_RANGE_START_IDX])?,
-                ip_parser(&record[IP_RANGE_END_IDX])?,
-            ) {
-                table.insert(addr, len, coord);
-            }
-        }
-
-        // Important: clear the scratch buffer for the next line
-        line.clear();
+    if let Some(cl) = resp.content_length() {
+        len_report(cl);
     }
 
-    Ok(table)
+    let stream = resp
+        .bytes_stream()
+        .map(|item| item.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e)))
+        .map(|item| {
+            item.map(|i| {
+                chunk_report(i.len() as u64);
+                i
+            })
+        });
+
+    let mut reader = AsyncReaderBuilder::new()
+        .has_headers(false)
+        .buffer_capacity(64 * 1024) // 64KB internal buffer
+        .create_reader(GzipDecoder::new(StreamReader::new(stream)));
+
+    let mut byte_records = reader.byte_records();
+
+    let mut table = IpLookupTable::new();
+    let mut size = 0;
+
+    while let Some(res) = byte_records.next().await {
+        let record = res?;
+
+        if record.len() < NUM_RECORDS {
+            return Err(anyhow::anyhow!("Not enough columns"));
+        }
+
+        let coord = coord_from_record(&record)?;
+
+        locations.insert(coord, &|strings| {
+            Ok(LocationIndices {
+                city: strings.insert_bytes(&record[CITY_IDX]),
+                region: strings.insert_bytes(&record[REGION_IDX]),
+                country_code: CountryCode::from(&record[COUNTRY_CODE_IDX]),
+            })
+        })?;
+
+        for (addr, len) in Ip::range_subnets(
+            ip_parser(&record[IP_RANGE_START_IDX])?,
+            ip_parser(&record[IP_RANGE_END_IDX])?,
+        ) {
+            table.insert(addr, len, coord);
+        }
+
+        size += record.as_slice().len() as u64;
+    }
+
+    Ok((table, size))
 }
 
 /// A concurrent, thread-safe builder for LocationStore.
@@ -262,13 +298,11 @@ struct ConcurrentLocationStore {
 }
 
 impl ConcurrentLocationStore {
-    /// Insert a new location into the store using &self (concurrently).
     fn insert(
         &self,
         coord: Coordinate,
         create_location: &dyn Fn(&ConcurrentStringDict) -> Result<LocationIndices, Error>,
     ) -> Result<(), Error> {
-        // 1. Check if coordinate exists (Fast path)
         if self.coordinates.contains_key(&coord) {
             return Ok(());
         }
@@ -332,10 +366,13 @@ impl ConcurrentStringDict {
             return None;
         }
 
-        // Note: Optimization possible here to avoid allocation if key exists,
-        // but requires checking lookup with a reference which DashMap supports.
-        // For strict correctness with ownership:
-        let s = CompactString::from_utf8(item).ok()?.to_lowercase();
+        let s_ref = std::str::from_utf8(item).ok()?;
+
+        if let Some(idx) = self.lookup.get(s_ref) {
+            return NonZero::new(*idx);
+        }
+
+        let s = CompactString::from(s_ref);
 
         let idx = *self.lookup.entry(s.clone()).or_insert_with(|| {
             let id = self.counter.fetch_add(1, Ordering::Relaxed);

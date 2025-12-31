@@ -7,7 +7,12 @@
   import Traceroute from "$lib/pages/Traceroute.svelte";
   import Capture from "$lib/pages/Capture.svelte";
 
-  import { database, Pcap, openAboutWindow } from "$lib/bindings";
+  import {
+    database,
+    Pcap,
+    openAboutWindow,
+    type DatabaseSource,
+  } from "$lib/bindings";
   import { basename } from "@tauri-apps/api/path";
 
   type Page = "capture" | "search" | "trace";
@@ -18,6 +23,8 @@
   });
 
   let pcapResult = Pcap.init();
+
+  let downloadSource: DatabaseSource = $state("dbipcombined");
 </script>
 
 {#if !database.anyEnabled}
@@ -62,47 +69,78 @@
       ?
     </button>
 
-    <div class="max-w-120 space-y-3 p-5 text-center">
-      <h1 class="text-2xl font-semibold">Welcome to Ipmap</h1>
-      <p>
-        Load an ip-geolocation database to get started. It supports loading any
-        file in this format:
-      </p>
-      <p>
-        <code class="bg-base-200 rounded-sm p-1">
-          [dbip/geolite2]-city-[ipv4/ipv6].csv[.gz]
-        </code>
-      </p>
-      <p>
-        You can download them
-        <Link
-          href="https://github.com/sapics/ip-location-db?tab=readme-ov-file#city"
-          >here</Link
-        >.
-      </p>
-      <button
-        onclick={database.openFile}
-        disabled={database.loading != null}
-        class="btn btn-primary mt-4"
-      >
-        {#if database.loading}
+    <div class="max-w-120 space-y-12 p-5 text-center">
+      <h1 class="text-3xl font-semibold">Welcome to Ipmap</h1>
+
+      <div class="space-y-3">
+        <div class="join join-horizontal">
+          <select
+            bind:value={downloadSource}
+            disabled={database.loading != null}
+            class="select join-item"
+          >
+            <option value={"dbipcombined"}>DB-IP</option>
+            <option value={"geolite2combined"}>GeoLite2</option>
+          </select>
+          <button
+            class="btn btn-primary join-item"
+            disabled={database.loading != null}
+            onclick={() => database.downloadSource(downloadSource)}
+            >Download Ip Geolocation Database</button
+          >
+        </div>
+        <span>or</span>
+        <button
+          onclick={database.openFile}
+          disabled={database.loading != null}
+          class="btn"
+        >
+          Open Database File
+        </button>
+      </div>
+
+      {#if database.loading != null}
+        <div>
           {#if database.loading.progress == null}
             <span class="loading loading-spinner loading-xs"></span>
           {/if}
 
-          Loading
-          {#if database.loading.name}
-            {database.loading.name}
-          {/if}
-          ...
+          <span class="italic">
+            Loading
+            {#if database.loading.name}
+              {database.loading.name}
+            {/if}
+            ...
+          </span>
 
           {#if database.loading.progress != null}
-            <progress class="progress w-56" value={40} max={100}></progress>
+            <progress
+              class="progress w-64"
+              value={database.loading.progress * 100}
+              max={100}
+            ></progress>
           {/if}
-        {:else}
-          Open Database File
-        {/if}
-      </button>
+        </div>
+      {:else}
+        <div>
+          <p>
+            Load an ip-geolocation database to get started. It supports loading
+            any file in this format:
+          </p>
+          <p>
+            <code class="bg-base-200 rounded-sm p-1">
+              [dbip/geolite2]-city-[ipv4/ipv6].csv[.gz]
+            </code>
+          </p>
+          <p>
+            You can download them
+            <Link
+              href="https://github.com/sapics/ip-location-db?tab=readme-ov-file#city"
+              >here</Link
+            >.
+          </p>
+        </div>
+      {/if}
     </div>
   </main>
 {/snippet}

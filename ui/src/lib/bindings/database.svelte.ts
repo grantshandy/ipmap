@@ -3,22 +3,32 @@ import {
   commands,
   type DbStateInfo,
   type DbSetInfo,
-  type Result,
+  type DatabaseSource,
 } from "./raw";
+
 import * as dialog from "@tauri-apps/plugin-dialog";
-import { captureError, displayError } from "./error";
+import { displayError } from "./error";
 import { Channel } from "@tauri-apps/api/core";
 
 class Database implements DbStateInfo {
   ipv4: DbSetInfo = $state({ loaded: [], selected: null });
   ipv6: DbSetInfo = $state({ loaded: [], selected: null });
+  combined: DbSetInfo = $state({ loaded: [], selected: null });
 
-  ipv4Enabled: boolean = $derived(this.ipv4.selected != null);
-  ipv6Enabled: boolean = $derived(this.ipv6.selected != null);
   loading: { name: string | null; progress: number | null } | null =
     $state(null);
 
-  anyEnabled: boolean = $derived(this.ipv4Enabled || this.ipv6Enabled);
+  combinedEnabled: boolean = $derived(this.combined.selected != null);
+  ipv4Enabled: boolean = $derived(
+    this.ipv4.selected != null || this.combinedEnabled,
+  );
+  ipv6Enabled: boolean = $derived(
+    this.ipv6.selected != null || this.combinedEnabled,
+  );
+
+  anyEnabled: boolean = $derived(
+    this.ipv4Enabled || this.ipv6Enabled || this.combinedEnabled,
+  );
 
   constructor() {
     commands.databaseState().then(this.update);
@@ -28,8 +38,38 @@ class Database implements DbStateInfo {
   private update = (state: DbStateInfo) => {
     this.ipv4 = state.ipv4;
     this.ipv6 = state.ipv6;
+    this.combined = state.combined;
 
     console.log(state);
+  };
+
+  /**
+   * Download or load a database from a file/url.
+   *
+   * Stores it in the user-wide compressed disk cache for fast access.
+   *
+   * @param source
+   */
+  downloadSource = async (source: DatabaseSource) => {
+    this.loading = {
+      name: null,
+      progress: null,
+    };
+
+    const res = await commands.downloadSource(
+      source,
+      new Channel((name: string) => this.loading && (this.loading.name = name)),
+      new Channel((p: number) => {
+        console.log(p);
+        return this.loading && (this.loading.progress = p);
+      }),
+    );
+
+    if (res.status == "error") {
+      displayError(res.error);
+    }
+
+    this.loading = null;
   };
 
   openFile = async () => {
@@ -51,42 +91,41 @@ class Database implements DbStateInfo {
 
     console.log("opening database", file);
 
-    this.loading = {
-      name: null,
-      progress: null,
-    };
-
-    commands
-      .downloadSource(
-        { file },
-        new Channel(
-          (name: string) => this.loading && (this.loading.name = name),
-        ),
-        new Channel((p: number) => {
-          console.log(p);
-          return this.loading && (this.loading.progress = p);
-        }),
-      )
-      .then((r) => {
-        if (r.status == "error") {
-          displayError(r.error);
-        }
-
-        this.loading = null;
-      });
+    this.downloadSource({ file });
   };
 
+  /**
+   * Set the given database as the selected database for lookups.
+   */
   setSelected = (name: string | null | undefined) => {
     if (name) commands.setSelectedDatabase(name);
   };
 
+  /**
+   * Unload the database, freeing up memory.
+   */
   unload = (name: string | null) => {
     if (name) commands.unloadDatabase(name);
   };
 
+  /**
+   * Lookup a given IP address in the currently selected database(s).
+   */
   lookupIp = commands.lookupIp;
+
+  /**
+   * Get a hostname with the system for a given IP address.
+   */
   lookupDns = commands.lookupDns;
+
+  /**
+   * Get a hostname with the system for a given IP address.
+   */
   lookupHost = commands.lookupHost;
+
+  /**
+   * Attempt to get the user's current location
+   */
   myLocation = commands.myLocation;
 }
 

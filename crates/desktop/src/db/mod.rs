@@ -1,14 +1,12 @@
 use std::{
     net::{IpAddr, Ipv4Addr, Ipv6Addr},
-    path::{Path, PathBuf},
+    path::PathBuf,
     sync::{Arc, RwLock},
     time::Duration,
 };
 
 use dashmap::{DashMap, Entry};
-use ipgeo::{
-    CombinedDatabase, Coordinate, Database, GenericDatabase, GenericIp, Location, SingleDatabase,
-};
+use ipgeo::{CombinedDatabase, Coordinate, Database, GenericDatabase, Location, SingleDatabase};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tauri::{AppHandle, Manager};
@@ -25,8 +23,7 @@ pub struct DbState {
     ipv4_db: DbSet<SingleDatabase<Ipv4Addr>>,
     ipv6_db: DbSet<SingleDatabase<Ipv6Addr>>,
     combined: DbSet<CombinedDatabase>,
-    cache_dir: PathBuf,
-    use_combined: bool,
+    _cache_dir: PathBuf,
 }
 
 impl DbState {
@@ -35,8 +32,7 @@ impl DbState {
             ipv4_db: DbSet::default(),
             ipv6_db: DbSet::default(),
             combined: DbSet::default(),
-            cache_dir: handle.path().app_data_dir()?.join("dbs"),
-            use_combined: false,
+            _cache_dir: handle.path().app_data_dir()?.join("dbs"),
         })
     }
 
@@ -44,6 +40,7 @@ impl DbState {
         DbStateInfo {
             ipv4: self.ipv4_db.info(),
             ipv6: self.ipv6_db.info(),
+            combined: self.combined.info(),
         }
     }
 
@@ -56,6 +53,7 @@ impl DbState {
 pub struct DbStateInfo {
     pub ipv4: DbSetInfo,
     pub ipv6: DbSetInfo,
+    pub combined: DbSetInfo,
 }
 
 impl Database<IpAddr> for DbState {
@@ -64,6 +62,7 @@ impl Database<IpAddr> for DbState {
             IpAddr::V4(ip) => self.ipv4_db.get(ip),
             IpAddr::V6(ip) => self.ipv6_db.get(ip),
         }
+        .or_else(|| self.combined.get(ip))
     }
 
     fn get_coordinate(&self, ip: IpAddr) -> Option<Coordinate> {
@@ -71,12 +70,14 @@ impl Database<IpAddr> for DbState {
             IpAddr::V4(ip) => self.ipv4_db.get_coordinate(ip),
             IpAddr::V6(ip) => self.ipv6_db.get_coordinate(ip),
         }
+        .or_else(|| self.combined.get_coordinate(ip))
     }
 
     fn get_location(&self, crd: Coordinate) -> Option<Location> {
         self.ipv4_db
             .get_location(crd)
             .or_else(|| self.ipv6_db.get_location(crd))
+            .or_else(|| self.combined.get_location(crd))
     }
 }
 
@@ -132,6 +133,7 @@ impl<C> DbSet<C> {
         }
     }
 
+    #[allow(dead_code)]
     pub fn exists(&self, name: impl Into<String>) -> bool {
         self.loaded.contains_key(&name.into())
     }
@@ -159,7 +161,7 @@ impl<C> DbSet<C> {
 }
 
 // TODO: move all selected call into single helper methods
-impl<Ip: GenericIp, C> Database<Ip> for DbSet<C>
+impl<Ip, C> Database<Ip> for DbSet<C>
 where
     C: Database<Ip>,
 {
