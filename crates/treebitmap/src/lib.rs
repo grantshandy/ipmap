@@ -20,12 +20,19 @@ use std::marker::PhantomData;
 mod tree_bitmap;
 use tree_bitmap::{Matches, TreeBitmap};
 
-mod address;
+#[cfg(feature = "rkyv")]
+mod rkyv_impl;
+
+pub(crate) mod address;
 pub use address::Address;
 
 /// A fast, compressed IP lookup table.
 #[derive(Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "rkyv",
+    derive(rkyv::Archive, rkyv::Deserialize, rkyv::Serialize)
+)]
 pub struct IpLookupTable<A, T> {
     inner: TreeBitmap<T>,
     _addrtype: PhantomData<A>,

@@ -5,18 +5,22 @@
 
 use std::cmp;
 
-mod allocator;
-mod node;
+pub(crate) mod allocator;
+pub(crate) mod node;
 
 use self::allocator::{Allocator, AllocatorHandle};
 use self::node::{MatchResult, Node};
 
 #[derive(Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "rkyv",
+    derive(rkyv::Archive, rkyv::Deserialize, rkyv::Serialize)
+)]
 pub struct TreeBitmap<T: Sized> {
-    trienodes: Allocator<Node>,
-    results: Allocator<T>,
-    len: usize,
+    pub(crate) trienodes: Allocator<Node>,
+    pub(crate) results: Allocator<T>,
+    pub(crate) len: usize,
 }
 
 impl<T: Sized + Clone + Copy + Default> TreeBitmap<T> {
@@ -558,7 +562,7 @@ impl<T> TrieAccess for TreeBitmap<T> {
     }
 }
 
-trait TrieAccess {
+pub(crate) trait TrieAccess {
     fn get_node(&self, hdl: &AllocatorHandle, index: u32) -> Node;
 
     /// Returns handle to root node.

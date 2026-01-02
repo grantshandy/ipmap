@@ -11,6 +11,10 @@ use std::mem;
 /// Buckets are store contiguously in the vector.
 /// So slots are multiples of `spacing`.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "rkyv",
+    derive(rkyv::Archive, rkyv::Deserialize, rkyv::Serialize)
+)]
 pub struct BucketVec<T> {
     pub(crate) buf: Vec<T>,
     freelist: Vec<u32>,
@@ -178,6 +182,10 @@ pub fn choose_bucket(len: u32) -> u32 {
 /// this case the allocator will update the caller's pointer.
 #[derive(Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "rkyv",
+    derive(rkyv::Archive, rkyv::Deserialize, rkyv::Serialize)
+)]
 pub struct Allocator<T: Sized> {
     pub(crate) buckets: [BucketVec<T>; 9],
 }

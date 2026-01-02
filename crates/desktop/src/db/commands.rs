@@ -4,6 +4,8 @@ use std::{
     path::PathBuf,
 };
 
+use crate::db::{DNS_LOOKUP_TIMEOUT, DbState, DbStateInfo, DynamicDatabase};
+
 use ipgeo::{
     CombinedDatabase, Database, GenericDatabase, LookupInfo, SingleDatabase,
     download::CombinedDatabaseSource,
@@ -11,8 +13,6 @@ use ipgeo::{
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tauri::{AppHandle, State, ipc::Channel};
-
-use crate::db::{DNS_LOOKUP_TIMEOUT, DbState, DbStateInfo, DynamicDatabase};
 
 macro_rules! ip_location_db {
     ($path:literal) => {
@@ -46,6 +46,23 @@ fn filename_guess(path: &str) -> String {
         .to_string()
 }
 
+impl DatabaseSource {
+    fn to_string(&self) -> String {
+        match self {
+            DatabaseSource::DbIpCombined => "DB-IP City".to_string(),
+            DatabaseSource::Geolite2Combined => "Geolite2 City".to_string(),
+            DatabaseSource::SingleCsvGz { url, .. } => filename_guess(url),
+            DatabaseSource::CombinedCsvGz { ipv4, ipv6, .. } => {
+                format!("{}/{}", filename_guess(&ipv4), filename_guess(&ipv6))
+            }
+            DatabaseSource::File(path) => path
+                .file_name()
+                .map(|name| name.to_string_lossy().to_string())
+                .unwrap_or_else(|| "Unknown File".to_string()),
+        }
+    }
+}
+
 /// Download a combined database
 #[tauri::command]
 #[specta::specta]
@@ -58,18 +75,7 @@ pub async fn download_source(
 ) -> Result<(), String> {
     tracing::info!("downloading {source:?}");
 
-    let name = match &source {
-        DatabaseSource::DbIpCombined => "DB-IP City Combined".to_string(),
-        DatabaseSource::Geolite2Combined => "Geolite2 City Combined".to_string(),
-        DatabaseSource::SingleCsvGz { url, .. } => filename_guess(url),
-        DatabaseSource::CombinedCsvGz { ipv4, ipv6, .. } => {
-            format!("{}/{}", filename_guess(&ipv4), filename_guess(&ipv6))
-        }
-        DatabaseSource::File(path) => path
-            .file_name()
-            .map(|name| name.to_string_lossy().to_string())
-            .unwrap_or_else(|| "Unknown File".to_string()),
-    };
+    let name = source.to_string();
 
     let _ = name_resp.send(name.clone());
 

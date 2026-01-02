@@ -99,6 +99,10 @@ pub fn gen_bitmap(prefix: u8, masklen: u32) -> u32 {
 /// pointer and the number of bits set left of N.
 #[derive(Clone, Copy, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "rkyv",
+    derive(rkyv::Archive, rkyv::Deserialize, rkyv::Serialize)
+)]
 pub struct Node {
     /// child/result bitmap
     pub(crate) bitmap: u32, // first 16 bits: internal, last 16 bits: child bitmap

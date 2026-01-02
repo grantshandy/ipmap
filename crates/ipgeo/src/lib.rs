@@ -14,6 +14,7 @@ mod database;
 mod detect;
 pub mod locations;
 mod reader;
+pub(crate) mod rkyv_impl;
 
 #[cfg(feature = "download")]
 pub mod download;

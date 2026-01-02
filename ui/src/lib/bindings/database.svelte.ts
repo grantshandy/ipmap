@@ -19,12 +19,8 @@ class Database implements DbStateInfo {
     $state(null);
 
   combinedEnabled: boolean = $derived(this.combined.selected != null);
-  ipv4Enabled: boolean = $derived(
-    this.ipv4.selected != null || this.combinedEnabled,
-  );
-  ipv6Enabled: boolean = $derived(
-    this.ipv6.selected != null || this.combinedEnabled,
-  );
+  ipv4Enabled: boolean = $derived(this.ipv4.selected != null);
+  ipv6Enabled: boolean = $derived(this.ipv6.selected != null);
 
   anyEnabled: boolean = $derived(
     this.ipv4Enabled || this.ipv6Enabled || this.combinedEnabled,
@@ -39,8 +35,6 @@ class Database implements DbStateInfo {
     this.ipv4 = state.ipv4;
     this.ipv6 = state.ipv6;
     this.combined = state.combined;
-
-    console.log(state);
   };
 
   /**
@@ -59,10 +53,7 @@ class Database implements DbStateInfo {
     const res = await commands.downloadSource(
       source,
       new Channel((name: string) => this.loading && (this.loading.name = name)),
-      new Channel((p: number) => {
-        console.log(p);
-        return this.loading && (this.loading.progress = p);
-      }),
+      new Channel((p: number) => this.loading && (this.loading.progress = p)),
     );
 
     if (res.status == "error") {

@@ -7,7 +7,6 @@ use std::{
 
 use compact_str::CompactString;
 use flate2::read::GzDecoder;
-use serde::{Deserialize, Serialize};
 
 use crate::{Coordinate, Database, Error, Location, SingleDatabase};
 
@@ -33,7 +32,7 @@ pub fn detect(path: &Path) -> Result<GenericDatabase, Error> {
 }
 
 /// A generic [`SingleDatabase`].
-#[derive(PartialEq, Serialize, Deserialize)]
+#[derive(PartialEq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 pub enum GenericDatabase {
     Ipv4(SingleDatabase<Ipv4Addr>),
     Ipv6(SingleDatabase<Ipv6Addr>),

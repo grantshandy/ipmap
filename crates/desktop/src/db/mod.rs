@@ -194,7 +194,7 @@ where
 #[derive(Serialize, Deserialize, Debug, Clone, Type, Event)]
 pub struct DbStateChange(DbStateInfo);
 
-#[derive(Serialize, Deserialize)]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 enum DynamicDatabase {
     Combined(CombinedDatabase),
     Generic(GenericDatabase),

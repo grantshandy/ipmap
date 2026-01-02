@@ -27,5 +27,5 @@ child-ipc = { path = "../child-ipc", features = ["specta", "parent"] }
 ipgeo = { path = "../ipgeo", features = ["download"] }
 dns-lookup = "3.0.1"
 public-ip-address = "0.4.0"
-redb = "3.1.0"
 anyhow.workspace = true
+rkyv.workspace = true

@@ -11,10 +11,10 @@
   {/if}
 
   {#if database.ipv6Enabled && database.ipv6.selected != null}
-    {@render databaseSelector(database.ipv4, "IPv6")}
+    {@render databaseSelector(database.ipv6, "IPv6")}
   {/if}
 
-  {#if database.combinedEnabled}
+  {#if database.combinedEnabled != null}
     {@render databaseSelector(database.combined, "Combined")}
   {/if}
 

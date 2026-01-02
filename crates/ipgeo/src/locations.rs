@@ -11,7 +11,7 @@ use std::{
 };
 
 /// A memory-efficient store of named locations by their coordinates.
-#[derive(Default, PartialEq, Serialize, Deserialize)]
+#[derive(Default, PartialEq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 pub(crate) struct LocationStore {
     /// Coordinate to a single identifiable "location" (city) key
     pub(crate) coordinates: HashMap<Coordinate, LocationKey, FxBuildHasher>,
@@ -60,7 +60,16 @@ pub type StringDictKey = NonZero<u32>;
 
 /// A compact database of strings that can store less than u32::MAX items.
 #[doc(hidden)]
-#[derive(PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(
+    PartialEq,
+    Eq,
+    Default,
+    Serialize,
+    Deserialize,
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+)]
 pub(crate) struct StringDict(pub(crate) IndexSet<CompactString, FxBuildHasher>);
 
 impl StringDict {
@@ -107,7 +116,19 @@ pub struct Location {
 }
 
 /// The city and region stored as indexes into a `StringDict` database.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Eq,
+    PartialEq,
+    Hash,
+    Serialize,
+    Deserialize,
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+)]
 pub(crate) struct LocationIndices {
     pub(crate) city: Option<StringDictKey>,
     pub(crate) region: Option<StringDictKey>,
@@ -125,7 +146,18 @@ impl LocationIndices {
 }
 
 /// A basic latitude/longitude pair.
-#[derive(Copy, Clone, Debug, Type, Default, Serialize, Deserialize)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Type,
+    Default,
+    serde::Serialize,
+    serde::Deserialize,
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+)]
 pub struct Coordinate {
     /// Latitude
     pub lat: f32,
@@ -170,9 +202,21 @@ impl std::hash::Hash for Coordinate {
 
 /// An ISO 3166 2-digit ASCII country code.
 // Takes advantage of its compact representation.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Eq,
+    PartialEq,
+    Hash,
+    Serialize,
+    Deserialize,
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+)]
 #[repr(transparent)]
-pub struct CountryCode(u16);
+pub struct CountryCode(pub(crate) u16);
 
 impl<A: AsRef<[u8]>> From<A> for CountryCode {
     fn from(value: A) -> Self {

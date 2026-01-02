@@ -3,7 +3,6 @@ use std::{
     net::{IpAddr, Ipv4Addr, Ipv6Addr},
 };
 
-use serde::{Deserialize, Serialize};
 use treebitmap::IpLookupTable;
 
 use crate::{
@@ -19,7 +18,7 @@ pub type Ipv4Database = SingleDatabase<Ipv4Addr>;
 pub type Ipv6Database = SingleDatabase<Ipv6Addr>;
 
 /// A database for a single address type.
-#[derive(PartialEq, Serialize, Deserialize)]
+#[derive(PartialEq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 pub struct SingleDatabase<Ip: GenericIp> {
     pub(crate) ips: IpLookupTable<Ip, Coordinate>,
     pub(crate) locations: LocationStore,
@@ -56,7 +55,7 @@ impl<Ip: GenericIp> Database<Ip> for SingleDatabase<Ip> {
 }
 
 /// A database built from both an IPv4 and IPv6 CSV file.
-#[derive(PartialEq, Serialize, Deserialize)]
+#[derive(PartialEq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 pub struct CombinedDatabase {
     pub(crate) ipv4: IpLookupTable<Ipv4Addr, Coordinate>,
     pub(crate) ipv6: IpLookupTable<Ipv6Addr, Coordinate>,

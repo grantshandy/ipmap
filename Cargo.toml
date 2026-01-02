@@ -23,6 +23,7 @@ dashmap = "6.1.0"
 ip_rfc = "0.1.0"
 postcard = { version = "1.1.2", features = ["alloc"] }
 anyhow = "1.0.100"
+rkyv = "0.8.12"
 
 [profile.dev]
 opt-level = 0

@@ -16,9 +16,11 @@ edition = "2024"
 
 [dependencies]
 serde = { workspace = true, optional = true }
+rkyv = { workspace = true, optional = true }
 
 [dev-dependencies]
 rand = "0.9"
 
 [features]
 serde = ["dep:serde"]
+rkyv = ["dep:rkyv"]

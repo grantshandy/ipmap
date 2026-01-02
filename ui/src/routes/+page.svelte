@@ -9,11 +9,10 @@
 
   import {
     database,
-    Pcap,
     openAboutWindow,
+    Pcap,
     type DatabaseSource,
   } from "$lib/bindings";
-  import { basename } from "@tauri-apps/api/path";
 
   type Page = "capture" | "search" | "trace";
 
@@ -89,7 +88,7 @@
             >Download Ip Geolocation Database</button
           >
         </div>
-        <span>or</span>
+        <p>or</p>
         <button
           onclick={database.openFile}
           disabled={database.loading != null}
@@ -100,18 +99,18 @@
       </div>
 
       {#if database.loading != null}
-        <div>
+        <div class="mt-4">
           {#if database.loading.progress == null}
             <span class="loading loading-spinner loading-xs"></span>
           {/if}
 
-          <span class="italic">
+          <p class="italic">
             Loading
             {#if database.loading.name}
               {database.loading.name}
             {/if}
             ...
-          </span>
+          </p>
 
           {#if database.loading.progress != null}
             <progress
@@ -122,13 +121,13 @@
           {/if}
         </div>
       {:else}
-        <div>
+        <div class="space-y-2">
           <p>
             Load an ip-geolocation database to get started. It supports loading
             any file in this format:
           </p>
           <p>
-            <code class="bg-base-200 rounded-sm p-1">
+            <code class="bg-base-200 rounded-sm p-1 shadow-md select-text">
               [dbip/geolite2]-city-[ipv4/ipv6].csv[.gz]
             </code>
           </p>
