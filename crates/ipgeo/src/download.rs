@@ -1,6 +1,5 @@
 use std::{
     borrow::Cow,
-    collections::HashMap,
     num::NonZero,
     sync::{
         Arc,
@@ -24,7 +23,6 @@ use compact_str::CompactString;
 use csv_async::AsyncReaderBuilder;
 use dashmap::DashMap;
 use futures::StreamExt;
-use indexmap::IndexSet;
 use rustc_hash::FxBuildHasher;
 use tokio_util::io::StreamReader;
 use unix_time::Instant;
@@ -51,7 +49,8 @@ impl<Ip: GenericIp> SingleDatabase<Ip> {
         };
 
         let start = std::time::Instant::now();
-        let resp = reqwest::get(csv_url.as_ref()).await?;
+
+        let resp = reqwest::get(csv_url.as_ref()).await?.error_for_status()?;
 
         let content_length = resp.content_length();
 
@@ -231,7 +230,7 @@ async fn concurrent_table_download<Ip: GenericIp>(
         Ip::from_str_bytes
     };
 
-    let resp = reqwest::get(url).await?;
+    let resp = reqwest::get(url).await?.error_for_status()?;
 
     if let Some(cl) = resp.content_length() {
         len_report(cl);
@@ -324,21 +323,13 @@ impl ConcurrentLocationStore {
 
     /// Convert this concurrent structure back into the standard single-threaded LocationStore
     fn into_store(self) -> LocationStore {
-        let strings = self.strings.into_string_dict();
-
         let mut loc_vec: Vec<(usize, LocationIndices)> = self.loc_storage.into_iter().collect();
         loc_vec.sort_unstable_by_key(|(k, _)| *k);
 
-        let locations: IndexSet<LocationIndices, FxBuildHasher> =
-            loc_vec.into_iter().map(|(_, v)| v).collect();
-
-        let coordinates: HashMap<Coordinate, LocationKey, FxBuildHasher> =
-            self.coordinates.into_iter().collect();
-
         LocationStore {
-            coordinates,
-            locations,
-            strings,
+            coordinates: self.coordinates.into_iter().collect(),
+            locations: loc_vec.into_iter().map(|(_, v)| v).collect(),
+            strings: self.strings.into_string_dict(),
         }
     }
 }

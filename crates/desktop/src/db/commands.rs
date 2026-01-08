@@ -1,17 +1,14 @@
 use std::{
     borrow::Cow,
     net::{IpAddr, Ipv4Addr, Ipv6Addr},
-    path::PathBuf,
 };
 
-use crate::db::{DNS_LOOKUP_TIMEOUT, DbState, DbStateInfo, DynamicDatabase};
+use crate::db::{DNS_LOOKUP_TIMEOUT, DatabaseSource, DbState, DbStateInfo, DynamicDatabase};
 
 use ipgeo::{
     CombinedDatabase, Database, GenericDatabase, LookupInfo, SingleDatabase,
     download::CombinedDatabaseSource,
 };
-use serde::{Deserialize, Serialize};
-use specta::Type;
 use tauri::{AppHandle, State, ipc::Channel};
 
 macro_rules! ip_location_db {
@@ -21,46 +18,16 @@ macro_rules! ip_location_db {
     };
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
-#[serde(rename_all = "lowercase")]
-pub enum DatabaseSource {
-    DbIpCombined,
-    Geolite2Combined,
-    SingleCsvGz {
-        is_ipv6: bool,
-        url: String,
-        is_num: bool,
-    },
-    CombinedCsvGz {
-        ipv4: String,
-        ipv6: String,
-        is_num: bool,
-    },
-    File(PathBuf),
-}
+/// Load in the databases from the disk cache
+#[tauri::command]
+#[specta::specta]
+pub async fn refresh_cache(handle: AppHandle, state: State<'_, DbState>) -> Result<(), String> {
+    tracing::debug!("refreshing cache");
 
-fn filename_guess(path: &str) -> String {
-    path.rsplit_once("/")
-        .unwrap_or(("", "unknown"))
-        .1
-        .to_string()
-}
+    state.refresh_cache().await.map_err(|e| e.to_string())?;
+    state.emit_info(&handle);
 
-impl DatabaseSource {
-    fn to_string(&self) -> String {
-        match self {
-            DatabaseSource::DbIpCombined => "DB-IP City".to_string(),
-            DatabaseSource::Geolite2Combined => "Geolite2 City".to_string(),
-            DatabaseSource::SingleCsvGz { url, .. } => filename_guess(url),
-            DatabaseSource::CombinedCsvGz { ipv4, ipv6, .. } => {
-                format!("{}/{}", filename_guess(&ipv4), filename_guess(&ipv6))
-            }
-            DatabaseSource::File(path) => path
-                .file_name()
-                .map(|name| name.to_string_lossy().to_string())
-                .unwrap_or_else(|| "Unknown File".to_string()),
-        }
-    }
+    Ok(())
 }
 
 /// Download a combined database
@@ -70,16 +37,16 @@ pub async fn download_source(
     handle: AppHandle,
     state: State<'_, DbState>,
     source: DatabaseSource,
-    name_resp: Channel<String>,
+    name_resp: Channel<&str>,
     prog_resp: Channel<f64>,
 ) -> Result<(), String> {
     tracing::info!("downloading {source:?}");
 
     let name = source.to_string();
 
-    let _ = name_resp.send(name.clone());
+    let _ = name_resp.send(&name);
 
-    let db = match download_source_internal(prog_resp, source).await {
+    let db = match download_source_internal(prog_resp, &source).await {
         Ok(db) => db,
         Err(err) => {
             let err = format!("failed to download database: {err}");
@@ -88,12 +55,7 @@ pub async fn download_source(
         }
     };
 
-    match db {
-        DynamicDatabase::Combined(db) => state.combined.insert(name, db),
-        DynamicDatabase::Generic(GenericDatabase::Ipv4(db)) => state.ipv4_db.insert(name, db),
-        DynamicDatabase::Generic(GenericDatabase::Ipv6(db)) => state.ipv6_db.insert(name, db),
-    }
-
+    state.insert(&source, db).await.map_err(|e| e.to_string())?;
     state.emit_info(&handle);
 
     Ok(())
@@ -101,7 +63,7 @@ pub async fn download_source(
 
 async fn download_source_internal(
     progress_sender: Channel<f64>,
-    source: DatabaseSource,
+    source: &DatabaseSource,
 ) -> anyhow::Result<DynamicDatabase> {
     let cb = move |val: u64, max: u64| {
         println!("{val}/{max}");
@@ -133,9 +95,9 @@ async fn download_source_internal(
         }
         DatabaseSource::CombinedCsvGz { ipv4, ipv6, is_num } => {
             let src = CombinedDatabaseSource {
-                ipv4_csv_url: Cow::Owned(ipv4),
-                ipv6_csv_url: Cow::Owned(ipv6),
-                is_num,
+                ipv4_csv_url: Cow::Borrowed(ipv4),
+                ipv6_csv_url: Cow::Borrowed(ipv6),
+                is_num: *is_num,
             };
 
             CombinedDatabase::download(src, cb)
@@ -147,18 +109,22 @@ async fn download_source_internal(
             url,
             is_num,
         } => match is_ipv6 {
-            true => SingleDatabase::<Ipv6Addr>::download(url, is_num, cb)
+            true => SingleDatabase::<Ipv6Addr>::download(url, *is_num, cb)
                 .await
                 .map(GenericDatabase::Ipv6)
                 .map(DynamicDatabase::Generic)?,
-            false => SingleDatabase::<Ipv4Addr>::download(url, is_num, cb)
+            false => SingleDatabase::<Ipv4Addr>::download(url, *is_num, cb)
                 .await
                 .map(GenericDatabase::Ipv4)
                 .map(DynamicDatabase::Generic)?,
         },
-        DatabaseSource::File(path) => tokio::task::spawn_blocking(move || ipgeo::detect(&path))
-            .await?
-            .map(DynamicDatabase::Generic)?,
+        DatabaseSource::File(path) => {
+            let path = path.clone();
+
+            tokio::task::spawn_blocking(move || ipgeo::detect(&path))
+                .await?
+                .map(DynamicDatabase::Generic)?
+        }
     };
 
     Ok(db)

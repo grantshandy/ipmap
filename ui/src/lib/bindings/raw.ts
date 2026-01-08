@@ -9,6 +9,17 @@ async openAboutWindow() : Promise<void> {
     await TAURI_INVOKE("open_about_window");
 },
 /**
+ * Load in the databases from the disk cache
+ */
+async refreshCache() : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("refresh_cache") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
  * Download a combined database
  */
 async downloadSource(source: DatabaseSource, nameResp: TAURI_CHANNEL<string>, progResp: TAURI_CHANNEL<number>) : Promise<Result<null, string>> {
@@ -143,9 +154,9 @@ pcapStateChange: "pcap-state-change"
 
 /** user-defined constants **/
 
-export const APP_VERSION = "5.0.0" as const;
 export const PCAP_ERROR_KINDS = ["UnexpectedType","TerminatedUnexpectedly","ChildTimeout","Ipc","InsufficientPermissions","LibLoading","Runtime","ChildNotFound","EstablishConnection","Io"] as const;
 export const PLATFORM = "linux" as const;
+export const APP_VERSION = "5.0.0" as const;
 
 /** user-defined types **/
 

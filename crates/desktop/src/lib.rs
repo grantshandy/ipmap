@@ -15,6 +15,7 @@ pub fn run() {
         ])
         .commands(tauri_specta::collect_commands![
             utils::open_about_window,
+            db::commands::refresh_cache,
             db::commands::download_source,
             db::commands::unload_database,
             db::commands::database_state,

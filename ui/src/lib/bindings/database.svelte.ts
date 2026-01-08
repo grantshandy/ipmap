@@ -27,7 +27,8 @@ class Database implements DbStateInfo {
   );
 
   constructor() {
-    commands.databaseState().then(this.update);
+    // commands.databaseState().then(this.update);
+    commands.refreshCache();
     events.dbStateChange.listen((ev) => this.update(ev.payload));
   }
 
