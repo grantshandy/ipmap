@@ -1,9 +1,7 @@
 use std::{net::IpAddr, sync::OnceLock};
 
-use ipgeo::{Coordinate, Location};
+use ipgeo::{Coordinate, Location, LookupInfo};
 use public_ip_address::response::LookupResponse;
-
-use crate::db::LookupInfo;
 
 static CACHED_LOCATION: OnceLock<Result<(IpAddr, Option<LookupInfo>), String>> = OnceLock::new();
 

@@ -7,7 +7,7 @@ edition = "2024"
 indexmap = { version = "2.9.0", features = ["serde"] }
 compact_str = { version = "0.9.0", features = ["serde", "rkyv"] }
 csv = "1.4.0"
-rustc-hash = "2.1.1"
+rustc-hash.workspace = true
 flate2 = "1.1.2"
 maxminddb = "0.27.0"
 ipnetwork = "0.21.1"
@@ -39,11 +39,6 @@ rkyv.workspace = true
 serde_json = "1.0.149"
 memmap = "0.7.0"
 fastrand = "2.3.0"
-
-[[example]]
-name = "perf"
-file = "examples/perf.rs"
-required-features = ["download"]
 
 [features]
 download = [

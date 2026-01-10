@@ -1,8 +1,8 @@
 use tauri::Manager;
 
-mod db;
-mod pcap;
-mod utils;
+pub mod db;
+pub mod pcap;
+pub mod utils;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {

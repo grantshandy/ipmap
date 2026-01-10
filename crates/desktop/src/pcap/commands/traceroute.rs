@@ -1,7 +1,8 @@
 use std::{iter, net::IpAddr};
 
-use crate::db::{DbState, LookupInfo, commands::my_location};
+use crate::db::{DbState, commands::my_location};
 use child_ipc::{Command, Error, ErrorKind, Response, RunTraceroute, ipc};
+use ipgeo::LookupInfo;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tauri::{AppHandle, Manager, State, ipc::Channel};

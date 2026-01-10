@@ -2184,6 +2184,7 @@ dependencies = [
  "memmap2",
  "public-ip-address",
  "rkyv",
+ "rustc-hash",
  "serde",
  "specta",
  "specta-typescript",

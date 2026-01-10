@@ -1,6 +1,14 @@
+//! Database management for IP geolocation archives.
+//!
+//! This module provides abstractions for loading, caching, selecting, and managing
+//! multiple IP geolocation databases. It supports memory-mapped, checksummed archives
+//! and exposes APIs for querying location and coordinate data by IP address.
+//!
+//! The main entry point is [`DbState`], which tracks all loaded databases and
+//! coordinates their lifecycle and selection state.
+
 use std::{
-    collections::HashSet,
-    fmt, fs,
+    fs,
     marker::PhantomData,
     net::{IpAddr, Ipv4Addr, Ipv6Addr},
     path::PathBuf,
@@ -8,10 +16,8 @@ use std::{
     time::Duration,
 };
 
-use dashmap::DashMap;
-use ipgeo::{
-    ArchivedGenericDatabase, CombinedDatabase, Coordinate, Database, GenericDatabase, Location,
-};
+use dashmap::{DashMap, DashSet};
+use ipgeo::{ArchivedGenericDatabase, Coordinate, Database, Location};
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -20,33 +26,42 @@ use tauri_specta::Event;
 
 pub mod archive;
 pub mod commands;
+pub mod disk;
 pub mod my_loc;
 
-pub use ipgeo::LookupInfo;
-use time::UtcDateTime;
-
-use crate::db::archive::{DiskArchive, FileArchive};
+use archive::FileResource;
+use disk::{ArchivedDynamicDatabase, DatabaseSource, DiskArchive, DynamicDatabase};
 
 const DNS_LOOKUP_TIMEOUT: Duration = Duration::from_millis(300);
-const DB_EXTENSION: &str = "ipgeodb";
 
+/// Tracks the state of all loaded IP geolocation databases, including IPv4, IPv6,
+/// and combined IPv4/IPv6 archives.
+///
+/// [`DbState`] manages the DB cache directory, loaded databases, and selection state.
+/// It provides methods for inserting new databases, removing or selecting them,
+/// refreshing the cache from disk, and emitting state change events to the frontend.
 pub struct DbState {
     cache_dir: PathBuf,
     ipv4: DbSet<Ipv4Addr>,
     ipv6: DbSet<Ipv6Addr>,
     combined: DbSet<IpAddr>,
+    loaded_checksums: DashSet<u64>,
 }
 
 impl DbState {
+    /// Constructs a new [`DbState`] using the application's data directory.
     pub fn new(handle: &AppHandle) -> Result<Self, tauri::Error> {
         Ok(DbState {
             cache_dir: handle.path().app_data_dir()?.join("dbs"),
             ipv4: DbSet::default(),
             ipv6: DbSet::default(),
             combined: DbSet::default(),
+            loaded_checksums: DashSet::default(),
         })
     }
 
+    /// Returns a summary of the current database state,
+    /// including loaded and selected databases, intended to be sent to the frontend.
     fn info(&self) -> DbStateInfo {
         DbStateInfo {
             ipv4: self.ipv4.info(),
@@ -55,22 +70,30 @@ impl DbState {
         }
     }
 
+    /// Emits a state change event to the frontend, reflecting the current database state.
     pub fn emit_info(&self, app: &AppHandle) {
         let _ = DbStateChange(self.info()).emit(app);
     }
 
+    /// Inserts a new database archive into the cache and updates the loaded/selected state.
+    ///
+    /// The database is serialized, checksummed, and memory-mapped before being added.
     pub async fn insert(&self, source: DatabaseSource, db: DynamicDatabase) -> anyhow::Result<()> {
-        let path = self
-            .cache_dir
-            .join(generate_db_timestamp(&source))
-            .with_extension(DB_EXTENSION);
+        let cache_dir = self.cache_dir.clone();
 
         let fa = tokio::task::spawn_blocking(move || {
-            FileArchive::create(&path, &DiskArchive { source, db })
+            FileResource::create(&cache_dir, &DiskArchive { source, db })
         })
         .await??;
 
-        match &fa.get_data().db {
+        if self.loaded_checksums.contains(&fa.checksum()) {
+            tracing::warn!("'{}' already loaded, skipping", &fa.source);
+            return Ok(());
+        }
+
+        self.loaded_checksums.insert(fa.checksum());
+
+        match &fa.db {
             ArchivedDynamicDatabase::Combined(_) => self.combined.insert(fa),
             ArchivedDynamicDatabase::Generic(ArchivedGenericDatabase::Ipv4(_)) => {
                 self.ipv4.insert(fa)
@@ -83,83 +106,60 @@ impl DbState {
         Ok(())
     }
 
+    /// Removes a database from all sets.
     pub fn remove(&self, source: &DatabaseSource) {
         self.combined.remove(source);
         self.ipv4.remove(source);
         self.ipv6.remove(source);
     }
 
+    /// Sets the selected database for all sets if available.
     pub fn set_selected(&self, source: &DatabaseSource) {
         self.combined.set_selected(source);
         self.ipv4.set_selected(source);
         self.ipv6.set_selected(source);
     }
 
+    /// Loads any new archives from the cache directory, updating the loaded state.
+    ///
+    /// Skips databases that are already loaded, and logs errors for any corrupt or unreadable archives.
     pub async fn refresh_cache(&self) -> anyhow::Result<()> {
         tracing::info!("refreshing from cache dir {:?}", self.cache_dir);
 
-        let mut loaded = self
-            .combined
-            .loaded()
-            .chain(self.ipv4.loaded())
-            .chain(self.ipv6.loaded())
-            .collect::<HashSet<DatabaseSource>>();
+        let loaded_checksums = self.loaded_checksums.clone();
         let cache_dir = self.cache_dir.clone();
 
         let dbs = tokio::task::spawn_blocking(move || {
             fs::create_dir_all(&cache_dir)?;
 
-            let databases = fs::read_dir(&cache_dir)?
-                .filter_map(|d| d.ok())
-                .filter(|d| {
-                    let ok = d.path().extension().is_some_and(|ext| ext == DB_EXTENSION)
-                        && d.file_type().is_ok_and(|ft| ft.is_file());
-
-                    tracing::debug!(
-                        "dir entry {} {:?}",
-                        (if ok { "OK" } else { "NOT OK" }),
-                        d.path()
-                    );
-
-                    ok
-                })
-                .map(|d| d.path());
-
-            let mut resp = Vec::new();
-
-            for path in databases {
-                match FileArchive::open(&path) {
+            let res = archive::resource_dir_list(&cache_dir)?
+                .filter(|(_, c)| !loaded_checksums.contains(&c))
+                .filter_map(|(path, _)| match FileResource::open(&path) {
                     Ok(db) => {
-                        let ds = DatabaseSource::from(&db.get_data().source);
-
-                        if loaded.contains(&ds) {
-                            tracing::debug!("skipping {path:?}, already loaded");
-                            continue;
-                        }
-
-                        loaded.insert(ds);
-                        resp.push(db);
-
                         tracing::debug!("loaded {path:?}");
+                        Some(db)
                     }
                     Err(err) => {
                         tracing::error!("failed to read {path:?}, skipping: {err}");
+                        None
                     }
-                }
-            }
+                })
+                .collect::<Vec<_>>();
 
-            anyhow::Result::<Vec<FileArchive>>::Ok(resp)
+            anyhow::Result::<Vec<FileResource<DiskArchive>>>::Ok(res)
         })
         .await??;
 
-        for db in dbs {
-            match db.get_data().db {
-                ArchivedDynamicDatabase::Combined(_) => self.combined.insert(db),
+        for archive in dbs {
+            self.loaded_checksums.insert(archive.checksum());
+
+            match &archive.db {
+                ArchivedDynamicDatabase::Combined(_) => self.combined.insert(archive),
                 ArchivedDynamicDatabase::Generic(ArchivedGenericDatabase::Ipv4(_)) => {
-                    self.ipv4.insert(db)
+                    self.ipv4.insert(archive)
                 }
                 ArchivedDynamicDatabase::Generic(ArchivedGenericDatabase::Ipv6(_)) => {
-                    self.ipv6.insert(db)
+                    self.ipv6.insert(archive)
                 }
             }
         }
@@ -170,14 +170,11 @@ impl DbState {
 
 impl Database<IpAddr> for DbState {
     fn get_coordinate(&self, ip: IpAddr) -> Option<Coordinate> {
-        if !self.combined.is_empty() {
-            return self.combined.get_coordinate(ip);
-        }
-
         match ip {
             IpAddr::V4(ip) => self.ipv4.get_coordinate(ip),
             IpAddr::V6(ip) => self.ipv6.get_coordinate(ip),
         }
+        .or_else(|| self.combined.get_coordinate(ip))
     }
 
     fn get_location(&self, crd: Coordinate) -> Option<Location> {
@@ -188,6 +185,7 @@ impl Database<IpAddr> for DbState {
     }
 }
 
+/// Summary of the loaded and selected databases for each IP type.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
 pub struct DbStateInfo {
     pub ipv4: DbSetInfo,
@@ -195,19 +193,25 @@ pub struct DbStateInfo {
     pub combined: DbSetInfo,
 }
 
+/// Information about the loaded and selected databases in a [`DbSet`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub struct DbSetInfo {
     pub selected: Option<DatabaseSource>,
     pub loaded: Vec<DatabaseSource>,
 }
 
-struct DbSet<C> {
-    selected: RwLock<Option<Arc<FileArchive>>>,
-    loaded: DashMap<DatabaseSource, Arc<FileArchive>>,
+/// Manages a set of loaded database archives for a specific IP type (IPv4, IPv6, or combined).
+///
+/// [`DbSet`] tracks loaded databases, the currently selected database, and provides
+/// methods for insertion, removal, selection, and querying.
+pub struct DbSet<C> {
+    selected: RwLock<Option<Arc<FileResource<DiskArchive>>>>,
+    loaded: DashMap<DatabaseSource, Arc<FileResource<DiskArchive>>>,
     _marker: PhantomData<C>,
 }
 
 impl<C> Default for DbSet<C> {
+    /// Creates an empty [`DbSet`] with no loaded or selected databases.
     fn default() -> Self {
         Self {
             selected: RwLock::new(None),
@@ -218,20 +222,23 @@ impl<C> Default for DbSet<C> {
 }
 
 impl<C> DbSet<C> {
-    pub fn insert(&self, db: FileArchive) {
+    /// Inserts a new database archive, making it the selected database.
+    pub fn insert(&self, db: FileResource<DiskArchive>) {
         let db = Arc::new(db);
 
         self.loaded
-            .insert(DatabaseSource::from(&db.get_data().source), db.clone());
+            .insert(DatabaseSource::from(&db.source), db.clone());
         self.selected.write().expect("open selected").replace(db);
     }
 
+    /// Removes and deletes a database archive by source,
+    /// updating the selected database if necessary.
     pub fn remove(&self, name: &DatabaseSource) {
         let mut selected = self.selected.write().expect("open selected");
 
         let selected_is_name = selected
             .as_ref()
-            .is_some_and(|sel_db| &sel_db.get_data().source == name);
+            .is_some_and(|sel_db| &sel_db.source == name);
 
         let Some((_, fa)) = self.loaded.remove(name) else {
             return;
@@ -244,19 +251,22 @@ impl<C> DbSet<C> {
         match Arc::into_inner(fa).map(|fa| fa.delete()) {
             Some(Err(err)) => tracing::error!("failed to delete {name}: {err}"),
             None => tracing::error!("failed to remove {name}, other references."),
-            _ => (),
+            _ => tracing::info!("Successfully removed database: {name}"),
         }
     }
 
+    /// Returns true if no databases are loaded in this set.
     pub fn is_empty(&self) -> bool {
         self.loaded.is_empty()
     }
 
+    /// Returns true if a database with the given source exists in this set.
     #[allow(dead_code)]
     pub fn exists(&self, name: DatabaseSource) -> bool {
         self.loaded.contains_key(&name)
     }
 
+    /// Returns information about the loaded and selected databases in this set.
     pub fn info(&self) -> DbSetInfo {
         DbSetInfo {
             selected: self
@@ -264,225 +274,48 @@ impl<C> DbSet<C> {
                 .read()
                 .expect("read selected")
                 .as_ref()
-                .map(|s| DatabaseSource::from(&s.get_data().source)),
+                .map(|s| DatabaseSource::from(&s.source)),
             loaded: self
                 .loaded
                 .iter()
-                .map(|kv| DatabaseSource::from(&kv.value().get_data().source))
+                .map(|kv| DatabaseSource::from(&kv.value().source))
                 .collect(),
         }
     }
 
+    /// Sets the selected database by source, if it exists.
     pub fn set_selected(&self, name: &DatabaseSource) {
         if let Some(kv) = self.loaded.get(name) {
             *self.selected.write().expect("open selected") = Some(kv.value().clone());
         }
     }
 
+    /// Executes a function on the selected database, if any.
     fn on_selected<T>(&self, f: impl Fn(&ArchivedDynamicDatabase) -> Option<T>) -> Option<T> {
         self.selected
             .read()
             .expect("read selected")
             .as_ref()
-            .and_then(|db| f(&db.get_data().db))
-    }
-
-    pub fn loaded(&self) -> impl Iterator<Item = DatabaseSource> {
-        self.loaded
-            .iter()
-            .map(|kv| DatabaseSource::from(&kv.value().get_data().source))
+            .and_then(|ar| f(&ar.db))
     }
 }
 
-impl Database<Ipv4Addr> for DbSet<Ipv4Addr> {
-    fn get_coordinate(&self, ip: Ipv4Addr) -> Option<Coordinate> {
+impl<C> Database<C> for DbSet<C>
+where
+    C: Copy,
+    ArchivedDynamicDatabase: Database<C>,
+{
+    fn get_coordinate(&self, ip: C) -> Option<Coordinate> {
         self.on_selected(|db| db.get_coordinate(ip))
     }
 
     fn get_location(&self, crd: Coordinate) -> Option<Location> {
-        self.on_selected(|db| Database::<Ipv4Addr>::get_location(db, crd))
+        self.on_selected(|db| Database::<C>::get_location(db, crd))
     }
 }
 
-impl Database<Ipv6Addr> for DbSet<Ipv6Addr> {
-    fn get_coordinate(&self, ip: Ipv6Addr) -> Option<Coordinate> {
-        self.on_selected(|db| db.get_coordinate(ip))
-    }
-
-    fn get_location(&self, crd: Coordinate) -> Option<Location> {
-        self.on_selected(|db| Database::<Ipv6Addr>::get_location(db, crd))
-    }
-}
-
-impl Database<IpAddr> for DbSet<IpAddr> {
-    fn get_coordinate(&self, ip: IpAddr) -> Option<Coordinate> {
-        self.on_selected(|db| db.get_coordinate(ip))
-    }
-
-    fn get_location(&self, crd: Coordinate) -> Option<Location> {
-        self.on_selected(|db| Database::<IpAddr>::get_location(db, crd))
-    }
-}
-
-/// Fired any time the state of loaded or selected databases are changed on the backend.
+/// Event fired whenever the state of loaded or selected databases changes.
+///
+/// Used to notify the frontend of updates to the database state.
 #[derive(Serialize, Deserialize, Debug, Clone, Type, Event)]
 pub struct DbStateChange(DbStateInfo);
-
-#[derive(
-    Clone,
-    Debug,
-    PartialEq,
-    Eq,
-    Hash,
-    Serialize,
-    Deserialize,
-    Type,
-    rkyv::Archive,
-    rkyv::Deserialize,
-    rkyv::Serialize,
-)]
-#[serde(rename_all = "lowercase")]
-#[non_exhaustive]
-pub enum DatabaseSource {
-    DbIpCombined,
-    Geolite2Combined,
-    File(String),
-}
-
-fn url_filename_guess<'a>(path: &'a str) -> &'a str {
-    path.rsplit_once(&['/', '\\'])
-        .map(|(_, last)| last)
-        .unwrap_or("unknown")
-}
-
-fn generate_db_timestamp(src: &DatabaseSource) -> String {
-    let now = UtcDateTime::now();
-
-    match src {
-        DatabaseSource::DbIpCombined => format!("dbip-{}", now.unix_timestamp()),
-        DatabaseSource::Geolite2Combined => format!("geolite2-{}", now.unix_timestamp()),
-        DatabaseSource::File(_) => format!("custom-{}", now.unix_timestamp()),
-    }
-}
-
-impl fmt::Display for DatabaseSource {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            DatabaseSource::DbIpCombined => f.write_str("DB-IP City"),
-            DatabaseSource::Geolite2Combined => f.write_str("Geolite2 City"),
-            DatabaseSource::File(path) => f.write_str(url_filename_guess(&path)),
-        }
-    }
-}
-
-impl fmt::Display for ArchivedDatabaseSource {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ArchivedDatabaseSource::DbIpCombined => f.write_str("DB-IP City"),
-            ArchivedDatabaseSource::Geolite2Combined => f.write_str("Geolite2 City"),
-            ArchivedDatabaseSource::File(path) => f.write_str(url_filename_guess(&path)),
-        }
-    }
-}
-
-impl PartialEq<DatabaseSource> for ArchivedDatabaseSource {
-    fn eq(&self, other: &DatabaseSource) -> bool {
-        match (self, other) {
-            (ArchivedDatabaseSource::File(path), DatabaseSource::File(other_path)) => {
-                path == other_path
-            }
-            (ArchivedDatabaseSource::DbIpCombined, DatabaseSource::DbIpCombined) => true,
-            (ArchivedDatabaseSource::Geolite2Combined, DatabaseSource::Geolite2Combined) => true,
-            _ => false,
-        }
-    }
-}
-
-impl From<&ArchivedDatabaseSource> for DatabaseSource {
-    fn from(value: &ArchivedDatabaseSource) -> Self {
-        match value {
-            ArchivedDatabaseSource::DbIpCombined => DatabaseSource::DbIpCombined,
-            ArchivedDatabaseSource::Geolite2Combined => DatabaseSource::Geolite2Combined,
-            ArchivedDatabaseSource::File(path) => DatabaseSource::File(path.to_string()),
-        }
-    }
-}
-
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
-pub enum DynamicDatabase {
-    Combined(CombinedDatabase),
-    Generic(GenericDatabase),
-}
-
-impl Database<Ipv4Addr> for ArchivedDynamicDatabase {
-    fn get_coordinate(&self, ip: Ipv4Addr) -> Option<Coordinate> {
-        match self {
-            ArchivedDynamicDatabase::Combined(db) => db.get_coordinate(ip.into()),
-            ArchivedDynamicDatabase::Generic(ArchivedGenericDatabase::Ipv4(db)) => {
-                db.get_coordinate(ip)
-            }
-            _ => None,
-        }
-    }
-
-    fn get_location(&self, crd: Coordinate) -> Option<Location> {
-        match self {
-            ArchivedDynamicDatabase::Combined(db) => db.get_location(crd),
-            ArchivedDynamicDatabase::Generic(ArchivedGenericDatabase::Ipv4(db)) => {
-                db.get_location(crd)
-            }
-            _ => None,
-        }
-    }
-}
-
-impl Database<Ipv6Addr> for ArchivedDynamicDatabase {
-    fn get_coordinate(&self, ip: Ipv6Addr) -> Option<Coordinate> {
-        match self {
-            ArchivedDynamicDatabase::Combined(db) => db.get_coordinate(ip.into()),
-            ArchivedDynamicDatabase::Generic(ArchivedGenericDatabase::Ipv6(db)) => {
-                db.get_coordinate(ip)
-            }
-            _ => None,
-        }
-    }
-
-    fn get_location(&self, crd: Coordinate) -> Option<Location> {
-        match self {
-            ArchivedDynamicDatabase::Combined(db) => db.get_location(crd),
-            ArchivedDynamicDatabase::Generic(ArchivedGenericDatabase::Ipv6(db)) => {
-                db.get_location(crd)
-            }
-            _ => None,
-        }
-    }
-}
-
-impl Database<IpAddr> for ArchivedDynamicDatabase {
-    fn get_coordinate(&self, ip: IpAddr) -> Option<Coordinate> {
-        match (self, ip) {
-            (ArchivedDynamicDatabase::Combined(db), ip) => db.get_coordinate(ip),
-            (
-                ArchivedDynamicDatabase::Generic(ArchivedGenericDatabase::Ipv4(db)),
-                IpAddr::V4(ip),
-            ) => db.get_coordinate(ip),
-            (
-                ArchivedDynamicDatabase::Generic(ArchivedGenericDatabase::Ipv6(db)),
-                IpAddr::V6(ip),
-            ) => db.get_coordinate(ip),
-            _ => None,
-        }
-    }
-
-    fn get_location(&self, crd: Coordinate) -> Option<Location> {
-        match self {
-            ArchivedDynamicDatabase::Combined(db) => db.get_location(crd),
-            ArchivedDynamicDatabase::Generic(ArchivedGenericDatabase::Ipv4(db)) => {
-                db.get_location(crd)
-            }
-            ArchivedDynamicDatabase::Generic(ArchivedGenericDatabase::Ipv6(db)) => {
-                db.get_location(crd)
-            }
-        }
-    }
-}

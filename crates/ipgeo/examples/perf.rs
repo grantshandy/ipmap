@@ -1,8 +1,7 @@
 use std::{
     fs::{self, File},
     net::Ipv4Addr,
-    thread,
-    time::{Duration, Instant},
+    time::Instant,
 };
 
 use ipgeo::{ArchivedSingleDatabase, Database, Ipv4Database};

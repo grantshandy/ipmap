@@ -1,6 +1,8 @@
+//! Accessors to the runtime [`DbState`] for the frontend UI.
+
 use std::{net::IpAddr, path::PathBuf};
 
-use crate::db::{DNS_LOOKUP_TIMEOUT, DatabaseSource, DbState, DbStateInfo, DynamicDatabase};
+use super::{DNS_LOOKUP_TIMEOUT, DatabaseSource, DbState, DbStateInfo, DynamicDatabase};
 
 use ipgeo::{CombinedDatabase, Database, LookupInfo, download::CombinedDatabaseSource};
 use tauri::{AppHandle, State, ipc::Channel};
@@ -12,7 +14,7 @@ macro_rules! ip_location_db {
     };
 }
 
-/// Load in the databases from the disk cache
+/// Load in the databases from the disk cache.
 #[tauri::command]
 #[specta::specta]
 pub async fn refresh_cache(handle: AppHandle, state: State<'_, DbState>) -> Result<(), String> {
@@ -24,7 +26,7 @@ pub async fn refresh_cache(handle: AppHandle, state: State<'_, DbState>) -> Resu
     Ok(())
 }
 
-/// Download a combined database
+/// Load a [`DatabaseSource`] from its origin.
 #[tauri::command]
 #[specta::specta]
 pub async fn download_source(
@@ -112,7 +114,8 @@ pub fn unload_database(app: AppHandle, state: State<'_, DbState>, source: Databa
     state.emit_info(&app);
 }
 
-/// Set the given database as the selected database for lookups.
+/// Set the given [`DatabaseSource`] as the selected database
+/// for lookups on it's associated database type.
 #[tauri::command]
 #[specta::specta]
 pub async fn set_selected_database(
@@ -128,22 +131,24 @@ pub async fn set_selected_database(
     Ok(())
 }
 
-/// Retrieve the current state of the database.
-/// This info is given out in [`DbStateChange`], but this is useful for getting it at page load, for example.
+/// Retrieve the current [`DbStateInfo`] of the database.
+///
+/// This info is given out in [`DbStateChange`](super::DbStateChange),
+/// but this is useful for getting it at page load, for example.
 #[tauri::command]
 #[specta::specta]
 pub fn database_state(state: State<'_, DbState>) -> DbStateInfo {
     state.info()
 }
 
-/// Lookup a given IP address in the currently selected database(s).
+/// Lookup a given [`IpAddr`] in the currently selected database(s).
 #[tauri::command]
 #[specta::specta]
 pub fn lookup_ip(state: State<'_, DbState>, ip: IpAddr) -> Option<LookupInfo> {
     state.get(ip)
 }
 
-/// Get a hostname with the system for a given IP address.
+/// Get a hostname with the system for a given [`IpAddr`].
 #[tauri::command]
 #[specta::specta]
 pub async fn lookup_dns(ip: IpAddr) -> Result<Option<String>, ()> {
@@ -154,7 +159,7 @@ pub async fn lookup_dns(ip: IpAddr) -> Result<Option<String>, ()> {
         .map_err(|_| ())
 }
 
-/// Get a hostname with the system for a given IP address.
+/// Get a hostname with the system for a given [`IpAddr`].
 #[tauri::command]
 #[specta::specta]
 pub async fn lookup_host(host: &str) -> Result<Option<IpAddr>, ()> {
@@ -169,7 +174,7 @@ pub async fn lookup_host(host: &str) -> Result<Option<IpAddr>, ()> {
         .map_err(|_| ())
 }
 
-/// Attempt to get the user's current location
+/// Attempt to get the user's current [`LookupInfo`] from their IP address.
 #[tauri::command]
 #[specta::specta]
 pub async fn my_location(state: State<'_, DbState>) -> Result<LookupInfo, String> {

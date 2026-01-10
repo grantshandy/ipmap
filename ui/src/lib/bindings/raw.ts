@@ -199,6 +199,11 @@ lat: number;
  * Longitude
  */
 lng: number }
+/**
+ * Sources for where this database came from, as given to the user.
+ * This allows us to de-duplicate common databases and download them
+ * in-application.
+ */
 export type DatabaseSource = "dbipcombined" | "geolite2combined" | { file: string }
 export type DbSetInfo = { selected: DatabaseSource | null; loaded: DatabaseSource[] }
 /**

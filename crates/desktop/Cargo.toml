@@ -31,3 +31,4 @@ anyhow.workspace = true
 rkyv.workspace = true
 memmap2 = "0.9.9"
 time = "0.3.44"
+rustc-hash.workspace = true
