@@ -6,7 +6,6 @@ use std::{
     str::{FromStr, Utf8Error},
 };
 
-use compact_str::CompactString;
 use ipnet::{Ipv4Subnets, Ipv6Subnets};
 use ipnetwork::{IpNetwork, Ipv4Network, Ipv6Network};
 
@@ -19,8 +18,11 @@ pub(crate) mod rkyv_impl;
 #[cfg(feature = "download")]
 pub mod download;
 
-pub use database::{CombinedDatabase, Ipv4Database, Ipv6Database, SingleDatabase};
-pub use detect::{GenericDatabase, detect};
+pub use database::{
+    ArchivedCombinedDatabase, ArchivedSingleDatabase, CombinedDatabase, Ipv4Database, Ipv6Database,
+    SingleDatabase,
+};
+pub use detect::{ArchivedGenericDatabase, GenericDatabase, detect};
 pub use locations::{Coordinate, Location, LookupInfo};
 pub use treebitmap;
 
@@ -54,13 +56,11 @@ pub trait GenericIp:
     const FULL_NETWORK: IpNetwork;
 
     fn from_str_bytes(record: &[u8]) -> Result<Self, Error> {
-        Ok(CompactString::from_utf8(record)?.parse::<Self>()?)
+        Ok(str::from_utf8(record)?.parse::<Self>()?)
     }
 
     fn from_num_bytes(record: &[u8]) -> Result<Self, Error> {
-        Ok(CompactString::from_utf8(record)?
-            .parse::<Self::Bits>()?
-            .into())
+        Ok(str::from_utf8(record)?.parse::<Self::Bits>()?.into())
     }
 
     fn from_generic(ip: IpAddr) -> Option<Self>;

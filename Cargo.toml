@@ -36,6 +36,7 @@ incremental = true
 # codegen-units = 1
 # lto = true
 # strip = true
+debug = "full"
 
 # run build scripts at opt-level 3 because ipgeo-state has to read the database which takes
 # 20 seconds in development mode.

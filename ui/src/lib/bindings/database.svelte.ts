@@ -27,7 +27,6 @@ class Database implements DbStateInfo {
   );
 
   constructor() {
-    // commands.databaseState().then(this.update);
     commands.refreshCache();
     events.dbStateChange.listen((ev) => this.update(ev.payload));
   }
@@ -89,14 +88,14 @@ class Database implements DbStateInfo {
   /**
    * Set the given database as the selected database for lookups.
    */
-  setSelected = (name: string | null | undefined) => {
+  setSelected = (name: DatabaseSource | null | undefined) => {
     if (name) commands.setSelectedDatabase(name);
   };
 
   /**
    * Unload the database, freeing up memory.
    */
-  unload = (name: string | null) => {
+  unload = (name: DatabaseSource | null) => {
     if (name) commands.unloadDatabase(name);
   };
 

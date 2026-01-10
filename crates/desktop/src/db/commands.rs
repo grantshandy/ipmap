@@ -1,14 +1,8 @@
-use std::{
-    borrow::Cow,
-    net::{IpAddr, Ipv4Addr, Ipv6Addr},
-};
+use std::{net::IpAddr, path::PathBuf};
 
 use crate::db::{DNS_LOOKUP_TIMEOUT, DatabaseSource, DbState, DbStateInfo, DynamicDatabase};
 
-use ipgeo::{
-    CombinedDatabase, Database, GenericDatabase, LookupInfo, SingleDatabase,
-    download::CombinedDatabaseSource,
-};
+use ipgeo::{CombinedDatabase, Database, LookupInfo, download::CombinedDatabaseSource};
 use tauri::{AppHandle, State, ipc::Channel};
 
 macro_rules! ip_location_db {
@@ -55,7 +49,10 @@ pub async fn download_source(
         }
     };
 
-    state.insert(&source, db).await.map_err(|e| e.to_string())?;
+    state.insert(source, db).await.map_err(|e| {
+        tracing::error!("error adding database: {e}");
+        e.to_string()
+    })?;
     state.emit_info(&handle);
 
     Ok(())
@@ -93,33 +90,8 @@ async fn download_source_internal(
                 .await
                 .map(DynamicDatabase::Combined)?
         }
-        DatabaseSource::CombinedCsvGz { ipv4, ipv6, is_num } => {
-            let src = CombinedDatabaseSource {
-                ipv4_csv_url: Cow::Borrowed(ipv4),
-                ipv6_csv_url: Cow::Borrowed(ipv6),
-                is_num: *is_num,
-            };
-
-            CombinedDatabase::download(src, cb)
-                .await
-                .map(DynamicDatabase::Combined)?
-        }
-        DatabaseSource::SingleCsvGz {
-            is_ipv6,
-            url,
-            is_num,
-        } => match is_ipv6 {
-            true => SingleDatabase::<Ipv6Addr>::download(url, *is_num, cb)
-                .await
-                .map(GenericDatabase::Ipv6)
-                .map(DynamicDatabase::Generic)?,
-            false => SingleDatabase::<Ipv4Addr>::download(url, *is_num, cb)
-                .await
-                .map(GenericDatabase::Ipv4)
-                .map(DynamicDatabase::Generic)?,
-        },
         DatabaseSource::File(path) => {
-            let path = path.clone();
+            let path = PathBuf::from(path);
 
             tokio::task::spawn_blocking(move || ipgeo::detect(&path))
                 .await?
@@ -133,13 +105,10 @@ async fn download_source_internal(
 /// Unload the database, freeing up memory.
 #[tauri::command]
 #[specta::specta]
-pub fn unload_database(app: AppHandle, state: State<'_, DbState>, name: String) {
-    tracing::info!("unloading database {name:#?}");
+pub fn unload_database(app: AppHandle, state: State<'_, DbState>, source: DatabaseSource) {
+    tracing::info!("unloading database {source:?}");
 
-    state.ipv4_db.remove(&name);
-    state.ipv6_db.remove(&name);
-    state.combined.remove(&name);
-
+    state.remove(&source);
     state.emit_info(&app);
 }
 
@@ -149,14 +118,11 @@ pub fn unload_database(app: AppHandle, state: State<'_, DbState>, name: String) 
 pub async fn set_selected_database(
     app: AppHandle,
     state: State<'_, DbState>,
-    name: String,
+    source: DatabaseSource,
 ) -> Result<(), String> {
-    tracing::info!("set selected database as {name:#?}");
+    tracing::info!("set selected database as {source:?}");
 
-    state.ipv4_db.set_selected(&name);
-    state.ipv6_db.set_selected(&name);
-    state.combined.set_selected(&name);
-
+    state.set_selected(&source);
     state.emit_info(&app);
 
     Ok(())

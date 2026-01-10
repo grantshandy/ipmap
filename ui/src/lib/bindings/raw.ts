@@ -33,8 +33,8 @@ async downloadSource(source: DatabaseSource, nameResp: TAURI_CHANNEL<string>, pr
 /**
  * Unload the database, freeing up memory.
  */
-async unloadDatabase(name: string) : Promise<void> {
-    await TAURI_INVOKE("unload_database", { name });
+async unloadDatabase(source: DatabaseSource) : Promise<void> {
+    await TAURI_INVOKE("unload_database", { source });
 },
 /**
  * Retrieve the current state of the database.
@@ -46,9 +46,9 @@ async databaseState() : Promise<DbStateInfo> {
 /**
  * Set the given database as the selected database for lookups.
  */
-async setSelectedDatabase(name: string) : Promise<Result<null, string>> {
+async setSelectedDatabase(source: DatabaseSource) : Promise<Result<null, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("set_selected_database", { name }) };
+    return { status: "ok", data: await TAURI_INVOKE("set_selected_database", { source }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -199,8 +199,8 @@ lat: number;
  * Longitude
  */
 lng: number }
-export type DatabaseSource = "dbipcombined" | "geolite2combined" | { singlecsvgz: { is_ipv6: boolean; url: string; is_num: boolean } } | { combinedcsvgz: { ipv4: string; ipv6: string; is_num: boolean } } | { file: string }
-export type DbSetInfo = { selected: string | null; loaded: string[] }
+export type DatabaseSource = "dbipcombined" | "geolite2combined" | { file: string }
+export type DbSetInfo = { selected: DatabaseSource | null; loaded: DatabaseSource[] }
 /**
  * Fired any time the state of loaded or selected databases are changed on the backend.
  */
