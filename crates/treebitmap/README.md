@@ -4,7 +4,7 @@
 >
 > Then forked from https://github.com/JakubOnderka/treebitmap
 >
-> Changes have been applied from @bocharov in [pull/11](https://github.com/JakubOnderka/treebitmap/pull/11/files) to add serde support.
+> Changes have been applied from @bocharov in [pull/11](https://github.com/JakubOnderka/treebitmap/pull/11/files) to add rkyv support.
 
 This crate provides a datastructure for fast IP address lookups.
 It aims at fast lookup times, and a reasonable memory footprint.
