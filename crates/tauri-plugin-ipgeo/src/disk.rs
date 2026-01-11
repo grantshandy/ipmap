@@ -52,8 +52,8 @@ pub enum DynamicDatabase {
     Generic(GenericDatabase),
 }
 
-fn url_filename_guess<'a>(path: &'a str) -> &'a str {
-    path.rsplit_once(&['/', '\\'])
+fn url_filename_guess(path: &str) -> &str {
+    path.rsplit_once(['/', '\\'])
         .map(|(_, last)| last)
         .unwrap_or("unknown")
 }
@@ -63,7 +63,7 @@ impl fmt::Display for DatabaseSource {
         match self {
             DatabaseSource::DbIpCombined => f.write_str("DB-IP City"),
             DatabaseSource::Geolite2Combined => f.write_str("Geolite2 City"),
-            DatabaseSource::File(path) => f.write_str(url_filename_guess(&path)),
+            DatabaseSource::File(path) => f.write_str(url_filename_guess(path)),
         }
     }
 }
@@ -73,7 +73,7 @@ impl fmt::Display for ArchivedDatabaseSource {
         match self {
             ArchivedDatabaseSource::DbIpCombined => f.write_str("DB-IP City"),
             ArchivedDatabaseSource::Geolite2Combined => f.write_str("Geolite2 City"),
-            ArchivedDatabaseSource::File(path) => f.write_str(url_filename_guess(&path)),
+            ArchivedDatabaseSource::File(path) => f.write_str(url_filename_guess(path)),
         }
     }
 }

@@ -70,27 +70,27 @@ impl<T: Sized + Clone + Copy + Default> BucketVec<T> {
 
     #[inline]
     pub fn get_slot_entry(&self, slot: u32, index: u32) -> &T {
-        debug_assert!(slot % self.spacing == 0);
+        debug_assert!(slot.is_multiple_of(self.spacing));
         let offset = (slot + index) as usize;
         &self.buf[offset]
     }
 
     #[inline]
     pub fn get_slot_entry_mut(&mut self, slot: u32, index: u32) -> &mut T {
-        debug_assert!(slot % self.spacing == 0);
+        debug_assert!(slot.is_multiple_of(self.spacing));
         let offset = (slot + index) as usize;
         &mut self.buf[offset]
     }
 
     pub fn set_slot_entry(&mut self, slot: u32, index: u32, value: T) {
-        debug_assert!(slot % self.spacing == 0);
+        debug_assert!(slot.is_multiple_of(self.spacing));
         debug_assert!(index < self.spacing);
         let offset = (slot + index) as usize;
         self.buf[offset] = value;
     }
 
     pub fn replace_slot_entry(&mut self, slot: u32, index: u32, value: T) -> T {
-        debug_assert!(slot % self.spacing == 0);
+        debug_assert!(slot.is_multiple_of(self.spacing));
         debug_assert!(index < self.spacing);
         let offset = (slot + index) as usize;
         mem::replace(&mut self.buf[offset], value)
@@ -100,7 +100,7 @@ impl<T: Sized + Clone + Copy + Default> BucketVec<T> {
     /// of ```index``` will be moved.
     /// If all values have been set the last value will be lost.
     pub fn insert_slot_entry(&mut self, slot: u32, index: u32, value: T) {
-        debug_assert!(slot % self.spacing == 0);
+        debug_assert!(slot.is_multiple_of(self.spacing));
         let offset = (slot + index) as usize;
         let end = offset + (self.spacing - index) as usize;
 
@@ -110,7 +110,7 @@ impl<T: Sized + Clone + Copy + Default> BucketVec<T> {
     }
 
     pub fn remove_slot_entry(&mut self, slot: u32, index: u32) -> T {
-        debug_assert!(slot % self.spacing == 0);
+        debug_assert!(slot.is_multiple_of(self.spacing));
         debug_assert!(index < self.spacing);
         let offset = (slot + index) as usize;
         let end = offset + (self.spacing - index) as usize;
@@ -133,7 +133,7 @@ impl<T: Sized + Clone + Copy + Default> BucketVec<T> {
         let nitems = cmp::min(self.spacing, dst.spacing);
 
         debug_assert!(slot < self.len);
-        debug_assert!(slot % self.spacing == 0);
+        debug_assert!(slot.is_multiple_of(self.spacing));
         debug_assert!(nitems > 0);
         debug_assert!(nitems <= self.spacing);
         debug_assert!(nitems <= dst.spacing);
@@ -335,6 +335,12 @@ impl<T: Sized + Clone + Copy + Default> Allocator<T> {
         hdl.offset = slot;
         hdl.len -= 1;
         ret
+    }
+}
+
+impl<T: Sized + Clone + Copy + Default> Default for Allocator<T> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

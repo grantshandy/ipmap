@@ -21,7 +21,7 @@ impl<A: Address, T: Archive + Clone + Copy + Default> ArchivedIpLookupTable<A, T
 
     /// Longest match lookup of `ip`
     pub fn longest_match(&self, ip: A) -> Option<(A, u32, &Archived<T>)> {
-        match self.inner.longest_match(&ip.nibbles().as_ref()) {
+        match self.inner.longest_match(ip.nibbles().as_ref()) {
             Some((bits_matched, value)) => Some((ip.mask(bits_matched), bits_matched, value)),
             None => None,
         }
@@ -29,7 +29,7 @@ impl<A: Address, T: Archive + Clone + Copy + Default> ArchivedIpLookupTable<A, T
 
     /// Perform exact match lookup of `ip` and `masklen` and return the value.
     pub fn exact_match(&self, ip: A, masklen: u32) -> Option<&Archived<T>> {
-        self.inner.exact_match(&ip.nibbles().as_ref(), masklen)
+        self.inner.exact_match(ip.nibbles().as_ref(), masklen)
     }
 }
 
@@ -41,7 +41,7 @@ impl<T: Archive + Clone + Copy + Default> ArchivedTreeBitmap<T> {
 
     /// Longest match lookup of `nibbles`. Returns bits matched as u32, and reference to T.
     pub fn longest_match(&self, nibbles: &[u8]) -> Option<(u32, &Archived<T>)> {
-        match self.longest_match_internal(&nibbles) {
+        match self.longest_match_internal(nibbles) {
             Some((result_hdl, result_index, bits_matched)) => {
                 Some((bits_matched, self.results.get(&result_hdl, result_index)))
             }
@@ -58,7 +58,7 @@ impl<T: Archive + Clone + Copy + Default> ArchivedTreeBitmap<T> {
 
 impl<T: Archive + Clone + Copy + Default> TrieAccess for ArchivedTreeBitmap<T> {
     fn get_node(&self, hdl: &AllocatorHandle, index: u32) -> Node {
-        Node::from(self.trienodes.get(&hdl, index))
+        Node::from(self.trienodes.get(hdl, index))
     }
 }
 

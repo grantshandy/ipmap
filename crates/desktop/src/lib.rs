@@ -35,7 +35,7 @@ async fn open_about_window<R: Runtime>(app: AppHandle<R>) {
     w.build().unwrap();
 }
 
-fn builder<R: Runtime>() -> tauri_specta::Builder {
+fn builder() -> tauri_specta::Builder {
     tauri_specta::Builder::<tauri::Wry>::new().commands(tauri_specta::collect_commands![
         open_about_window::<tauri::Wry>
     ])
@@ -45,7 +45,7 @@ fn builder<R: Runtime>() -> tauri_specta::Builder {
 pub fn run() {
     tracing_subscriber::fmt::init();
 
-    let builder = builder::<tauri::Wry>();
+    let builder = builder();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -70,7 +70,7 @@ mod test {
 
     #[test]
     fn export_types() {
-        builder::<tauri::Wry>()
+        builder()
             .error_handling(tauri_specta::ErrorHandlingMode::Result)
             .constant("PLATFORM", Platform::current())
             .constant("APP_VERSION", env!("CARGO_PKG_VERSION"))

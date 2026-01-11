@@ -12,8 +12,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let devices = api.devices()?;
     let device = devices
         .into_iter()
-        .filter(|d| d.name == "wlo1")
-        .next()
+        .find(|d| d.name == "wlo1")
         .expect("no net device found");
 
     println!("{device:?}");

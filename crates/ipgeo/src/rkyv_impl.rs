@@ -36,11 +36,20 @@ impl From<&ArchivedCoordinate> for Coordinate {
     }
 }
 
-impl Into<ArchivedCoordinate> for Coordinate {
-    fn into(self) -> ArchivedCoordinate {
-        ArchivedCoordinate {
-            lat: self.lat.into(),
-            lng: self.lng.into(),
+impl From<Coordinate> for ArchivedCoordinate {
+    fn from(value: Coordinate) -> Self {
+        Self {
+            lat: value.lat.into(),
+            lng: value.lng.into(),
+        }
+    }
+}
+
+impl From<ArchivedCoordinate> for Coordinate {
+    fn from(value: ArchivedCoordinate) -> Self {
+        Self {
+            lat: value.lat.to_native(),
+            lng: value.lng.to_native(),
         }
     }
 }

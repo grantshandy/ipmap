@@ -195,14 +195,14 @@ impl<T: Sized + Clone + Copy + Default> TreeBitmap<T> {
             let mut cur_node = *self.trienodes.get(&cur_hdl, cur_index);
             let match_result = cur_node.match_segment(*nibble);
 
-            if let MatchResult::Chase(child_hdl, index) = match_result {
-                if bits_left >= 4 {
-                    // follow existing branch
-                    bits_left -= 4;
-                    cur_hdl = child_hdl;
-                    cur_index = index;
-                    continue;
-                }
+            if let MatchResult::Chase(child_hdl, index) = match_result
+                && bits_left >= 4
+            {
+                // follow existing branch
+                bits_left -= 4;
+                cur_hdl = child_hdl;
+                cur_index = index;
+                continue;
             }
 
             let bitmap = node::gen_bitmap(*nibble, cmp::min(4, bits_left));
@@ -372,6 +372,12 @@ impl<T: Sized + Clone + Copy + Default> TreeBitmap<T> {
             }],
             nibbles: vec![0],
         }
+    }
+}
+
+impl<T: Sized + Clone + Copy + Default> Default for TreeBitmap<T> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -695,8 +701,7 @@ mod tests {
 
         {
             let mut matches = tbm.matches(nibbles_b);
-            assert_eq!(
-                true,
+            assert!(
                 matches.any(|p| p == (mask_a, &"foo")) && matches.any(|p| p == (mask_b, &"bar"))
             );
         }

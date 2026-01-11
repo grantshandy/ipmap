@@ -118,7 +118,7 @@ impl DbState {
             fs::create_dir_all(&cache_dir)?;
 
             let res = archive::resource_dir_list(&cache_dir)?
-                .filter(|(_, c)| !loaded_checksums.contains(&c))
+                .filter(|(_, c)| !loaded_checksums.contains(c))
                 .filter_map(|(path, _)| match FileResource::open(&path) {
                     Ok(db) => {
                         tracing::debug!("loaded {path:?}");

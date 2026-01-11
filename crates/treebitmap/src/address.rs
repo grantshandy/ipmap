@@ -99,7 +99,7 @@ impl Address for Ipv6Addr {
         for i in masklen.div_ceil(16)..8 {
             ret[i as usize] = 0;
         }
-        if masklen % 16 != 0 {
+        if !masklen.is_multiple_of(16) {
             ret[masklen as usize / 16] &= !0 << (16 - (masklen % 16));
         }
         Self::new(

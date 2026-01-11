@@ -26,7 +26,7 @@ const EXTENSION: &str = "res";
 
 /// Returns an iterator over the resources possibly created in a directory.
 pub fn resource_dir_list(dir: &Path) -> anyhow::Result<impl Iterator<Item = (PathBuf, u64)>> {
-    let r = fs::read_dir(&dir)?
+    let r = fs::read_dir(dir)?
         .filter_map(|d| d.ok())
         .filter(|d| {
             d.path().extension().is_some_and(|ext| ext == EXTENSION)
@@ -223,11 +223,11 @@ where
 fn verify_checksum<R: Read + Seek>(reader: &mut R) -> std::io::Result<Option<u64>> {
     let len = reader.seek(SeekFrom::End(0))?;
 
-    if len < CHECKSUM_SIZE as u64 {
+    if len < CHECKSUM_SIZE {
         return Ok(None);
     }
 
-    let data_len = len - CHECKSUM_SIZE as u64;
+    let data_len = len - CHECKSUM_SIZE;
 
     reader.seek(SeekFrom::End(-(CHECKSUM_SIZE as i64)))?;
     let mut checksum = [0u8; CHECKSUM_SIZE as usize];

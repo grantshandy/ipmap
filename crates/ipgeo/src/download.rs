@@ -1,5 +1,6 @@
 use std::{
     borrow::Cow,
+    io,
     num::NonZero,
     sync::{
         Arc,
@@ -70,13 +71,8 @@ impl<Ip: GenericIp> SingleDatabase<Ip> {
 
         let stream = resp
             .bytes_stream()
-            .map(|item| item.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e)))
-            .map(|item| {
-                item.map(|i| {
-                    cb(i.len() as u64);
-                    i
-                })
-            });
+            .map(|item| item.map_err(io::Error::other))
+            .map(|item| item.inspect(|i| cb(i.len() as u64)));
 
         let mut reader = AsyncReaderBuilder::new()
             .has_headers(false)
@@ -238,13 +234,8 @@ async fn concurrent_table_download<Ip: GenericIp>(
 
     let stream = resp
         .bytes_stream()
-        .map(|item| item.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e)))
-        .map(|item| {
-            item.map(|i| {
-                chunk_report(i.len() as u64);
-                i
-            })
-        });
+        .map(|item| item.map_err(io::Error::other))
+        .map(|item| item.inspect(|i| chunk_report(i.len() as u64)));
 
     let mut reader = AsyncReaderBuilder::new()
         .has_headers(false)
@@ -341,8 +332,8 @@ pub struct ConcurrentStringDict {
 impl Default for ConcurrentStringDict {
     fn default() -> Self {
         Self {
-            lookup: DashMap::with_hasher(FxBuildHasher::default()),
-            storage: DashMap::with_hasher(FxBuildHasher::default()),
+            lookup: DashMap::with_hasher(FxBuildHasher),
+            storage: DashMap::with_hasher(FxBuildHasher),
             counter: AtomicU32::new(1), // 1-based index (NonZero)
         }
     }
