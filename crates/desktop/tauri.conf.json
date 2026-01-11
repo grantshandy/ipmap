@@ -4,10 +4,11 @@
   "version": "5.0.0",
   "identifier": "dev.grantshandy.ipmap",
   "build": {
-    "beforeDevCommand": "pnpm dev",
+    "beforeDevCommand": "pnpm -C ../../ui run dev",
     "devUrl": "http://localhost:1420",
     "beforeBuildCommand": "pnpm build",
-    "frontendDist": "../../ui/build"
+    "frontendDist": "../../ui/build",
+    "removeUnusedCommands": true
   },
   "app": {
     "windows": [

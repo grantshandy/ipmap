@@ -37,7 +37,7 @@ impl DbState {
     /// Constructs a new [`DbState`] using the application's data directory.
     pub fn new<R: Runtime>(handle: &AppHandle<R>) -> Result<Self, tauri::Error> {
         Ok(DbState {
-            cache_dir: handle.path().app_data_dir()?.join("dbs"),
+            cache_dir: handle.path().app_local_data_dir()?.join("dbs"),
             ipv4: DbSet::default(),
             ipv6: DbSet::default(),
             combined: DbSet::default(),
