@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-database-state"
+description = "Enables the database_state command without any pre-configured scope."
+commands.allow = ["database_state"]
+
+[[permission]]
+identifier = "deny-database-state"
+description = "Denies the database_state command without any pre-configured scope."
+commands.deny = ["database_state"]

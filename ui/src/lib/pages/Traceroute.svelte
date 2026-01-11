@@ -11,7 +11,7 @@
     type Result,
     type RunTraceroute,
     type Error,
-  } from "$lib/bindings";
+  } from "tauri-plugin-pcap-api";
 
   const MAX_ROUNDS: number = 200;
 

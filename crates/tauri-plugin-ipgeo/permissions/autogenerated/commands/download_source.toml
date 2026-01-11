@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-download-source"
+description = "Enables the download_source command without any pre-configured scope."
+commands.allow = ["download_source"]
+
+[[permission]]
+identifier = "deny-download-source"
+description = "Denies the download_source command without any pre-configured scope."
+commands.deny = ["download_source"]

@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-lookup-dns"
+description = "Enables the lookup_dns command without any pre-configured scope."
+commands.allow = ["lookup_dns"]
+
+[[permission]]
+identifier = "deny-lookup-dns"
+description = "Denies the lookup_dns command without any pre-configured scope."
+commands.deny = ["lookup_dns"]

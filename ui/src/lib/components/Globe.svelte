@@ -19,15 +19,14 @@
     OSCILATION_RANGE,
     type ArcRecord,
   } from "$lib/3d-arc";
-  import {
-    CAPTURE_COLORS,
-    CAPTURE_VARY_SIZE,
-    lerp,
-    type ConnectionDirection,
-    type Coordinate,
-  } from "$lib/bindings";
+
   import { asset } from "$app/paths";
+  import { lerp, CAPTURE_COLORS, CAPTURE_VARY_SIZE } from "$lib/utils";
+
   import { fade } from "svelte/transition";
+
+  import { type ConnectionDirection } from "tauri-plugin-pcap-api";
+  import { type Coordinate } from "tauri-plugin-ipgeo-api";
 
   let { capture, focused = $bindable(), children }: MapArgs = $props();
 

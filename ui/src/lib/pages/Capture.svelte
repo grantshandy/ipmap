@@ -1,26 +1,39 @@
 <script lang="ts">
   import CaptureStart from "$lib/components/CaptureStart.svelte";
   import GenericMap from "$lib/components/GenericMap.svelte";
+  import GlobeSwitcher from "$lib/components/GlobeSwitcher.svelte";
 
   import {
-    CAPTURE_COLORS,
-    CAPTURE_SHOW_NOT_FOUND,
-    database,
-    renderLocationName,
-    throughputInfo,
-    type Pcap,
+    Pcap,
+    type Throughput,
     type CaptureLocation,
     type Connection,
+  } from "tauri-plugin-pcap-api";
+  import {
     CAPTURE_SHOW_ARCS,
     CAPTURE_SHOW_MARKERS,
-  } from "$lib/bindings";
+    CAPTURE_SHOW_NOT_FOUND,
+    renderLocationName,
+  } from "$lib/utils";
+  import database from "tauri-plugin-ipgeo-api";
   import { onDestroy } from "svelte";
   import { type MapComponent } from "$lib/page.svelte";
-  import GlobeSwitcher from "$lib/components/GlobeSwitcher.svelte";
 
   const UP_ARROW = "&#8593;";
   const DOWN_ARROW = "&#8595;";
   const MIXED_ARROW = "&#x2195;";
+
+  export const humanFileSize = (size: number) => {
+    const i = size == 0 ? 0 : Math.floor(Math.log(size) / Math.log(1024));
+    return (
+      +(size / Math.pow(1024, i)).toFixed(2) * 1 +
+      " " +
+      ["B", "kB", "MB", "GB", "TB"][i]
+    );
+  };
+
+  export const throughputInfo = (info: Throughput): string =>
+    `${humanFileSize(info.avgS)}/s | ${humanFileSize(info.total)}`;
 
   const { pcap }: { pcap: Pcap } = $props();
 
@@ -63,7 +76,7 @@
 </script>
 
 <GenericMap bind:map capture={pcap.capture} bind:focused>
-  <div class="absolute top-2 right-2 z-[999] flex flex-col items-end space-y-2">
+  <div class="absolute top-2 right-2 z-999 flex flex-col items-end space-y-2">
     <div class="flex items-center space-x-2">
       <GlobeSwitcher />
       <CaptureStart
@@ -99,7 +112,7 @@
   {#if pcap.capture != null}
     {#if focused}
       <div
-        class="bg-base-200 rounded-box absolute bottom-2 left-2 z-[999] max-h-120 w-54 space-y-3 overflow-y-scroll border p-2"
+        class="bg-base-200 rounded-box absolute bottom-2 left-2 z-999 max-h-120 w-54 space-y-3 overflow-y-scroll border p-2"
       >
         {@render focusedInfo(pcap.capture.connections[focused])}
       </div>

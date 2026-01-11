@@ -2,3 +2,4 @@ target
 .direnv
 result
 dbs
+node_modules

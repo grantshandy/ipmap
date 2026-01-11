@@ -1,0 +1,27 @@
+[package]
+name = "tauri-plugin-pcap"
+version = "0.1.0"
+edition = "2024"
+exclude = ["/dist", "/guest-js", "/node_modules"]
+links = "tauri-plugin-pcap"
+
+[dependencies]
+ipgeo = { path = "../ipgeo", features = ["download"] }
+child-ipc = { path = "../child-ipc", features = ["specta", "parent"] }
+tauri-plugin-ipgeo = { path = "../tauri-plugin-ipgeo" }
+
+tauri.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+tokio.workspace = true
+dashmap.workspace = true
+serde.workspace = true
+
+specta.workspace = true
+tauri-specta.workspace = true
+
+[dev-dependencies]
+specta-typescript.workspace = true
+
+[build-dependencies]
+tauri-plugin.workspace = true

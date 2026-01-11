@@ -6,6 +6,8 @@ members = [
     "crates/pcap-dyn",
     "crates/child",
     "crates/child-ipc",
+    "crates/tauri-plugin-ipgeo",
+    "crates/tauri-plugin-pcap",
 ]
 
 package.rust-version = "1.86.0"
@@ -13,17 +15,20 @@ package.rust-version = "1.86.0"
 [workspace.dependencies]
 tokio = { version = "1.45.1", features = ["rt", "rt-multi-thread", "time", "macros"] }
 tauri = { version = "2", features = ["tracing"] }
+tauri-plugin = { version = "2.5", features = ["build"] }
 tauri-plugin-dialog = "2"
 thiserror = "2.0.12"
-specta = { version = "2.0.0-rc.21", features = ["derive", "function"] }
+specta = { version = "=2.0.0-rc.22", features = ["derive", "function"] }
 serde = { version = "*", features = ["derive"] }
 tracing = "0.1.41"
-tauri-specta = { version = "2.0.0-rc.21", features = ["derive", "typescript"] }
+tauri-specta = { version = "=2.0.0-rc.21", features = ["derive", "typescript"] }
 dashmap = "6.1.0"
 ip_rfc = "0.1.0"
 postcard = { version = "1.1.2", features = ["alloc"] }
 anyhow = "1.0.100"
 rkyv = "0.8.12"
+rustc-hash = "2.1.1"
+specta-typescript = "0.0.9"
 
 [profile.dev]
 opt-level = 0
@@ -36,6 +41,7 @@ incremental = true
 # codegen-units = 1
 # lto = true
 # strip = true
+debug = "full"
 
 # run build scripts at opt-level 3 because ipgeo-state has to read the database which takes
 # 20 seconds in development mode.

@@ -11,7 +11,15 @@ use std::{
 };
 
 /// A memory-efficient store of named locations by their coordinates.
-#[derive(Default, PartialEq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+#[derive(
+    Default,
+    PartialEq,
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    serde::Serialize,
+    serde::Deserialize,
+)]
 pub(crate) struct LocationStore {
     /// Coordinate to a single identifiable "location" (city) key
     pub(crate) coordinates: HashMap<Coordinate, LocationKey, FxBuildHasher>,
@@ -86,7 +94,7 @@ impl StringDict {
             return None;
         }
 
-        let s = CompactString::from_utf8(item).ok()?.to_lowercase();
+        let s = CompactString::from_utf8(item).ok()?;
         let (idx, _) = self.0.insert_full(s);
 
         NonZero::new((idx + 1) as u32)

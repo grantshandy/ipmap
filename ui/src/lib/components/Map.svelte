@@ -5,13 +5,11 @@
   import * as leaflet from "leaflet";
   import { GeodesicLine } from "leaflet.geodesic";
   import "leaflet-edgebuffer";
-  import {
-    CAPTURE_COLORS,
-    CAPTURE_VARY_SIZE,
-    lerp,
-    type ConnectionDirection,
-    type Coordinate,
-  } from "$lib/bindings";
+
+  import { type ConnectionDirection } from "tauri-plugin-pcap-api";
+  import { type Coordinate } from "tauri-plugin-ipgeo-api";
+  import { CAPTURE_COLORS, CAPTURE_VARY_SIZE, lerp } from "$lib/utils";
+
   import { type MapArgs } from "$lib/page.svelte";
   import { fade } from "svelte/transition";
 
@@ -184,7 +182,7 @@
   out:fade={{ duration: 200 }}
   class="absolute top-0 left-0 h-full w-full"
 >
-  <div class="join join-vertical absolute top-2 left-2 z-[999] select-none">
+  <div class="join join-vertical absolute top-2 left-2 z-999 select-none">
     <button
       onclick={() => map?.zoomIn()}
       class="btn join-item btn-sm border-b-0 border-white text-xl font-bold"

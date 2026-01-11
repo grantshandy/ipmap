@@ -18,7 +18,14 @@ pub type Ipv4Database = SingleDatabase<Ipv4Addr>;
 pub type Ipv6Database = SingleDatabase<Ipv6Addr>;
 
 /// A database for a single address type.
-#[derive(PartialEq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+#[derive(
+    PartialEq,
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    serde::Serialize,
+    serde::Deserialize,
+)]
 pub struct SingleDatabase<Ip: GenericIp> {
     pub(crate) ips: IpLookupTable<Ip, Coordinate>,
     pub(crate) locations: LocationStore,

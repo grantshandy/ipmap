@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { database, type Result } from "$lib/bindings";
+  import database, { type Result } from "tauri-plugin-ipgeo-api";
   import { Address4, Address6 } from "ip-address";
 
   const validDomainName =
@@ -14,18 +14,20 @@
 
   let { search, disabled, defaultValue }: Props = $props();
 
-  let input = $state(defaultValue ?? "");
+  let input = $derived(defaultValue ?? "");
   let trimmedInput = $derived(input.replace(/\s/g, ""));
 
   let isDomainName: boolean = $derived(validDomainName.test(trimmedInput));
 
   let ipv4: string | null = $derived(
-    database.ipv4Enabled && Address4.isValid(trimmedInput)
+    (database.ipv4Enabled || database.anyEnabled) &&
+      Address4.isValid(trimmedInput)
       ? new Address4(trimmedInput).correctForm()
       : null,
   );
   let ipv6: string | null = $derived(
-    database.ipv6Enabled && Address6.isValid(trimmedInput)
+    (database.ipv6Enabled || database.anyEnabled) &&
+      Address6.isValid(trimmedInput)
       ? new Address6(trimmedInput).correctForm()
       : null,
   );

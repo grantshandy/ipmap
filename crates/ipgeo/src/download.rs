@@ -20,7 +20,7 @@ use crate::{
 use async_compression::tokio::bufread::GzipDecoder;
 use bytesize::ByteSize;
 use compact_str::CompactString;
-use csv_async::AsyncReaderBuilder;
+use csv_async::{AsyncReaderBuilder, ByteRecord};
 use dashmap::DashMap;
 use futures::StreamExt;
 use rustc_hash::FxBuildHasher;
@@ -251,14 +251,11 @@ async fn concurrent_table_download<Ip: GenericIp>(
         .buffer_capacity(64 * 1024) // 64KB internal buffer
         .create_reader(GzipDecoder::new(StreamReader::new(stream)));
 
-    let mut byte_records = reader.byte_records();
-
+    let mut record = ByteRecord::new();
     let mut table = IpLookupTable::new();
     let mut size = 0;
 
-    while let Some(res) = byte_records.next().await {
-        let record = res?;
-
+    while reader.read_byte_record(&mut record).await? {
         if record.len() < NUM_RECORDS {
             return Err(anyhow::anyhow!("Not enough columns"));
         }

@@ -9,23 +9,22 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
-child-ipc = { path = "../child-ipc" }
+
+[dev-dependencies]
+specta-typescript.workspace = true
 
 [dependencies]
 tauri = { workspace = true, features = [] }
-specta.workspace = true
-serde.workspace = true
-tracing.workspace = true
-tauri-specta.workspace = true
 tokio.workspace = true
+serde.workspace = true
+
+tracing.workspace = true
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
-dashmap.workspace = true
+
 tauri-plugin-opener = "2"
 tauri-plugin-dialog.workspace = true
-specta-typescript = "0.0.9"
-child-ipc = { path = "../child-ipc", features = ["specta", "parent"] }
-ipgeo = { path = "../ipgeo", features = ["download"] }
-dns-lookup = "3.0.1"
-public-ip-address = "0.4.0"
-anyhow.workspace = true
-rkyv.workspace = true
+tauri-plugin-ipgeo = { path = "../tauri-plugin-ipgeo" }
+tauri-plugin-pcap = { path = "../tauri-plugin-pcap" }
+
+specta.workspace = true
+tauri-specta.workspace = true

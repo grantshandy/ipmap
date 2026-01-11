@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { APP_VERSION, PLATFORM } from "$lib/bindings";
+  import { APP_VERSION } from "$lib/bindings";
+
   import Link from "$lib/components/Link.svelte";
   import AppLogo from "../../../../crates/desktop/icons/icon.svg?raw";
 </script>

@@ -2,7 +2,7 @@
   import ArrowIntoBoxIcon from "$lib/../assets/arrow-into-box-symbolic.svg?raw";
   import UserTrashIcon from "$lib/../assets/user-trash-symbolic.svg?raw";
 
-  import { database, type DbSetInfo } from "$lib/bindings";
+  import database, { type DbSetInfo } from "tauri-plugin-ipgeo-api";
 </script>
 
 <div class="float-right flex items-center justify-end space-x-2 select-none">
