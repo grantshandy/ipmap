@@ -1,9 +1,19 @@
 <script lang="ts">
   import {
-    renderDeviceName,
     type Pcap,
     type SessionCallbacks,
-  } from "$lib/bindings";
+    type Device,
+  } from "tauri-plugin-pcap-api";
+
+  import { PLATFORM } from "$lib/bindings";
+
+  export const renderDeviceName = async (device: Device): Promise<string> => {
+    if ((PLATFORM as any) === "windows") {
+      return device.description ?? device.name;
+    } else {
+      return `${device.name}${device.description ? ": (" + device.description + ")" : ""}`;
+    }
+  };
 
   let {
     pcap,

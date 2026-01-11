@@ -1,7 +1,7 @@
 use child_ipc::Error;
 
-pub mod capture;
-pub mod traceroute;
+mod capture;
+mod traceroute;
 
 pub use capture::*;
 pub use traceroute::*;

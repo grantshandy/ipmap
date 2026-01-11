@@ -14,7 +14,7 @@
 
   let { search, disabled, defaultValue }: Props = $props();
 
-  let input = $state(defaultValue ?? "");
+  let input = $derived(defaultValue ?? "");
   let trimmedInput = $derived(input.replace(/\s/g, ""));
 
   let isDomainName: boolean = $derived(validDomainName.test(trimmedInput));

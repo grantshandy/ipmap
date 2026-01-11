@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-traceroute-enabled"
+description = "Enables the traceroute_enabled command without any pre-configured scope."
+commands.allow = ["traceroute_enabled"]
+
+[[permission]]
+identifier = "deny-traceroute-enabled"
+description = "Denies the traceroute_enabled command without any pre-configured scope."
+commands.deny = ["traceroute_enabled"]

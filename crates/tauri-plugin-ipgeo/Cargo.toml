@@ -1,11 +1,8 @@
 [package]
 name = "tauri-plugin-ipgeo"
 version = "0.1.0"
-authors = [ "Grant Handy" ]
-description = ""
-edition = "2021"
-rust-version = "1.77.2"
-exclude = ["/examples", "/dist-js", "/guest-js", "/node_modules"]
+exclude = ["/dist", "/guest-js", "/node_modules"]
+edition = "2024"
 links = "tauri-plugin-ipgeo"
 
 [dependencies]

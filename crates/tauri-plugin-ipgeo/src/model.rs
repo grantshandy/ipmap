@@ -241,6 +241,7 @@ impl<C> DbSet<C> {
     }
 
     /// Returns true if no databases are loaded in this set.
+    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.loaded.is_empty()
     }

@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-pcap-info"
+description = "Enables the pcap_info command without any pre-configured scope."
+commands.allow = ["pcap_info"]
+
+[[permission]]
+identifier = "deny-pcap-info"
+description = "Denies the pcap_info command without any pre-configured scope."
+commands.deny = ["pcap_info"]

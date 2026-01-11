@@ -2176,10 +2176,6 @@ dependencies = [
 name = "ipmap"
 version = "5.0.0"
 dependencies = [
- "anyhow",
- "child-ipc",
- "dashmap",
- "ipgeo",
  "serde",
  "specta",
  "specta-typescript",
@@ -2188,6 +2184,7 @@ dependencies = [
  "tauri-plugin-dialog",
  "tauri-plugin-ipgeo",
  "tauri-plugin-opener",
+ "tauri-plugin-pcap",
  "tauri-specta",
  "tokio",
  "tracing",
@@ -4807,6 +4804,25 @@ dependencies = [
  "url",
  "windows",
  "zbus",
+]
+
+[[package]]
+name = "tauri-plugin-pcap"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "child-ipc",
+ "dashmap",
+ "ipgeo",
+ "serde",
+ "specta",
+ "specta-typescript",
+ "tauri",
+ "tauri-plugin",
+ "tauri-plugin-ipgeo",
+ "tauri-specta",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]

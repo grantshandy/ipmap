@@ -1,11 +1,8 @@
 <script lang="ts">
   import Link from "./Link.svelte";
 
-  import {
-    PLATFORM,
-    printError as printError,
-    type Error,
-  } from "$lib/bindings";
+  import { printError, type Error } from "tauri-plugin-pcap-api";
+  import { PLATFORM } from "$lib/bindings";
 
   let {
     error = $bindable(),

@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-print-error"
+description = "Enables the print_error command without any pre-configured scope."
+commands.allow = ["print_error"]
+
+[[permission]]
+identifier = "deny-print-error"
+description = "Denies the print_error command without any pre-configured scope."
+commands.deny = ["print_error"]

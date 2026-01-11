@@ -17,9 +17,7 @@
     "dist"
   ],
   "scripts": {
-    "gen-bindings": "cargo test -p tauri-plugin-ipgeo && sed -i '/export type TAURI_CHANNEL<TSend> = null/d' guest-js/bindings.ts",
-    "gen-typescript": "tsup guest-js/index.svelte.ts --format esm,cjs --dts --out-dir dist",
-    "build": "pnpm run gen-bindings && pnpm run gen-typescript"
+    "build": "tsup guest-js/index.svelte.ts --format esm,cjs --dts --out-dir dist"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0",

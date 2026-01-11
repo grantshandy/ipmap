@@ -20,6 +20,7 @@
     "@tauri-apps/plugin-dialog": "~2.4.2",
     "@tauri-apps/plugin-opener": "^2.5.2",
     "tauri-plugin-ipgeo-api": "file:../crates/tauri-plugin-ipgeo",
+    "tauri-plugin-pcap-api": "file:../crates/tauri-plugin-pcap",
     "ip-address": "^10.1.0",
     "leaflet": "^1.9.4",
     "leaflet-edgebuffer": "^1.0.7",

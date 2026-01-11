@@ -2,10 +2,11 @@
   import GenericMap from "./GenericMap.svelte";
 
   import database from "tauri-plugin-ipgeo-api";
-  import { renderLocationName, type Hop } from "$lib/bindings";
+  import { type Hop } from "tauri-plugin-pcap-api";
   import { fade, fly } from "svelte/transition";
-  import { pageState, type MapComponent } from "$lib/page.svelte";
+  import { type MapComponent } from "$lib/page.svelte";
   import GlobeSwitcher from "./GlobeSwitcher.svelte";
+  import { renderLocationName } from "$lib/utils";
 
   type Props = {
     ip: string;
@@ -42,11 +43,11 @@
 </script>
 
 <GenericMap bind:map>
-  <div class="absolute bottom-2 left-2 z-[999]">
+  <div class="absolute bottom-2 left-2 z-999">
     <GlobeSwitcher />
   </div>
 
-  <div class="absolute top-2 right-2 z-[999] flex items-center space-x-2">
+  <div class="absolute top-2 right-2 z-999 flex items-center space-x-2">
     <button
       onclick={close}
       class="btn btn-sm join-item border-white text-xl select-none"
@@ -67,7 +68,7 @@
 {#snippet hopsPopup()}
   {#if !hopsOpen}
     <div
-      class="absolute right-2 bottom-0 z-[999] flex w-64 flex-col items-center select-none"
+      class="absolute right-2 bottom-0 z-999 flex w-64 flex-col items-center select-none"
     >
       <button
         in:fade={{ duration: 100 }}
@@ -80,7 +81,7 @@
   {:else}
     <div
       transition:fly={{ y: 300, duration: 500 }}
-      class="absolute right-2 bottom-0 z-[999] flex w-64 flex-col select-none"
+      class="absolute right-2 bottom-0 z-999 flex w-64 flex-col select-none"
     >
       <button
         onclick={() => (hopsOpen = false)}

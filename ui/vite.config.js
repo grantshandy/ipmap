@@ -47,7 +47,7 @@ export default defineConfig(async () => ({
     },
 
     fs: {
-      allow: ["../crates/tauri-plugin-ipgeo"],
+      allow: ["../crates/tauri-plugin-ipgeo", "../crates/tauri-plugin-pcap"],
     },
   },
 }));

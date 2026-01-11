@@ -6,8 +6,9 @@
     type LookupInfo,
     type Location,
     type Result,
-    renderLocationName,
-  } from "$lib/bindings";
+  } from "tauri-plugin-ipgeo-api";
+
+  import { renderLocationName } from "$lib/utils";
 
   import database from "tauri-plugin-ipgeo-api";
 
@@ -45,7 +46,7 @@
 </script>
 
 <GenericMap bind:map>
-  <div class=" absolute top-2 right-2 z-[999] flex items-center space-x-2">
+  <div class=" absolute top-2 right-2 z-999 flex items-center space-x-2">
     <GlobeSwitcher />
     <div class="rounded-box bg-base-300 border">
       <IpSearchBox {search} />
@@ -62,7 +63,7 @@
 {#snippet info(ip: string, loc: Location)}
   <div
     transition:fade={{ duration: 200 }}
-    class="bg-base-200 rounded-box absolute right-2 bottom-2 z-[999] border p-2 text-right select-none"
+    class="bg-base-200 rounded-box absolute right-2 bottom-2 z-999 border p-2 text-right select-none"
   >
     <p class="underline">{ip}</p>
     <p class="text-sm">{renderLocationName(loc)}</p>
@@ -77,7 +78,7 @@
 {#snippet error(msg: string)}
   <p
     transition:fade={{ duration: 200 }}
-    class="rounded-box bg-error absolute bottom-2 left-2 z-[999] p-2 text-sm select-none"
+    class="rounded-box bg-error absolute bottom-2 left-2 z-999 p-2 text-sm select-none"
   >
     {msg}
   </p>

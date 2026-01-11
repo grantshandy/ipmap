@@ -1,5 +1,5 @@
 use std::{
-    io,
+    fs, io,
     path::PathBuf,
     sync::{Arc, Mutex},
 };
@@ -15,8 +15,6 @@ use tauri::{
     path::{BaseDirectory, PathResolver},
 };
 use tauri_specta::Event;
-
-pub mod commands;
 
 struct CaptureSession {
     stop: StopCallback,
@@ -46,14 +44,14 @@ impl PcapState {
             .unwrap();
     }
 
-    pub async fn info(&self, app: AppHandle) -> Result<PcapStateInfo, Error> {
+    pub async fn info<R: Runtime>(&self, app: AppHandle<R>) -> Result<PcapStateInfo, Error> {
         let capture: Option<Device> = self
             .capture
             .lock()
             .ok()
             .and_then(|c| c.as_ref().map(|c| c.device.clone()));
 
-        let child = resolve_child_path(app.path())?;
+        let child = ensure_child_path(&app)?;
 
         match ipc::call_child_process(child, Command::PcapStatus).await? {
             Response::PcapStatus(status) => Ok(PcapStateInfo {
@@ -84,7 +82,7 @@ pub enum PcapStateChange {
 }
 
 impl PcapStateChange {
-    pub async fn emit(app: &AppHandle) {
+    pub async fn emit<R: Runtime>(app: &AppHandle<R>) {
         let info = match app.state::<PcapState>().inner().info(app.clone()).await {
             Ok(info) => Self::Ok(info),
             Err(err) => Self::Err(err),
@@ -94,21 +92,29 @@ impl PcapStateChange {
     }
 }
 
-pub(crate) fn resolve_child_path(resolver: &PathResolver<impl Runtime>) -> Result<PathBuf, Error> {
-    match resolver.resolve(
-        PathBuf::from("resources").join(EXE_NAME),
-        BaseDirectory::Resource,
-    ) {
-        Ok(path) => {
-            if path.try_exists().is_ok_and(|exists| exists) {
-                Ok(path)
-            } else {
-                Err(Error::message(
-                    ErrorKind::ChildNotFound,
-                    format!("{path:?} doesn't exist"),
-                ))
-            }
-        }
-        Err(err) => Err(Error::message(ErrorKind::ChildNotFound, err.to_string())),
+/// Get the path of the ipmap-child executable, copying it to the local app dir if it doesn't exist.
+pub(crate) fn ensure_child_path<R: Runtime>(handle: &AppHandle<R>) -> Result<PathBuf, Error> {
+    let child_path = handle
+        .path()
+        .app_local_data_dir()
+        .map_err(|e| Error::runtime(e.to_string()))?
+        .join(EXE_NAME);
+
+    if !child_path.exists() {
+        fs::write(&child_path, crate::CHILD_BYTES).map_err(|e| Error::runtime(e.to_string()))?;
+        tracing::debug!("copied child executable to {child_path:?}");
     }
+
+    // Make executable
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = fs::metadata(&child_path)
+            .map_err(|e| Error::runtime(e.to_string()))?
+            .permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&child_path, perms).map_err(|e| Error::runtime(e.to_string()))?;
+    }
+
+    Ok(child_path)
 }

@@ -6,7 +6,8 @@ members = [
     "crates/pcap-dyn",
     "crates/child",
     "crates/child-ipc",
-    "crates/tauri-plugin-ipgeo"
+    "crates/tauri-plugin-ipgeo",
+    "crates/tauri-plugin-pcap",
 ]
 
 package.rust-version = "1.86.0"

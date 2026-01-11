@@ -4,7 +4,7 @@ use child_ipc::{Command, Error, ErrorKind, Response, RunTraceroute, ipc};
 use ipgeo::LookupInfo;
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tauri::{AppHandle, Manager, State, ipc::Channel};
+use tauri::{AppHandle, Runtime, State, ipc::Channel};
 use tauri_plugin_ipgeo::{
     DbState,
     commands::{lookup_ip, my_location},
@@ -13,13 +13,13 @@ use tauri_plugin_ipgeo::{
 #[tauri::command]
 #[specta::specta]
 #[cfg_attr(windows, allow(unused_variables))]
-pub async fn traceroute_enabled(app: AppHandle) -> Result<(), Error> {
+pub async fn traceroute_enabled<R: Runtime>(app: AppHandle<R>) -> Result<(), Error> {
     #[cfg(windows)]
     return Ok(());
 
     #[cfg(not(windows))]
     {
-        let path = crate::pcap::resolve_child_path(app.path())?;
+        let path = crate::model::ensure_child_path(&app)?;
 
         match ipc::call_child_process(path.clone(), Command::TracerouteStatus).await? {
             Response::TraceStatus(true) => Ok(()),
@@ -34,13 +34,13 @@ pub async fn traceroute_enabled(app: AppHandle) -> Result<(), Error> {
 
 #[tauri::command]
 #[specta::specta]
-pub async fn run_traceroute(
-    app: AppHandle,
+pub async fn run_traceroute<R: Runtime>(
+    app: AppHandle<R>,
     db: State<'_, DbState>,
     params: RunTraceroute,
     progress: Channel<usize>,
 ) -> Result<Vec<Hop>, Error> {
-    let child_path = crate::pcap::resolve_child_path(app.path())?;
+    let child_path = crate::model::ensure_child_path(&app)?;
 
     let (child, exit) = ipc::spawn_child_process(child_path, Command::Traceroute(params)).await?;
 

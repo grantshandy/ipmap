@@ -46,7 +46,7 @@ fn test_db<T: Database<Ipv4Addr>>(label: &str, db: &T) {
     for _ in 0..TEST_COUNT {
         let loc = db.get(fastrand::u32(IP_MIN..=IP_MAX).into());
         if let Some(loc) = loc {
-            let crd = loc.crd;
+            let _crd = loc.crd;
         }
     }
 

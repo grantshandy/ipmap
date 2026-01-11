@@ -7,8 +7,9 @@
   import Traceroute from "$lib/pages/Traceroute.svelte";
   import Capture from "$lib/pages/Capture.svelte";
 
-  import { openAboutWindow, Pcap } from "$lib/bindings";
+  import { openAboutWindow } from "$lib/bindings";
   import database, { type DatabaseSource } from "tauri-plugin-ipgeo-api";
+  import { Pcap } from "tauri-plugin-pcap-api";
 
   type Page = "capture" | "search" | "trace";
 

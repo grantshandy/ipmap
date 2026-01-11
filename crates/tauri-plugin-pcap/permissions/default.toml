@@ -1,0 +1,15 @@
+"$schema" = "schemas/schema.json"
+
+[default]
+description = """
+This permission set configures if your
+application can use the plugin.
+"""
+permissions = [
+    "pcap:allow-start-capture",
+    "pcap:allow-stop-capture",
+    "pcap:allow-init-pcap",
+    "pcap:allow-traceroute-enabled",
+    "pcap:allow-run-traceroute",
+    "pcap:allow-print-error"
+]

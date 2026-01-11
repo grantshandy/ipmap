@@ -8,8 +8,8 @@
 //! coordinates their lifecycle and selection state.
 
 use tauri::{
-    plugin::{Builder, TauriPlugin},
     Manager, Runtime,
+    plugin::{Builder, TauriPlugin},
 };
 
 mod archive;
@@ -60,15 +60,31 @@ fn builder<R: Runtime>() -> tauri_specta::Builder<R> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use std::fs;
+
+    const BINDINGS_PATH: &str = "./guest-js/bindings.ts";
 
     #[test]
     fn export_types() {
         builder::<tauri::Wry>()
             .error_handling(tauri_specta::ErrorHandlingMode::Result)
             .export(
-                specta_typescript::Typescript::default(),
-                "./guest-js/bindings.ts",
+                specta_typescript::Typescript::default()
+                    .bigint(specta_typescript::BigIntExportBehavior::Number),
+                BINDINGS_PATH,
             )
             .unwrap();
+
+        // Remove duplicate TAURI_CHANNEL type from bindings.ts
+        fs::write(
+            BINDINGS_PATH,
+            fs::read_to_string(BINDINGS_PATH)
+                .unwrap()
+                .lines()
+                .filter(|line| line.trim() != "export type TAURI_CHANNEL<TSend> = null")
+                .collect::<Vec<_>>()
+                .join("\n"),
+        )
+        .unwrap();
     }
 }

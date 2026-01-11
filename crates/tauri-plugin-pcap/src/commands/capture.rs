@@ -3,20 +3,19 @@ use std::{
     net::IpAddr,
 };
 
-// use crate::db::DbState;
 use child_ipc::{Command, Connection, Connections, Error, ErrorKind, Response, RunCapture, ipc};
 use ipgeo::{Coordinate, Database, Location};
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tauri::{AppHandle, Manager, State, ipc::Channel};
+use tauri::{AppHandle, Runtime, State, ipc::Channel};
 use tauri_plugin_ipgeo::DbState;
 
-use crate::pcap::{PcapState, PcapStateChange, PcapStateInfo};
+use crate::model::{PcapState, PcapStateChange, PcapStateInfo};
 
 #[tauri::command]
 #[specta::specta]
-pub async fn start_capture(
-    app: AppHandle,
+pub async fn start_capture<R: Runtime>(
+    app: AppHandle<R>,
     pcap: State<'_, PcapState>,
     db: State<'_, DbState>,
     params: RunCapture,
@@ -24,7 +23,7 @@ pub async fn start_capture(
 ) -> Result<(), Error> {
     let device = params.device.clone();
 
-    let child_path = crate::pcap::resolve_child_path(app.path())?;
+    let child_path = crate::model::ensure_child_path(&app)?;
     let (child, exit) = ipc::spawn_child_process(child_path, Command::Capture(params)).await?;
 
     pcap.set_capture(device, exit);
@@ -67,8 +66,8 @@ pub async fn stop_capture(pcap: State<'_, PcapState>) -> Result<(), Error> {
 
 #[tauri::command]
 #[specta::specta]
-pub async fn init_pcap(
-    app: AppHandle,
+pub async fn init_pcap<R: Runtime>(
+    app: AppHandle<R>,
     state: State<'_, PcapState>,
 ) -> Result<PcapStateInfo, Error> {
     state.info(app).await

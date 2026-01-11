@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-lookup-ip"
+description = "Enables the lookup_ip command without any pre-configured scope."
+commands.allow = ["lookup_ip"]
+
+[[permission]]
+identifier = "deny-lookup-ip"
+description = "Denies the lookup_ip command without any pre-configured scope."
+commands.deny = ["lookup_ip"]

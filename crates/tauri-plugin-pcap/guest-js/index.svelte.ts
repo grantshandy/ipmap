@@ -1,14 +1,11 @@
 import { Channel } from "@tauri-apps/api/core";
 import type { Event, UnlistenFn } from "@tauri-apps/api/event";
+
 import {
-  CAPTURE_CONNECTION_TIMEOUT,
-  CAPTURE_REPORT_FREQUENCY,
-  displayError,
-  printError,
-} from ".";
-import {
+  PCAP_ERROR_KINDS,
   commands,
   events,
+  type Duration,
   type CaptureLocation,
   type CaptureLocations,
   type Connection,
@@ -17,7 +14,48 @@ import {
   type PcapStateChange,
   type PcapStateInfo,
   type Result,
-} from "./raw";
+} from "./bindings";
+
+export * from "./bindings";
+export type * from "./bindings";
+
+import * as dialog from "@tauri-apps/plugin-dialog";
+
+const displayError = (messageText: string) => {
+  console.error(messageText);
+  dialog.message(messageText, { title: "Database Error", kind: "error" });
+};
+
+export const traceroute = {
+  run: commands.runTraceroute,
+  enabled: commands.tracerouteEnabled,
+};
+
+export const printError = commands.printError;
+
+export const durationFromMillis = (milliseconds: number): Duration => {
+  const ONE_SECOND_IN_MILLIS = 1000;
+  const ONE_MILLI_IN_NANOS = 1_000_000; // 1 million nanoseconds in a millisecond
+
+  const secs = Math.floor(milliseconds / ONE_SECOND_IN_MILLIS);
+  const remainingMillis = milliseconds % ONE_SECOND_IN_MILLIS;
+  const nanos = remainingMillis * ONE_MILLI_IN_NANOS;
+
+  return {
+    secs,
+    nanos,
+  };
+};
+
+export const CAPTURE_CONNECTION_TIMEOUT: Duration = { secs: 1, nanos: 0 };
+export const CAPTURE_REPORT_FREQUENCY: Duration = durationFromMillis(100);
+
+export const isError = (value: unknown): value is Error =>
+  value !== null &&
+  typeof value === "object" &&
+  (!("message" in value) || typeof value.message === "string") &&
+  "kind" in value &&
+  PCAP_ERROR_KINDS.includes(value.kind as any);
 
 let startCalled = false;
 
@@ -137,7 +175,7 @@ export class Pcap {
       )
       .then((res) => {
         if (res.status == "error") {
-          printError(res.error).then(displayError);
+          commands.printError(res.error).then(displayError);
         }
       });
   };
@@ -148,7 +186,7 @@ export class Pcap {
 
     this.capture = null;
 
-    if (r.status == "error") printError(r.error).then(displayError);
+    if (r.status == "error") commands.printError(r.error).then(displayError);
   };
 
   /** Runs when the backend fires the pcap update state event */
@@ -159,7 +197,7 @@ export class Pcap {
       if (state.payload.status == "Ok") {
         info = state.payload;
       } else {
-        printError(state.payload).then(displayError);
+        commands.printError(state.payload).then(displayError);
         return;
       }
     } else {
