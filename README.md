@@ -13,7 +13,7 @@ which can display your computer's live network traffic and perform trace routes.
 | ![search](./screenshots/search.png) | ![capture](./screenshots/capture.png) | ![traceroute](./screenshots/traceroute.png) |
 
 ## Requirements
-On Linux, install [WebKitGTK](https://repology.org/project/webkitgtk/versions).
+On Linux, [WebKitGTK](https://repology.org/project/webkitgtk/versions) is the only uncommon dependency.
 
 ### Network Monitor
  - On Linux, install [`libpcap`](https://repology.org/project/libpcap/versions).
@@ -33,52 +33,32 @@ Enable-NetFirewallRule ICMPv6_IPMAP_ALLOW
 
 ## Building
 Requirements:
- - [General tauri prerequisites](https://tauri.app/start/prerequisites/)
+ - [Tauri prerequisites](https://tauri.app/start/prerequisites/)
  - [Rust](https://rust-lang.org)
  - [`tauri-cli`](https://v2.tauri.app/reference/cli/)
  - [`pnpm`](https://pnpm.io/)
 
 ```sh
- $ pnpm install -C ui
+ $ pnpm install
+ $ pnpm -r build
  $ cargo build --release --package ipmap-child
  $ cargo tauri build
 ```
 
 ## Source Contents
  - `/crates`
-    - `/desktop` - The main program entrypoint, starts tauri and generates Typescript IPC types.
+    - `/desktop` - The main program entrypoint.
     - `/ipgeo` - Data structures for representing ip-geolocation databases.
-    - `/ipgeo-state` - UI state and methods for loading and switching ip-geolocation databases.
+    - `/tauri-plugin-ipgeo` - Svelte store library and tauri plugin for loading/switching/querying ip-geolocation databases.
     - `/pcap-dyn` - Dynamic bindings to the [`libpcap`](https://www.tcpdump.org/) C library, modeled after the [`pcap`](https://crates.io/crates/pcap) crate.
-    - `/pcap-state` - UI state and command for packet capture.
+    - `/tauri-plugin-pcap` - Svelte store library and tauri plugin for capturing on network devices and running traceroutes.
     - `/child` - A separate child process (`ipmap-child`) for executing privileged features such as packet capture and traceroute.
-    - `/child-ipc` - Shared types between `pcap-state` and `ipmap-child` for IPC and methods for executing `ipmap-child`.
+    - `/child-ipc` - Shared types between `tauri-plugin-pcap` and `ipmap-child` for IPC methods executed on `ipmap-child`.
  - `/ui` - The desktop UI, written with Svelte and Typescript.
 
-```mermaid
-flowchart TD
-    subgraph ipmap["ipmap process"]
-        subgraph backend["Rust Backend"]
-            desktop -> ipgeo
-        end
-
-        frontend["Native WebView UI (Svelte)"] <--specta generated typescript IPC--> desktop
-    end
-
-    subgraph child["ipmap-child process"]
-        trippy-core
-        pcap-dyn
-    end
-
-    desktop <--child-ipc types--> child
-```
-
 ## TODO:
- - [ ] Check MacOS compatibility.
- - [ ] Improve logging.
- - [ ] Add database file association.
- - [ ] Find a new project name (?).
  - [ ] Animated demo in readme.
+ - [ ] Check MacOS compatibility.
  - [ ] Light/dark mode with system. Try to match native UI?
  - [ ] Translate user interface.
  - [ ] Get default network interfaces with native APIs.
@@ -88,5 +68,6 @@ flowchart TD
    - [ ] Different map layers?
    - [ ] Capture report frequency and connection timeout.
  - [ ] Reverse location-to-ip-block search
- - [ ] Location Heatmap generation (custom webview protocol that serves leaflet tiles?)
- - [ ] Set child permissions through UI
+ - [ ] Set child permissions through UI pkexec
+ - [ ] NixOS packaging
+ - [ ] Fix old archlinux AUR script.
