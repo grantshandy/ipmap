@@ -21,7 +21,7 @@ serde.workspace = true
 tracing.workspace = true
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 
-tauri-plugin-opener = "2"
+tauri-plugin-opener = "2.5.3"
 tauri-plugin-dialog.workspace = true
 tauri-plugin-ipgeo = { path = "../tauri-plugin-ipgeo" }
 tauri-plugin-pcap = { path = "../tauri-plugin-pcap" }

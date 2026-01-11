@@ -62,7 +62,7 @@ importers:
         specifier: ~2.4.2
         version: 2.4.2
       '@tauri-apps/plugin-opener':
-        specifier: ^2.5.2
+        specifier: ^2.5.3
         version: 2.5.3
       ip-address:
         specifier: ^10.1.0
