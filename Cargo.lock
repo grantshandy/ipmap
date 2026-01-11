@@ -4815,6 +4815,7 @@ dependencies = [
  "dashmap",
  "ipgeo",
  "serde",
+ "sha2",
  "specta",
  "specta-typescript",
  "tauri",

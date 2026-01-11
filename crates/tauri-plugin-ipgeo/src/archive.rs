@@ -11,9 +11,9 @@ use std::{
 
 use memmap2::{Mmap, MmapOptions};
 use rkyv::{
+    Archive, Serialize,
     rancor::{self, Strategy},
     ser::{allocator::ArenaHandle, writer::IoWriter},
-    Archive, Serialize,
 };
 use rustc_hash::FxHasher;
 use std::io::{Read, Seek, SeekFrom};

@@ -2,17 +2,27 @@
 
 use std::{net::IpAddr, path::PathBuf, time::Duration};
 
-use ipgeo::{download::CombinedDatabaseSource, CombinedDatabase, Database, LookupInfo};
-use tauri::{ipc::Channel, AppHandle, Runtime, State};
+use ipgeo::{CombinedDatabase, Database, LookupInfo, download::CombinedDatabaseSource};
+use tauri::{AppHandle, Runtime, State, ipc::Channel};
 
-use crate::{my_loc, DatabaseSource, DbState, DbStateInfo, DynamicDatabase};
+use crate::{DatabaseSource, DbState, DbStateInfo, DynamicDatabase, my_loc};
 
 const DNS_LOOKUP_TIMEOUT: Duration = Duration::from_millis(300);
 
+#[cfg(debug_assertions)]
 macro_rules! ip_location_db {
     ($path:literal) => {
-        // TODO: change back
         std::borrow::Cow::Borrowed(concat!("http://localhost:8000/", $path))
+    };
+}
+
+#[cfg(not(debug_assertions))]
+macro_rules! ip_location_db {
+    ($path:literal) => {
+        std::borrow::Cow::Borrowed(concat!(
+            "https://github.com/sapics/ip-location-db/raw/refs/heads/main/",
+            $path
+        ))
     };
 }
 
