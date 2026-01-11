@@ -16,6 +16,7 @@ tracing.workspace = true
 tokio.workspace = true
 dashmap.workspace = true
 serde.workspace = true
+sha2 = "0.10.9"
 
 specta.workspace = true
 tauri-specta.workspace = true
@@ -25,3 +26,4 @@ specta-typescript.workspace = true
 
 [build-dependencies]
 tauri-plugin.workspace = true
+sha2 = "0.10.9"

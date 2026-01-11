@@ -7,20 +7,9 @@ use tauri::{
 
 use crate::model::PcapState;
 
+pub(crate) mod child;
 pub mod commands;
 pub mod model;
-
-#[cfg(target_os = "windows")]
-const CHILD_BYTES: &[u8] = include_bytes!(concat!(
-    env!("CARGO_MANIFEST_DIR"),
-    "\\..\\..\\target\\release\\ipmap-child.exe"
-));
-
-#[cfg(not(target_os = "windows"))]
-const CHILD_BYTES: &[u8] = include_bytes!(concat!(
-    env!("CARGO_MANIFEST_DIR"),
-    "/../../target/release/ipmap-child"
-));
 
 const PLUGIN_NAME: &str = "pcap";
 
