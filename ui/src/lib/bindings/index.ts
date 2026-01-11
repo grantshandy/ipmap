@@ -11,9 +11,6 @@ import {
   type Throughput,
 } from "./raw";
 
-import database from "./database.svelte";
-export { database };
-
 export * from "./capture.svelte";
 
 export type * from "./raw";

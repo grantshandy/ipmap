@@ -11,9 +11,9 @@ use std::{
 
 use memmap2::{Mmap, MmapOptions};
 use rkyv::{
-    Archive, Serialize,
     rancor::{self, Strategy},
     ser::{allocator::ArenaHandle, writer::IoWriter},
+    Archive, Serialize,
 };
 use rustc_hash::FxHasher;
 use std::io::{Read, Seek, SeekFrom};
@@ -194,6 +194,7 @@ impl<T> FileResource<T> {
     }
 
     /// The path to the underlying archive file resource.
+    #[allow(dead_code)]
     pub fn path(&self) -> &Path {
         &self.path
     }

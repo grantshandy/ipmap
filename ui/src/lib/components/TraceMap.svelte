@@ -1,7 +1,8 @@
 <script lang="ts">
   import GenericMap from "./GenericMap.svelte";
 
-  import { database, renderLocationName, type Hop } from "$lib/bindings";
+  import database from "tauri-plugin-ipgeo-api";
+  import { renderLocationName, type Hop } from "$lib/bindings";
   import { fade, fly } from "svelte/transition";
   import { pageState, type MapComponent } from "$lib/page.svelte";
   import GlobeSwitcher from "./GlobeSwitcher.svelte";

@@ -2179,21 +2179,16 @@ dependencies = [
  "anyhow",
  "child-ipc",
  "dashmap",
- "dns-lookup",
  "ipgeo",
- "memmap2",
- "public-ip-address",
- "rkyv",
- "rustc-hash",
  "serde",
  "specta",
  "specta-typescript",
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",
+ "tauri-plugin-ipgeo",
  "tauri-plugin-opener",
  "tauri-specta",
- "time",
  "tokio",
  "tracing",
  "tracing-subscriber",
@@ -4767,6 +4762,29 @@ dependencies = [
  "thiserror 2.0.17",
  "toml 0.9.10+spec-1.1.0",
  "url",
+]
+
+[[package]]
+name = "tauri-plugin-ipgeo"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "dashmap",
+ "dns-lookup",
+ "ipgeo",
+ "memmap2",
+ "public-ip-address",
+ "rkyv",
+ "rustc-hash",
+ "serde",
+ "specta",
+ "specta-typescript",
+ "tauri",
+ "tauri-plugin",
+ "tauri-specta",
+ "time",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]

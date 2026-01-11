@@ -1,6 +1,5 @@
 use tauri::Manager;
 
-pub mod db;
 pub mod pcap;
 pub mod utils;
 
@@ -9,21 +8,9 @@ pub fn run() {
     tracing_subscriber::fmt::init();
 
     let ts_export_builder = tauri_specta::Builder::<tauri::Wry>::new()
-        .events(tauri_specta::collect_events![
-            db::DbStateChange,
-            pcap::PcapStateChange
-        ])
+        .events(tauri_specta::collect_events![pcap::PcapStateChange])
         .commands(tauri_specta::collect_commands![
             utils::open_about_window,
-            db::commands::refresh_cache,
-            db::commands::download_source,
-            db::commands::unload_database,
-            db::commands::database_state,
-            db::commands::set_selected_database,
-            db::commands::lookup_ip,
-            db::commands::lookup_dns,
-            db::commands::lookup_host,
-            db::commands::my_location,
             pcap::commands::init_pcap,
             pcap::commands::start_capture,
             pcap::commands::stop_capture,
@@ -48,11 +35,11 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_ipgeo::init())
         .invoke_handler(ts_export_builder.invoke_handler())
         .setup(move |app| {
             ts_export_builder.mount_events(app);
 
-            app.manage(db::DbState::new(app.handle())?);
             app.manage(pcap::PcapState::default());
 
             Ok(())

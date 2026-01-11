@@ -1,19 +1,9 @@
-//! Database management for IP geolocation archives.
-//!
-//! This module provides abstractions for loading, caching, selecting, and managing
-//! multiple IP geolocation databases. It supports memory-mapped, checksummed archives
-//! and exposes APIs for querying location and coordinate data by IP address.
-//!
-//! The main entry point is [`DbState`], which tracks all loaded databases and
-//! coordinates their lifecycle and selection state.
-
 use std::{
     fs,
     marker::PhantomData,
     net::{IpAddr, Ipv4Addr, Ipv6Addr},
     path::PathBuf,
     sync::{Arc, RwLock},
-    time::Duration,
 };
 
 use dashmap::{DashMap, DashSet};
@@ -21,18 +11,13 @@ use ipgeo::{ArchivedGenericDatabase, Coordinate, Database, Location};
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Manager, Runtime};
 use tauri_specta::Event;
 
-pub mod archive;
-pub mod commands;
-pub mod disk;
-pub mod my_loc;
-
-use archive::FileResource;
-use disk::{ArchivedDynamicDatabase, DatabaseSource, DiskArchive, DynamicDatabase};
-
-const DNS_LOOKUP_TIMEOUT: Duration = Duration::from_millis(300);
+use crate::{
+    archive::{self, FileResource},
+    disk::{ArchivedDynamicDatabase, DatabaseSource, DiskArchive, DynamicDatabase},
+};
 
 /// Tracks the state of all loaded IP geolocation databases, including IPv4, IPv6,
 /// and combined IPv4/IPv6 archives.
@@ -50,7 +35,7 @@ pub struct DbState {
 
 impl DbState {
     /// Constructs a new [`DbState`] using the application's data directory.
-    pub fn new(handle: &AppHandle) -> Result<Self, tauri::Error> {
+    pub fn new<R: Runtime>(handle: &AppHandle<R>) -> Result<Self, tauri::Error> {
         Ok(DbState {
             cache_dir: handle.path().app_data_dir()?.join("dbs"),
             ipv4: DbSet::default(),
@@ -62,7 +47,7 @@ impl DbState {
 
     /// Returns a summary of the current database state,
     /// including loaded and selected databases, intended to be sent to the frontend.
-    fn info(&self) -> DbStateInfo {
+    pub fn info(&self) -> DbStateInfo {
         DbStateInfo {
             ipv4: self.ipv4.info(),
             ipv6: self.ipv6.info(),
@@ -71,7 +56,7 @@ impl DbState {
     }
 
     /// Emits a state change event to the frontend, reflecting the current database state.
-    pub fn emit_info(&self, app: &AppHandle) {
+    pub fn emit_info<R: Runtime>(&self, app: &AppHandle<R>) {
         let _ = DbStateChange(self.info()).emit(app);
     }
 
@@ -124,7 +109,7 @@ impl DbState {
     ///
     /// Skips databases that are already loaded, and logs errors for any corrupt or unreadable archives.
     pub async fn refresh_cache(&self) -> anyhow::Result<()> {
-        tracing::info!("refreshing from cache dir {:?}", self.cache_dir);
+        tracing::debug!("refreshing from cache dir {:?}", self.cache_dir);
 
         let loaded_checksums = self.loaded_checksums.clone();
         let cache_dir = self.cache_dir.clone();

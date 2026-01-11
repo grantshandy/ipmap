@@ -5,7 +5,6 @@
   import {
     CAPTURE_COLORS,
     CAPTURE_SHOW_NOT_FOUND,
-    database,
     renderLocationName,
     throughputInfo,
     type Pcap,
@@ -14,6 +13,7 @@
     CAPTURE_SHOW_ARCS,
     CAPTURE_SHOW_MARKERS,
   } from "$lib/bindings";
+  import database from "tauri-plugin-ipgeo-api";
   import { onDestroy } from "svelte";
   import { type MapComponent } from "$lib/page.svelte";
   import GlobeSwitcher from "$lib/components/GlobeSwitcher.svelte";

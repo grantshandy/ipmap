@@ -1,0 +1,35 @@
+[package]
+name = "tauri-plugin-ipgeo"
+version = "0.1.0"
+authors = [ "Grant Handy" ]
+description = ""
+edition = "2021"
+rust-version = "1.77.2"
+exclude = ["/examples", "/dist-js", "/guest-js", "/node_modules"]
+links = "tauri-plugin-ipgeo"
+
+[dependencies]
+ipgeo = { path = "../ipgeo", features = ["download"] }
+
+tauri.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+tokio.workspace = true
+rustc-hash.workspace = true
+dashmap.workspace = true
+rkyv.workspace = true
+serde.workspace = true
+
+memmap2 = "0.9.9"
+time = "0.3.44"
+public-ip-address = "0.4.0"
+dns-lookup = "3.0.1"
+
+specta.workspace = true
+tauri-specta.workspace = true
+
+[dev-dependencies]
+specta-typescript.workspace = true
+
+[build-dependencies]
+tauri-plugin.workspace = true

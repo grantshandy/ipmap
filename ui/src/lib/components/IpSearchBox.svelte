@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { database, type Result } from "$lib/bindings";
+  import database, { type Result } from "tauri-plugin-ipgeo-api";
   import { Address4, Address6 } from "ip-address";
 
   const validDomainName =

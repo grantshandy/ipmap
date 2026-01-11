@@ -3,12 +3,14 @@
   import IpSearchBox from "$lib/components/IpSearchBox.svelte";
 
   import {
-    database,
     type LookupInfo,
     type Location,
     type Result,
     renderLocationName,
   } from "$lib/bindings";
+
+  import database from "tauri-plugin-ipgeo-api";
+
   import { fade } from "svelte/transition";
   import { type MapComponent } from "$lib/page.svelte";
   import GlobeSwitcher from "$lib/components/GlobeSwitcher.svelte";

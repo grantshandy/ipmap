@@ -4,19 +4,26 @@ import {
   type DbStateInfo,
   type DbSetInfo,
   type DatabaseSource,
-} from "./raw";
+} from "./bindings";
 
 import * as dialog from "@tauri-apps/plugin-dialog";
-import { displayError } from "./error";
 import { Channel } from "@tauri-apps/api/core";
+
+export type * from "./bindings";
+
+const displayError = (messageText: string) => {
+  console.error(messageText);
+  dialog.message(messageText, { title: "Database Error", kind: "error" });
+};
+
+type LoadingState = { name: string | null; progress: number | null } | null;
 
 class Database implements DbStateInfo {
   ipv4: DbSetInfo = $state({ loaded: [], selected: null });
   ipv6: DbSetInfo = $state({ loaded: [], selected: null });
   combined: DbSetInfo = $state({ loaded: [], selected: null });
 
-  loading: { name: string | null; progress: number | null } | null =
-    $state(null);
+  loading: LoadingState | null = $state(null);
 
   combinedEnabled: boolean = $derived(this.combined.selected != null);
   ipv4Enabled: boolean = $derived(this.ipv4.selected != null);
@@ -27,7 +34,11 @@ class Database implements DbStateInfo {
   );
 
   constructor() {
-    commands.refreshCache();
+    commands
+      .refreshCache()
+      .then((ev) =>
+        ev.status == "ok" ? this.update(ev.data) : displayError(ev.error),
+      );
     events.dbStateChange.listen((ev) => this.update(ev.payload));
   }
 
@@ -99,24 +110,9 @@ class Database implements DbStateInfo {
     if (name) commands.unloadDatabase(name);
   };
 
-  /**
-   * Lookup a given IP address in the currently selected database(s).
-   */
   lookupIp = commands.lookupIp;
-
-  /**
-   * Get a hostname with the system for a given IP address.
-   */
   lookupDns = commands.lookupDns;
-
-  /**
-   * Get a hostname with the system for a given IP address.
-   */
   lookupHost = commands.lookupHost;
-
-  /**
-   * Attempt to get the user's current location
-   */
   myLocation = commands.myLocation;
 }
 

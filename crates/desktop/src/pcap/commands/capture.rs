@@ -3,12 +3,13 @@ use std::{
     net::IpAddr,
 };
 
-use crate::db::DbState;
+// use crate::db::DbState;
 use child_ipc::{Command, Connection, Connections, Error, ErrorKind, Response, RunCapture, ipc};
 use ipgeo::{Coordinate, Database, Location};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tauri::{AppHandle, Manager, State, ipc::Channel};
+use tauri_plugin_ipgeo::DbState;
 
 use crate::pcap::{PcapState, PcapStateChange, PcapStateInfo};
 

@@ -1,0 +1,18 @@
+"$schema" = "schemas/schema.json"
+
+[default]
+description = """
+This permission set configures if your
+application can use the plugin.
+"""
+permissions = [
+    "ipgeo:allow-refresh-cache",
+    "ipgeo:allow-download-source",
+    "ipgeo:allow-unload-database",
+    "ipgeo:allow-set-selected-database",
+    "ipgeo:allow-database-state",
+    "ipgeo:allow-lookup-ip",
+    "ipgeo:allow-lookup-dns",
+    "ipgeo:allow-lookup-host",
+    "ipgeo:allow-my-location",
+]

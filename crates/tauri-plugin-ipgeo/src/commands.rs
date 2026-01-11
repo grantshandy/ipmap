@@ -1,11 +1,13 @@
 //! Accessors to the runtime [`DbState`] for the frontend UI.
 
-use std::{net::IpAddr, path::PathBuf};
+use std::{net::IpAddr, path::PathBuf, time::Duration};
 
-use super::{DNS_LOOKUP_TIMEOUT, DatabaseSource, DbState, DbStateInfo, DynamicDatabase};
+use ipgeo::{download::CombinedDatabaseSource, CombinedDatabase, Database, LookupInfo};
+use tauri::{ipc::Channel, AppHandle, Runtime, State};
 
-use ipgeo::{CombinedDatabase, Database, LookupInfo, download::CombinedDatabaseSource};
-use tauri::{AppHandle, State, ipc::Channel};
+use crate::{my_loc, DatabaseSource, DbState, DbStateInfo, DynamicDatabase};
+
+const DNS_LOOKUP_TIMEOUT: Duration = Duration::from_millis(300);
 
 macro_rules! ip_location_db {
     ($path:literal) => {
@@ -17,20 +19,25 @@ macro_rules! ip_location_db {
 /// Load in the databases from the disk cache.
 #[tauri::command]
 #[specta::specta]
-pub async fn refresh_cache(handle: AppHandle, state: State<'_, DbState>) -> Result<(), String> {
+pub async fn refresh_cache<R: tauri::Runtime>(
+    handle: tauri::AppHandle<R>,
+    state: State<'_, DbState>,
+) -> Result<DbStateInfo, String> {
     tracing::debug!("refreshing cache");
 
     state.refresh_cache().await.map_err(|e| e.to_string())?;
     state.emit_info(&handle);
 
-    Ok(())
+    tracing::debug!("finished refreshing cache");
+
+    Ok(state.info())
 }
 
 /// Load a [`DatabaseSource`] from its origin.
 #[tauri::command]
 #[specta::specta]
-pub async fn download_source(
-    handle: AppHandle,
+pub async fn download_source<R: Runtime>(
+    handle: AppHandle<R>,
     state: State<'_, DbState>,
     source: DatabaseSource,
     name_resp: Channel<&str>,
@@ -107,7 +114,11 @@ async fn download_source_internal(
 /// Unload the database, freeing up memory.
 #[tauri::command]
 #[specta::specta]
-pub fn unload_database(app: AppHandle, state: State<'_, DbState>, source: DatabaseSource) {
+pub fn unload_database<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    state: State<'_, DbState>,
+    source: DatabaseSource,
+) {
     tracing::info!("unloading database {source:?}");
 
     state.remove(&source);
@@ -118,9 +129,9 @@ pub fn unload_database(app: AppHandle, state: State<'_, DbState>, source: Databa
 /// for lookups on it's associated database type.
 #[tauri::command]
 #[specta::specta]
-pub async fn set_selected_database(
-    app: AppHandle,
-    state: State<'_, DbState>,
+pub async fn set_selected_database<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    state: tauri::State<'_, DbState>,
     source: DatabaseSource,
 ) -> Result<(), String> {
     tracing::info!("set selected database as {source:?}");
@@ -178,7 +189,7 @@ pub async fn lookup_host(host: &str) -> Result<Option<IpAddr>, ()> {
 #[tauri::command]
 #[specta::specta]
 pub async fn my_location(state: State<'_, DbState>) -> Result<LookupInfo, String> {
-    match crate::db::my_loc::get().await? {
+    match my_loc::get().await? {
         (_, Some(info)) => Ok(info),
         (ip, None) => match lookup_ip(state, ip) {
             Some(info) => Ok(info),

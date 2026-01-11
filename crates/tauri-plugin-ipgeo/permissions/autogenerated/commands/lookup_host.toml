@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-lookup-host"
+description = "Enables the lookup_host command without any pre-configured scope."
+commands.allow = ["lookup_host"]
+
+[[permission]]
+identifier = "deny-lookup-host"
+description = "Denies the lookup_host command without any pre-configured scope."
+commands.deny = ["lookup_host"]

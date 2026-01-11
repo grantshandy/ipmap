@@ -22,13 +22,8 @@ tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 dashmap.workspace = true
 tauri-plugin-opener = "2"
 tauri-plugin-dialog.workspace = true
-specta-typescript = "0.0.9"
+specta-typescript.workspace = true
 child-ipc = { path = "../child-ipc", features = ["specta", "parent"] }
-ipgeo = { path = "../ipgeo", features = ["download"] }
-dns-lookup = "3.0.1"
-public-ip-address = "0.4.0"
+ipgeo = { path = "../ipgeo" }
 anyhow.workspace = true
-rkyv.workspace = true
-memmap2 = "0.9.9"
-time = "0.3.44"
-rustc-hash.workspace = true
+tauri-plugin-ipgeo = { path = "../tauri-plugin-ipgeo" }

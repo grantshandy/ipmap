@@ -1,11 +1,14 @@
 use std::{iter, net::IpAddr};
 
-use crate::db::{DbState, commands::my_location};
 use child_ipc::{Command, Error, ErrorKind, Response, RunTraceroute, ipc};
 use ipgeo::LookupInfo;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tauri::{AppHandle, Manager, State, ipc::Channel};
+use tauri_plugin_ipgeo::{
+    DbState,
+    commands::{lookup_ip, my_location},
+};
 
 #[tauri::command]
 #[specta::specta]
@@ -51,7 +54,7 @@ pub async fn run_traceroute(
             Ok(Response::Traceroute(resp)) => {
                 exit()?;
 
-                let my_location = match crate::db::my_loc::get().await {
+                let my_location = match tauri_plugin_ipgeo::try_get_my_location().await {
                     Ok((ip, Some(info))) => Some(Hop {
                         ips: vec![ip],
                         loc: Some(info),
@@ -90,9 +93,7 @@ pub struct Hop {
 
 impl Hop {
     pub fn new(ips: Vec<IpAddr>, db: State<'_, DbState>) -> Self {
-        let loc = ips
-            .iter()
-            .find_map(|ip| crate::db::commands::lookup_ip(db.clone(), *ip));
+        let loc = ips.iter().find_map(|ip| lookup_ip(db.clone(), *ip));
 
         Self { ips, loc }
     }

@@ -3,5 +3,10 @@
   "identifier": "default",
   "description": "Capability for the all windows",
   "windows": ["main", "about"],
-  "permissions": ["core:default", "opener:default", "dialog:default"]
+  "permissions": [
+    "core:default",
+    "opener:default",
+    "dialog:default",
+    "ipgeo:default"
+  ]
 }
