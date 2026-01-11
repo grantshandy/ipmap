@@ -63,10 +63,10 @@
 
 {#snippet libLoadingErrorInfo(message: string | null)}
   <h1 class="text-lg font-semibold">
-    Failed to Load {PLATFORM === "windows" ? "Npcap" : "libpcap"} Driver
+    Failed to Load {(PLATFORM as string) === "windows" ? "Npcap" : "libpcap"} Driver
   </h1>
   <p class="text-sm">
-    {#if PLATFORM === "windows"}
+    {#if (PLATFORM as string) === "windows"}
       You should be able to fix this by installing
       <Link href="https://npcap.com/">Npcap</Link>
       from their website and restarting your computer.

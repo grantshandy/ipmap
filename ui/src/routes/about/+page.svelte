@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { APP_VERSION } from "$lib/bindings";
+  import { APP_VERSION, PLATFORM } from "$lib/bindings";
 
   import Link from "$lib/components/Link.svelte";
   import AppLogo from "../../../../crates/desktop/icons/icon.svg?raw";
@@ -56,7 +56,7 @@
           <Link href="https://tauri.app">Tauri</Link>,
           <Link href="https://svelte.dev">Svelte</Link>,
 
-          {#if PLATFORM === "windows"}
+          {#if (PLATFORM as string) === "windows"}
             <Link href="https://npcap.com">Npcap</Link>,
           {:else}
             <Link href="https://www.tcpdump.org">Libpcap</Link>,

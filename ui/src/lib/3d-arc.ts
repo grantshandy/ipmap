@@ -1,5 +1,5 @@
 import { Ellipsoid, Entity, LonLat, math, Vec3 } from "@openglobus/og";
-import { type ConnectionDirection, type Coordinate } from "./bindings";
+import type { ConnectionDirection, Coordinate } from "tauri-plugin-pcap-api";
 
 type FixedSizeArray<N extends number, T> = Array<T> & { length: N };
 

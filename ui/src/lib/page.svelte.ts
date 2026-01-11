@@ -3,7 +3,7 @@ import type {
   CaptureSession,
   ConnectionDirection,
   Coordinate,
-} from "./bindings";
+} from "tauri-plugin-pcap-api";
 
 export const pageState = $state({ globe: false });
 
