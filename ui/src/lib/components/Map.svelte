@@ -13,7 +13,7 @@
   import { type MapArgs } from "$lib/page.svelte";
   import { fade } from "svelte/transition";
 
-  let { capture, focused = $bindable(), children }: MapArgs = $props();
+  let { capture, focused = $bindable() }: MapArgs = $props();
 
   let map: Map | null = $state(null);
 
@@ -173,6 +173,14 @@
   export const flyToPoint = (crd: Coordinate, zoom: number) => {
     if (map) map.flyTo(crd, lerp(zoom, 0, 1, 2, 13), { duration: 2 });
   };
+
+  export const zoomIn = (): void => {
+    if (map) map.zoomIn();
+  };
+
+  export const zoomOut = (): void => {
+    if (map) map.zoomOut();
+  };
 </script>
 
 <svelte:window on:resize={() => map?.invalidateSize()} />
@@ -182,18 +190,5 @@
   out:fade={{ duration: 200 }}
   class="absolute top-0 left-0 h-full w-full"
 >
-  <div class="join join-vertical absolute top-2 left-2 z-999 select-none">
-    <button
-      onclick={() => map?.zoomIn()}
-      class="btn join-item btn-sm border-b-0 border-white text-xl font-bold"
-      >+</button
-    >
-    <button
-      onclick={() => map?.zoomOut()}
-      class="btn join-item btn-sm border-t-0 border-white text-xl font-bold"
-      >&#x2212;</button
-    >
-  </div>
   <div use:mapAction class="relative h-full w-full"></div>
-  {@render children?.()}
 </div>

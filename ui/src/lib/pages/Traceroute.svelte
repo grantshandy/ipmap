@@ -12,6 +12,7 @@
     type RunTraceroute,
     type Error,
   } from "tauri-plugin-pcap-api";
+  import PageSelector from "$lib/components/PageSelector.svelte";
 
   const MAX_ROUNDS: number = 200;
 
@@ -83,6 +84,10 @@
 
 {#snippet tracerouteForm()}
   <div class="flex grow items-center justify-center">
+    <div class="absolute top-0 left-0 p-2">
+      <PageSelector />
+    </div>
+
     <fieldset
       class="fieldset bg-base-200 border-base-300 rounded-box w-xs self-center border p-4"
     >

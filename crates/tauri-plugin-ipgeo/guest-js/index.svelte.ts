@@ -33,6 +33,9 @@ class Database implements DbStateInfo {
     this.ipv4Enabled || this.ipv6Enabled || this.combinedEnabled,
   );
 
+  // If we've gotten a response from the backend yet.
+  responseBack: boolean = $state(false);
+
   constructor() {
     commands
       .refreshCache()
@@ -46,6 +49,7 @@ class Database implements DbStateInfo {
     this.ipv4 = state.ipv4;
     this.ipv6 = state.ipv6;
     this.combined = state.combined;
+    if (!this.responseBack) this.responseBack = true;
   };
 
   /**

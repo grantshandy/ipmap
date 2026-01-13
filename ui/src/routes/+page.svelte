@@ -1,6 +1,5 @@
 <script lang="ts">
   import Link from "$lib/components/Link.svelte";
-  import Databases from "$lib/components/Databases.svelte";
   import ErrorScreen from "$lib/components/ErrorScreen.svelte";
 
   import Search from "$lib/pages/Search.svelte";
@@ -8,46 +7,39 @@
   import Capture from "$lib/pages/Capture.svelte";
 
   import { openAboutWindow } from "$lib/bindings";
+  import { pageState } from "$lib/page.svelte";
   import database, { type DatabaseSource } from "tauri-plugin-ipgeo-api";
   import { Pcap } from "tauri-plugin-pcap-api";
-
-  type Page = "capture" | "search" | "trace";
-
-  let page: Page = $state((localStorage.page as Page) ?? "search");
-  $effect(() => {
-    localStorage.page = page;
-  });
 
   let pcapResult = Pcap.init();
 
   let downloadSource: DatabaseSource = $state("dbipcombined");
 </script>
 
-{#if !database.anyEnabled}
+{#if !database.responseBack}
+  {@render loading()}
+{:else if !database.anyEnabled}
   {@render welcome()}
 {:else}
   {@render main()}
 {/if}
 
+{#snippet loading()}
+  <div
+    class="flex h-screen max-h-screen flex-col items-center justify-center space-y-4"
+  >
+    <span class="loading loading-spinner loading-xl"></span>
+    <p class="italic">Loading Databases...</p>
+  </div>
+{/snippet}
+
 {#snippet main()}
   <main class="flex h-screen max-h-screen flex-col overscroll-none">
-    <div class="flow-root w-full p-3 select-none">
-      <select class="select select-sm max-w-40" bind:value={page}>
-        <option value="search">Location Search</option>
-        <option value="capture">Monitor Network</option>
-        <option value="trace">Traceroute</option>
-      </select>
-
-      <button class="btn btn-sm" onclick={openAboutWindow}>?</button>
-
-      <Databases />
-    </div>
-
-    {#if page === "search"}
+    {#if pageState.page === "search"}
       <Search />
-    {:else if page === "trace"}
+    {:else if pageState.page === "trace"}
       <Traceroute />
-    {:else if page === "capture"}
+    {:else if pageState.page === "capture"}
       {#await pcapResult then result}
         {#if result.status == "ok"}
           <Capture pcap={result.data} />

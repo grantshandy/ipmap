@@ -4,7 +4,7 @@
   "version": "5.0.0",
   "identifier": "dev.grantshandy.ipmap",
   "build": {
-    "beforeDevCommand": "pnpm -C ../../ui run dev",
+    "beforeDevCommand": "pnpm run dev",
     "devUrl": "http://localhost:1420",
     "beforeBuildCommand": "pnpm build",
     "frontendDist": "../../ui/build",

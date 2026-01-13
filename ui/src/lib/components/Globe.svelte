@@ -7,6 +7,7 @@
     Globe,
     GlobusRgbTerrain,
     LonLat,
+    Vec3,
     Vector,
     wgs84,
   } from "@openglobus/og";
@@ -28,7 +29,7 @@
   import { type ConnectionDirection } from "tauri-plugin-pcap-api";
   import { type Coordinate } from "tauri-plugin-ipgeo-api";
 
-  let { capture, focused = $bindable(), children }: MapArgs = $props();
+  let { capture, focused = $bindable() }: MapArgs = $props();
 
   let globe: Globe | null = $state(null);
   let arcRecords: Record<string, ArcRecord> = {};
@@ -207,6 +208,14 @@
       new LonLat(crd.lng, crd.lat, lerp(zoom, 0, 1, 10_000_000, 250_000)),
     );
   };
+
+  export const zoomIn = (): void => {
+    // TODO: implement
+  };
+
+  export const zoomOut = (): void => {
+    // TODO: implement
+  };
 </script>
 
 <div
@@ -218,5 +227,4 @@
     use:addGlobe
     class="overflow-none relative h-full min-h-0 w-full grow"
   ></div>
-  {@render children?.()}
 </div>

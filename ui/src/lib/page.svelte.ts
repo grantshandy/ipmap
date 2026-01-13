@@ -5,12 +5,14 @@ import type {
   Coordinate,
 } from "tauri-plugin-pcap-api";
 
-export const pageState = $state({ globe: false });
+export const pageState: {
+  page: "capture" | "search" | "trace";
+  globe: boolean;
+} = $state({ page: "search", globe: false });
 
 export interface MapArgs {
   capture?: CaptureSession | null;
   focused?: string | null;
-  children?: Snippet;
 }
 
 export interface MapComponent {
@@ -35,4 +37,7 @@ export interface MapComponent {
 
   /** Zoom from 0 to 1 */
   flyToPoint(crd: Coordinate, zoom: number): void;
+
+  zoomIn(): void;
+  zoomOut(): void;
 }

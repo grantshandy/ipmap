@@ -5,7 +5,6 @@
   import { type Hop } from "tauri-plugin-pcap-api";
   import { fade, fly } from "svelte/transition";
   import { type MapComponent } from "$lib/page.svelte";
-  import GlobeSwitcher from "./GlobeSwitcher.svelte";
   import { renderLocationName } from "$lib/utils";
 
   type Props = {
@@ -42,30 +41,21 @@
   });
 </script>
 
-<GenericMap bind:map>
-  <div class="absolute bottom-2 left-2 z-999">
-    <GlobeSwitcher />
-  </div>
+<GenericMap bind:map {infobox} {searchbox} />
 
-  <div class="absolute top-2 right-2 z-999 flex items-center space-x-2">
-    <button
-      onclick={close}
-      class="btn btn-sm join-item border-white text-xl select-none"
-    >
-      &#11148;
-    </button>
+{#snippet searchbox()}
+  <h1
+    class="bg-base-200 join-item flex items-center px-2 text-xl font-semibold"
+  >
+    {ip}
+  </h1>
 
-    <h1
-      class="bg-base-200 rounded-box border border-white px-2 py-1 text-xl font-semibold"
-    >
-      {ip}
-    </h1>
-  </div>
+  <button onclick={close} class="btn btn-sm join-item text-xl select-none">
+    &#11148;
+  </button>
+{/snippet}
 
-  {@render hopsPopup()}
-</GenericMap>
-
-{#snippet hopsPopup()}
+{#snippet infobox()}
   {#if !hopsOpen}
     <div
       class="absolute right-2 bottom-0 z-999 flex w-64 flex-col items-center select-none"
@@ -131,6 +121,7 @@
   </div>
 {/snippet}
 
+<!-- TODO: where is this used? -->
 {#snippet lookupDns(ip: string)}
   <p>
     DNS:

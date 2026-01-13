@@ -69,7 +69,10 @@
   };
 </script>
 
-<form class="join join-horizontal select-none" onsubmit={searchWrapper}>
+<form
+  class="join join-horizontal join-item bg-base-200 rounded-md select-none"
+  onsubmit={searchWrapper}
+>
   <input
     id="ipsearchbox"
     type="text"
