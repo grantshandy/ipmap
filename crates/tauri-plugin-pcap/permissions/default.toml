@@ -3,7 +3,7 @@
 [default]
 description = """
 This permission set configures if your
-application can use the plugin.
+application can use the plugin. Enables all features.
 """
 permissions = [
     "pcap:allow-start-capture",
@@ -11,5 +11,6 @@ permissions = [
     "pcap:allow-init-pcap",
     "pcap:allow-traceroute-enabled",
     "pcap:allow-run-traceroute",
-    "pcap:allow-print-error"
+    "pcap:allow-print-error",
+    "pcap:allow-my-location"
 ]

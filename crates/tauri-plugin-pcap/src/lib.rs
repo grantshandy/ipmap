@@ -37,7 +37,8 @@ fn builder<R: Runtime>() -> tauri_specta::Builder<R> {
             commands::init_pcap::<tauri::Wry>,
             commands::traceroute_enabled::<tauri::Wry>,
             commands::run_traceroute::<tauri::Wry>,
-            commands::print_error
+            commands::print_error,
+            commands::my_location
         ])
 }
 

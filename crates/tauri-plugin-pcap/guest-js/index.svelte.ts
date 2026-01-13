@@ -61,6 +61,8 @@ let startCalled = false;
 
 type CoordKey = string;
 
+export const myLocation = commands.myLocation;
+
 export type SessionCallbacks = {
   stopping?: () => void;
   locationAdded?: (crd: CoordKey, loc: CaptureLocation) => void;

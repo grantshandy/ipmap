@@ -7,6 +7,7 @@
     type CaptureLocation,
     type Connection,
     type Device,
+    myLocation,
   } from "tauri-plugin-pcap-api";
   import {
     CAPTURE_SHOW_ARCS,
@@ -53,10 +54,10 @@
   onDestroy(() => pcap.stopCapture());
 
   // TODO: tie to backend further? return from startCapture?
-  let myLocation = $state({ lat: 0, lng: 0 });
-  database.myLocation().then((l) => {
+  let location = $state({ lat: 0, lng: 0 });
+  myLocation().then((l) => {
     if (l.status == "ok") {
-      myLocation = l.data.crd;
+      location = l.data.crd;
     } else {
       console.warn(l.error);
     }
@@ -67,7 +68,7 @@
     if (CAPTURE_SHOW_MARKERS)
       map.createMarker(crd, loc.crd, Object.keys(loc.ips).length);
     if (CAPTURE_SHOW_ARCS)
-      map.createArc(crd, myLocation, loc.crd, loc.thr, loc.dir);
+      map.createArc(crd, location, loc.crd, loc.thr, loc.dir);
   };
 
   export const locationRemoved = (crd: string) => {
@@ -81,7 +82,7 @@
     if (CAPTURE_SHOW_MARKERS)
       map.updateMarker(crd, loc.crd, Object.keys(loc.ips).length);
     if (CAPTURE_SHOW_ARCS)
-      map.updateArc(crd, myLocation, loc.crd, loc.thr, loc.dir);
+      map.updateArc(crd, location, loc.crd, loc.thr, loc.dir);
   };
 </script>
 

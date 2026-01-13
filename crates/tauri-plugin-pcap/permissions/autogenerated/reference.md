@@ -1,7 +1,7 @@
 ## Default Permission
 
 This permission set configures if your
-application can use the plugin.
+application can use the plugin. Enables all features.
 
 #### This default permission set includes the following:
 
@@ -11,6 +11,7 @@ application can use the plugin.
 - `pcap:allow-traceroute-enabled`
 - `pcap:allow-run-traceroute`
 - `pcap:allow-print-error`
+- `pcap:allow-my-location`
 
 ## Permission Table
 

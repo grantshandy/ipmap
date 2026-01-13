@@ -5,10 +5,9 @@ use ipgeo::LookupInfo;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tauri::{AppHandle, Runtime, State, ipc::Channel};
-use tauri_plugin_ipgeo::{
-    DbState,
-    commands::{lookup_ip, my_location},
-};
+use tauri_plugin_ipgeo::{DbState, commands::lookup_ip};
+
+use crate::commands::my_location;
 
 #[tauri::command]
 #[specta::specta]
@@ -54,7 +53,7 @@ pub async fn run_traceroute<R: Runtime>(
             Ok(Response::Traceroute(resp)) => {
                 exit()?;
 
-                let my_location = match tauri_plugin_ipgeo::try_get_my_location().await {
+                let my_location = match super::try_get_my_location().await {
                     Ok((ip, Some(info))) => Some(Hop {
                         ips: vec![ip],
                         loc: Some(info),

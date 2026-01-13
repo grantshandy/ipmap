@@ -16,12 +16,10 @@ mod archive;
 pub mod commands;
 mod disk;
 mod model;
-mod my_loc;
 
 pub use {
     disk::{DatabaseSource, DiskArchive, DynamicDatabase},
     model::{DbState, DbStateInfo},
-    my_loc::get as try_get_my_location,
 };
 
 const PLUGIN_NAME: &str = "ipgeo";
@@ -53,7 +51,6 @@ fn builder<R: Runtime>() -> tauri_specta::Builder<R> {
             commands::lookup_ip,
             commands::lookup_dns,
             commands::lookup_host,
-            commands::my_location
         ])
 }
 

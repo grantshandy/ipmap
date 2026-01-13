@@ -5,7 +5,7 @@ use std::{net::IpAddr, path::PathBuf, time::Duration};
 use ipgeo::{CombinedDatabase, Database, LookupInfo, download::CombinedDatabaseSource};
 use tauri::{AppHandle, Runtime, State, ipc::Channel};
 
-use crate::{DatabaseSource, DbState, DbStateInfo, DynamicDatabase, my_loc};
+use crate::{DatabaseSource, DbState, DbStateInfo, DynamicDatabase};
 
 const DNS_LOOKUP_TIMEOUT: Duration = Duration::from_millis(300);
 
@@ -193,17 +193,4 @@ pub async fn lookup_host(host: &str) -> Result<Option<IpAddr>, ()> {
     tokio::time::timeout(DNS_LOOKUP_TIMEOUT, ip)
         .await
         .map_err(|_| ())
-}
-
-/// Attempt to get the user's current [`LookupInfo`] from their IP address.
-#[tauri::command]
-#[specta::specta]
-pub async fn my_location(state: State<'_, DbState>) -> Result<LookupInfo, String> {
-    match my_loc::get().await? {
-        (_, Some(info)) => Ok(info),
-        (ip, None) => match lookup_ip(state, ip) {
-            Some(info) => Ok(info),
-            None => Err(format!("Your IP {ip} not found in loaded database")),
-        },
-    }
 }

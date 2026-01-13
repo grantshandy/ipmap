@@ -12,6 +12,7 @@ const COMMANDS: &[&str] = &[
     "traceroute_enabled",
     "run_traceroute",
     "print_error",
+    "my_location",
 ];
 
 fn main() -> Result<(), Box<dyn error::Error>> {

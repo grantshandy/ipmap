@@ -117,7 +117,6 @@ class Database implements DbStateInfo {
   lookupIp = commands.lookupIp;
   lookupDns = commands.lookupDns;
   lookupHost = commands.lookupHost;
-  myLocation = commands.myLocation;
 }
 
 export default new Database();
