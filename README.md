@@ -9,7 +9,7 @@ A GUI viewer for [`saphics/ip-location-db`](https://github.com/sapics/ip-locatio
 which can display your computer's live network traffic and perform trace routes.
 
 | Search                              | Capture                               | Traceroute                                  |
-| ----------------------------------- | ------------------------------------- | ------------------------------------------- |
+|-------------------------------------|---------------------------------------|---------------------------------------------|
 | ![search](./screenshots/search.png) | ![capture](./screenshots/capture.png) | ![traceroute](./screenshots/traceroute.png) |
 
 ## Requirements
@@ -18,7 +18,7 @@ On Linux, [WebKitGTK](https://repology.org/project/webkitgtk/versions) is the on
 ### Network Monitor
  - On Linux, install [`libpcap`](https://repology.org/project/libpcap/versions).
  - On Windows, install [Npcap](https://npcap.org) with network capture for non-administrator users.
- - On MacOS, `libpcap` is already installed.
+ - On macOS, `libpcap` is already installed.
 
 ### Traceroute
 On Windows, you must enable a firewall rule to send ICMP packets for the traceroute feature.
@@ -58,7 +58,7 @@ Requirements:
 
 ## TODO:
  - [ ] Animated demo in readme.
- - [ ] Check MacOS compatibility.
+ - [ ] Check macOS compatibility.
  - [ ] Light/dark mode with system. Try to match native UI?
  - [ ] Translate user interface.
  - [ ] Get default network interfaces with native APIs.
