@@ -3,6 +3,10 @@
 
   import Link from "$lib/components/Link.svelte";
   import AppLogo from "../../../../crates/desktop/icons/icon.svg?raw";
+  import { getCurrentWindow } from "@tauri-apps/api/window";
+
+  document.onkeydown = (event) =>
+    event.key === "Escape" && getCurrentWindow().close();
 </script>
 
 <div class="flex h-screen w-screen flex-col items-center space-y-3 p-4">
