@@ -19,6 +19,21 @@
     searchbox?: Snippet;
     infobox?: Snippet;
   } & MapArgs = $props();
+
+  document.onkeydown = (ev) => {
+    switch (ev.key) {
+      case "=":
+      case "+":
+        map?.zoomIn();
+        break;
+      case "-":
+        map?.zoomOut();
+        break;
+      case "3":
+        pageState.globe = !pageState.globe;
+        break;
+    }
+  };
 </script>
 
 <div class="relative grow">
