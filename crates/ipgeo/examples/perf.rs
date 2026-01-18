@@ -41,7 +41,7 @@ fn test_batch() -> anyhow::Result<()> {
 fn test_db<T: Database<Ipv4Addr>>(label: &str, db: &T) {
     let start = Instant::now();
 
-    println!("{:#?}", db.get(Ipv4Addr::from_octets([1, 1, 1, 1])));
+    println!("{:#?}", db.get(Ipv4Addr::new(1, 1, 1, 1)));
 
     for _ in 0..TEST_COUNT {
         let loc = db.get(fastrand::u32(IP_MIN..=IP_MAX).into());
