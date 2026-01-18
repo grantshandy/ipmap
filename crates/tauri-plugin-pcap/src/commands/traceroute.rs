@@ -7,7 +7,7 @@ use specta::Type;
 use tauri::{AppHandle, Runtime, State, ipc::Channel};
 use tauri_plugin_ipgeo::{DbState, commands::lookup_ip};
 
-use crate::commands::my_location;
+use crate::model::PcapState;
 
 #[tauri::command]
 #[specta::specta]
@@ -36,6 +36,7 @@ pub async fn traceroute_enabled<R: Runtime>(app: AppHandle<R>) -> Result<(), Err
 pub async fn run_traceroute<R: Runtime>(
     app: AppHandle<R>,
     db: State<'_, DbState>,
+    pcap: State<'_, PcapState>,
     params: RunTraceroute,
     progress: Channel<usize>,
 ) -> Result<Vec<Hop>, Error> {
@@ -53,24 +54,14 @@ pub async fn run_traceroute<R: Runtime>(
             Ok(Response::Traceroute(resp)) => {
                 exit()?;
 
-                let my_location = match super::try_get_my_location().await {
-                    Ok((ip, Some(info))) => Some(Hop {
-                        ips: vec![ip],
-                        loc: Some(info),
-                    }),
-                    Ok((ip, None)) => Some(Hop {
-                        ips: vec![ip],
-                        loc: my_location(db.clone()).await.ok(),
-                    }),
-                    Err(_) => None,
-                };
+                let (ip, loc) = pcap.my_location(&app).await;
 
-                let hops = resp.into_iter().map(|ips| Hop::new(ips, db.clone()));
-
-                return match my_location {
-                    Some(me) => Ok(iter::once(me).chain(hops).collect()),
-                    None => Ok(hops.collect()),
-                };
+                return Ok(iter::once(Hop {
+                    ips: vec![ip],
+                    loc: Some(loc),
+                })
+                .chain(resp.into_iter().map(|ips| Hop::new(ips, &db)))
+                .collect::<Vec<_>>());
             }
             Ok(_) => {
                 exit()?;
@@ -91,7 +82,7 @@ pub struct Hop {
 }
 
 impl Hop {
-    pub fn new(ips: Vec<IpAddr>, db: State<'_, DbState>) -> Self {
+    pub fn new(ips: Vec<IpAddr>, db: &State<'_, DbState>) -> Self {
         let loc = ips.iter().find_map(|ip| lookup_ip(db.clone(), *ip));
 
         Self { ips, loc }

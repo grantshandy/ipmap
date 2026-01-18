@@ -2,7 +2,6 @@
   import GenericMap from "$lib/components/GenericMap.svelte";
 
   import {
-    myLocation,
     Pcap,
     type Throughput,
     type CaptureLocation,
@@ -53,22 +52,12 @@
 
   onDestroy(() => pcap.stopCapture());
 
-  // TODO: tie to backend further? return from startCapture?
-  let location = $state({ lat: 0, lng: 0 });
-  myLocation().then((l) => {
-    if (l.status == "ok") {
-      location = l.data.crd;
-    } else {
-      console.warn(l.error);
-    }
-  });
-
   export const locationAdded = (crd: string, loc: CaptureLocation) => {
     if (!map) return;
     if (CAPTURE_SHOW_MARKERS)
       map.createMarker(crd, loc.crd, Object.keys(loc.ips).length);
     if (CAPTURE_SHOW_ARCS)
-      map.createArc(crd, location, loc.crd, loc.thr, loc.dir);
+      map.createArc(crd, pcap.status.myLocation.crd, loc.crd, loc.thr, loc.dir);
   };
 
   export const locationRemoved = (crd: string) => {
@@ -82,7 +71,7 @@
     if (CAPTURE_SHOW_MARKERS)
       map.updateMarker(crd, loc.crd, Object.keys(loc.ips).length);
     if (CAPTURE_SHOW_ARCS)
-      map.updateArc(crd, location, loc.crd, loc.thr, loc.dir);
+      map.updateArc(crd, pcap.status.myLocation.crd, loc.crd, loc.thr, loc.dir);
   };
 </script>
 
@@ -132,32 +121,34 @@
 {/snippet}
 
 {#snippet infobox()}
-  {#if pcap.capture != null}
-    {#if CAPTURE_SHOW_NOT_FOUND && pcap.capture.notFoundCount != 0}
-      <div class="bg-base-200 rounded-box border p-1 text-xs">
-        <p>
-          {pcap.capture.notFoundCount} IP{pcap.capture.notFoundCount > 1
-            ? "s"
-            : ""}
-          not found in database
-        </p>
-      </div>
-    {/if}
+  <div class="flex flex-col items-end space-y-2 p-2">
+    {#if pcap.capture != null}
+      {#if CAPTURE_SHOW_NOT_FOUND && pcap.capture.notFoundCount != 0}
+        <div class="bg-base-200 rounded-box border p-1 text-xs">
+          <p>
+            {pcap.capture.notFoundCount} IP{pcap.capture.notFoundCount > 1
+              ? "s"
+              : ""}
+            not found in database
+          </p>
+        </div>
+      {/if}
 
-    <div
-      class="bg-base-200 rounded-box w-45 space-y-2 border p-1 text-xs select-none"
-    >
-      {@render connectionStats(pcap.capture.session)}
-    </div>
-
-    {#if focused}
       <div
-        class="bg-base-200 rounded-box max-h-120 w-54 space-y-3 overflow-y-scroll border p-2"
+        class="bg-base-200 rounded-box w-45 space-y-2 border p-1 text-xs select-none"
       >
-        {@render focusedInfo(pcap.capture.connections[focused])}
+        {@render connectionStats(pcap.capture.session)}
       </div>
+
+      {#if focused}
+        <div
+          class="bg-base-200 rounded-box max-h-120 w-54 space-y-3 overflow-y-scroll border p-2"
+        >
+          {@render focusedInfo(pcap.capture.connections[focused])}
+        </div>
+      {/if}
     {/if}
-  {/if}
+  </div>
 {/snippet}
 
 {#snippet focusedInfo(record: CaptureLocation)}

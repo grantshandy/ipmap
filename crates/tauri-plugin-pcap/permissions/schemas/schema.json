@@ -499,10 +499,10 @@
           "markdownDescription": "Denies the unload_database command without any pre-configured scope."
         },
         {
-          "description": "This permission set configures if your\napplication can use the plugin. Enables all features.\n\n#### This default permission set includes:\n\n- `pcap:allow-start-capture`\n- `pcap:allow-stop-capture`\n- `pcap:allow-init-pcap`\n- `pcap:allow-traceroute-enabled`\n- `pcap:allow-run-traceroute`\n- `pcap:allow-print-error`\n- `pcap:allow-my-location`",
+          "description": "This permission set configures if your\napplication can use the plugin. Enables all features.\n\n#### This default permission set includes:\n\n- `pcap:allow-start-capture`\n- `pcap:allow-stop-capture`\n- `pcap:allow-init-pcap`\n- `pcap:allow-traceroute-enabled`\n- `pcap:allow-run-traceroute`\n- `pcap:allow-print-error`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "This permission set configures if your\napplication can use the plugin. Enables all features.\n\n#### This default permission set includes:\n\n- `pcap:allow-start-capture`\n- `pcap:allow-stop-capture`\n- `pcap:allow-init-pcap`\n- `pcap:allow-traceroute-enabled`\n- `pcap:allow-run-traceroute`\n- `pcap:allow-print-error`\n- `pcap:allow-my-location`"
+          "markdownDescription": "This permission set configures if your\napplication can use the plugin. Enables all features.\n\n#### This default permission set includes:\n\n- `pcap:allow-start-capture`\n- `pcap:allow-stop-capture`\n- `pcap:allow-init-pcap`\n- `pcap:allow-traceroute-enabled`\n- `pcap:allow-run-traceroute`\n- `pcap:allow-print-error`"
         }
       ]
     }

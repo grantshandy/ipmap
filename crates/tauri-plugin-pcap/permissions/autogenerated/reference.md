@@ -11,7 +11,6 @@ application can use the plugin. Enables all features.
 - `pcap:allow-traceroute-enabled`
 - `pcap:allow-run-traceroute`
 - `pcap:allow-print-error`
-- `pcap:allow-my-location`
 
 ## Permission Table
 

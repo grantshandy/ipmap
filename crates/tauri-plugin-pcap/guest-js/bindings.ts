@@ -50,17 +50,6 @@ async runTraceroute(params: RunTraceroute, progress: TAURI_CHANNEL<number>) : Pr
 },
 async printError(error: Error) : Promise<string> {
     return await TAURI_INVOKE("plugin:pcap|print_error", { error });
-},
-/**
- * Attempt to get the user's current [`LookupInfo`] from their IP address.
- */
-async myLocation() : Promise<Result<LookupInfo, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("plugin:pcap|my_location") };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
 }
 }
 
@@ -163,7 +152,11 @@ devices: Device[];
 /**
  * The currently-captured on device, if any
  */
-capture: Device | null }
+capture: Device | null; 
+/**
+ * Where the user is suspected to currently be.
+ */
+myLocation: LookupInfo }
 export type RunCapture = { device: Device; connectionTimeout: Duration; reportFrequency: Duration }
 export type RunTraceroute = { ip: string; rounds: number }
 /**

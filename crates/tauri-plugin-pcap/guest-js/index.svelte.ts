@@ -61,8 +61,6 @@ let startCalled = false;
 
 type CoordKey = string;
 
-export const myLocation = commands.myLocation;
-
 export type SessionCallbacks = {
   stopping?: () => void;
   locationAdded?: (crd: CoordKey, loc: CaptureLocation) => void;
@@ -131,6 +129,10 @@ export class Pcap {
     version: "",
     devices: [],
     capture: null,
+    myLocation: {
+      crd: { lat: 0.0, lng: 0.0 },
+      loc: { city: null, region: null, countryCode: "??" },
+    },
   });
 
   public capture: CaptureSession | null = $state(null);
@@ -150,8 +152,6 @@ export class Pcap {
 
   /** Initialize with initial data and start listening to state change events. */
   constructor(status: PcapStateInfo) {
-    console.log("capture binding initialized");
-
     this.updateState(status);
     events.pcapStateChange
       .listen(this.updateState)
@@ -205,8 +205,6 @@ export class Pcap {
     } else {
       info = state;
     }
-
-    console.log("new pcap update", info);
 
     this.status = info;
 

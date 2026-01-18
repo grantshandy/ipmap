@@ -12,5 +12,4 @@ permissions = [
     "pcap:allow-traceroute-enabled",
     "pcap:allow-run-traceroute",
     "pcap:allow-print-error",
-    "pcap:allow-my-location"
 ]

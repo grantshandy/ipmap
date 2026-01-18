@@ -1,18 +1,23 @@
 use std::{
     fs::{self, File},
     io::{self, Read, Seek, SeekFrom},
+    net::{IpAddr, Ipv4Addr},
     path::PathBuf,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, OnceLock},
 };
 
 use child_ipc::{
     Command, Device, EXE_NAME, Error, ErrorKind, Response,
     ipc::{self, StopCallback},
 };
+use ipgeo::Database;
+use ipgeo::{Coordinate, Location, LookupInfo};
+use public_ip_address::response::LookupResponse;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use specta::Type;
 use tauri::{AppHandle, Manager, Runtime};
+use tauri_plugin_ipgeo::DbState;
 use tauri_specta::Event;
 
 struct CaptureSession {
@@ -23,6 +28,7 @@ struct CaptureSession {
 #[derive(Default)]
 pub struct PcapState {
     capture: Arc<Mutex<Option<CaptureSession>>>,
+    my_location: OnceLock<(IpAddr, LookupInfo)>,
 }
 
 impl PcapState {
@@ -50,20 +56,35 @@ impl PcapState {
             .ok()
             .and_then(|c| c.as_ref().map(|c| c.device.clone()));
 
-        let child = ensure_child_path(&app)?;
+        let status =
+            match ipc::call_child_process(ensure_child_path(&app)?, Command::PcapStatus).await? {
+                Response::PcapStatus(status) => Ok(status),
+                _ => Err(Error::basic(ErrorKind::UnexpectedType)),
+            }?;
 
-        match ipc::call_child_process(child, Command::PcapStatus).await? {
-            Response::PcapStatus(status) => Ok(PcapStateInfo {
-                version: status.version,
-                devices: status.devices,
-                capture,
-            }),
-            _ => Err(Error::basic(ErrorKind::UnexpectedType)),
+        let (_, my_location) = self.my_location(&app).await;
+
+        Ok(PcapStateInfo {
+            version: status.version,
+            devices: status.devices,
+            capture,
+            my_location,
+        })
+    }
+
+    pub async fn my_location<R: Runtime>(&self, app: &AppHandle<R>) -> (IpAddr, LookupInfo) {
+        match self.my_location.get() {
+            Some(crd) => crd.clone(),
+            None => {
+                let crd = get_my_location(app).await;
+                self.my_location.get_or_init(|| crd).clone()
+            }
         }
     }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Type)]
+#[serde(rename_all = "camelCase")]
 pub struct PcapStateInfo {
     /// The version information about the currently loaded libpcap
     version: String,
@@ -71,6 +92,8 @@ pub struct PcapStateInfo {
     devices: Vec<Device>,
     /// The currently-captured on device, if any
     capture: Option<Device>,
+    /// Where the user is suspected to currently be.
+    my_location: LookupInfo,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Type, Event)]
@@ -142,4 +165,59 @@ fn sha256_reader<R: Read + Seek>(mut reader: R) -> io::Result<Vec<u8>> {
         hasher.update(&buf[..n]);
     }
     Ok(hasher.finalize().to_vec())
+}
+
+async fn get_my_location<R: Runtime>(handle: &AppHandle<R>) -> (IpAddr, LookupInfo) {
+    let default_value = || {
+        (
+            IpAddr::V4(Ipv4Addr::BROADCAST),
+            LookupInfo {
+                crd: Coordinate { lat: 0.0, lng: 0.0 },
+                loc: Location {
+                    city: None,
+                    region: None,
+                    country_code: "??".into(),
+                },
+            },
+        )
+    };
+
+    match public_ip_address::perform_lookup(None).await {
+        Ok(LookupResponse {
+            ip,
+            latitude: Some(lat),
+            longitude: Some(lng),
+            city,
+            region,
+            country_code: Some(country_code),
+            ..
+        }) => (
+            ip,
+            LookupInfo {
+                crd: Coordinate {
+                    lat: lat as f32,
+                    lng: lng as f32,
+                },
+                loc: Location {
+                    city,
+                    region,
+                    country_code,
+                },
+            },
+        ),
+        Ok(LookupResponse { ip, .. }) => handle
+            .state::<DbState>()
+            .get(ip)
+            .map(|loc| (ip, loc))
+            .unwrap_or_else(|| {
+                tracing::error!(
+                    "Failed to get location for {ip}, your location will default to 0,0"
+                );
+                default_value()
+            }),
+        Err(err) => {
+            tracing::error!("Failed to get location: {err}, your location will default to 0,0");
+            default_value()
+        }
+    }
 }
