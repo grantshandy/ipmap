@@ -7,6 +7,9 @@
 export const commands = {
 async openAboutWindow() : Promise<void> {
     await TAURI_INVOKE("open_about_window");
+},
+async platform() : Promise<Platform> {
+    return await TAURI_INVOKE("platform");
 }
 }
 
@@ -17,7 +20,6 @@ async openAboutWindow() : Promise<void> {
 /** user-defined constants **/
 
 export const APP_VERSION = "5.0.0" as const;
-export const PLATFORM = "linux" as const;
 
 /** user-defined types **/
 

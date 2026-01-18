@@ -3,10 +3,6 @@ name = "ipmap"
 version = "5.0.0"
 edition = "2024"
 
-[lib]
-name = "ipmap_lib"
-crate-type = ["staticlib", "cdylib", "rlib"]
-
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 

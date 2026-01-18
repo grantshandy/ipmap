@@ -8,7 +8,7 @@
     type Connection,
     type Device,
   } from "tauri-plugin-pcap-api";
-  import { PLATFORM } from "tauri-plugin-ipmap-api";
+  import { platform } from "tauri-plugin-ipmap-api";
 
   import {
     renderLocationName,
@@ -37,7 +37,7 @@
     `${humanFileSize(info.avgS)}/s | ${humanFileSize(info.total)}`;
 
   export const renderDeviceName = async (device: Device): Promise<string> => {
-    if (PLATFORM === "windows") {
+    if ((await platform()) === "windows") {
       return device.description ?? device.name;
     } else {
       return `${device.name}${device.description ? ": (" + device.description + ")" : ""}`;

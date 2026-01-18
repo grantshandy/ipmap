@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { APP_VERSION, PLATFORM } from "tauri-plugin-ipmap-api";
+  import { APP_VERSION, platform } from "tauri-plugin-ipmap-api";
 
   import Link from "$lib/components/Link.svelte";
   import AppLogo from "../../../../crates/desktop/icons/icon.svg?raw";
@@ -60,11 +60,13 @@
           <Link href="https://tauri.app">Tauri</Link>,
           <Link href="https://svelte.dev">Svelte</Link>,
 
-          {#if (PLATFORM as string) === "windows"}
-            <Link href="https://npcap.com">Npcap</Link>,
-          {:else}
-            <Link href="https://www.tcpdump.org">Libpcap</Link>,
-          {/if}
+          {#await platform() then p}
+            {#if p === "windows"}
+              <Link href="https://npcap.com">Npcap</Link>,
+            {:else}
+              <Link href="https://www.tcpdump.org">Libpcap</Link>,
+            {/if}
+          {/await}
 
           <Link href="https://daisyui.com">DaisyUI</Link>
         </td>
