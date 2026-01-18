@@ -65,9 +65,6 @@ pub fn run() {
 mod test {
     use super::*;
 
-    use serde::{Deserialize, Serialize};
-    use specta::Type;
-
     #[test]
     fn export_types() {
         builder()
@@ -83,8 +80,8 @@ mod test {
             .unwrap();
     }
 
-    #[derive(Serialize, Type)]
     #[allow(dead_code)]
+    #[derive(serde::Serialize, specta::Type)]
     #[serde(rename_all = "lowercase")]
     pub enum Platform {
         Linux,

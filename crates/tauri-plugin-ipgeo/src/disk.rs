@@ -46,6 +46,7 @@ pub enum DatabaseSource {
 /// Its archive implements [`Database`] for [`Ipv4Addr`], [`Ipv6Addr`], and [`IpAddr`],
 /// it's the job of [`DbSet`](super::DbSet)/[`DbState`](super::DbState) to keep
 /// track of the database's address type for routing.
+#[allow(clippy::large_enum_variant)]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 pub enum DynamicDatabase {
     Combined(CombinedDatabase),
