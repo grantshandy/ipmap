@@ -2,16 +2,16 @@
   import IpAddrInput from "$lib/components/IpAddrInput.svelte";
   import TraceMap from "$lib/components/TraceMap.svelte";
   import ErrorScreen from "$lib/components/ErrorScreen.svelte";
+  import PageSelector from "$lib/components/PageSelector.svelte";
 
-  import { Channel } from "@tauri-apps/api/core";
   import {
     traceroute,
     isError,
     type Hop,
-    type Result,
     type Error,
   } from "tauri-plugin-pcap-api";
-  import PageSelector from "$lib/components/PageSelector.svelte";
+
+  import { Channel } from "@tauri-apps/api/core";
 
   const MAX_ROUNDS: number = 200;
 

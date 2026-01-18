@@ -2,7 +2,7 @@
   import Link from "./Link.svelte";
 
   import { printError, type Error } from "tauri-plugin-pcap-api";
-  import { PLATFORM } from "$lib/bindings";
+  import { PLATFORM } from "tauri-plugin-ipmap-api";
 
   let {
     error = $bindable(),

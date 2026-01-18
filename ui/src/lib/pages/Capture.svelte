@@ -2,21 +2,21 @@
   import GenericMap from "$lib/components/GenericMap.svelte";
 
   import {
+    myLocation,
     Pcap,
     type Throughput,
     type CaptureLocation,
     type Connection,
     type Device,
-    myLocation,
   } from "tauri-plugin-pcap-api";
+  import { PLATFORM } from "tauri-plugin-ipmap-api";
+
   import {
+    renderLocationName,
     CAPTURE_SHOW_ARCS,
     CAPTURE_SHOW_MARKERS,
     CAPTURE_SHOW_NOT_FOUND,
-    renderLocationName,
   } from "$lib/utils";
-  import { PLATFORM } from "$lib/bindings";
-  import database from "tauri-plugin-ipgeo-api";
   import { onDestroy } from "svelte";
   import { type MapComponent } from "$lib/page.svelte";
 
@@ -38,7 +38,7 @@
     `${humanFileSize(info.avgS)}/s | ${humanFileSize(info.total)}`;
 
   export const renderDeviceName = async (device: Device): Promise<string> => {
-    if ((PLATFORM as any) === "windows") {
+    if (PLATFORM === "windows") {
       return device.description ?? device.name;
     } else {
       return `${device.name}${device.description ? ": (" + device.description + ")" : ""}`;

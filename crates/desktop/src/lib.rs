@@ -71,18 +71,20 @@ mod test {
     #[test]
     fn export_types() {
         builder()
-            .error_handling(tauri_specta::ErrorHandlingMode::Result)
+            .typ::<Platform>()
             .constant("PLATFORM", Platform::current())
             .constant("APP_VERSION", env!("CARGO_PKG_VERSION"))
+            .error_handling(tauri_specta::ErrorHandlingMode::Result)
             .export(
                 specta_typescript::Typescript::default()
                     .bigint(specta_typescript::BigIntExportBehavior::Number),
-                "../../ui/src/lib/bindings/raw.ts",
+                "bindings/raw.ts",
             )
             .unwrap();
     }
 
-    #[derive(Serialize, Deserialize, Clone, Debug, Type)]
+    #[derive(Serialize, Type)]
+    #[allow(dead_code)]
     #[serde(rename_all = "lowercase")]
     pub enum Platform {
         Linux,
@@ -102,7 +104,7 @@ mod test {
             #[cfg(target_os = "macos")]
             return Platform::MacOS;
 
-            unimplemented!()
+            unimplemented!("Only Linux, Windows, and MacOS are currently supported")
         }
     }
 }

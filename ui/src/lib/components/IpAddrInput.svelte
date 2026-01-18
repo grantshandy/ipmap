@@ -1,5 +1,6 @@
 <script lang="ts">
   import database from "tauri-plugin-ipgeo-api";
+
   import { Address4, Address6 } from "ip-address";
   import type { FormEventHandler, HTMLInputAttributes } from "svelte/elements";
 

@@ -25,7 +25,8 @@
     "leaflet.geodesic": "^2.7.2",
     "tailwindcss": "^4.1.18",
     "tauri-plugin-ipgeo-api": "file:../crates/tauri-plugin-ipgeo",
-    "tauri-plugin-pcap-api": "file:../crates/tauri-plugin-pcap"
+    "tauri-plugin-pcap-api": "file:../crates/tauri-plugin-pcap",
+    "tauri-plugin-ipmap-api": "file:../crates/desktop/bindings"
   },
   "devDependencies": {
     "@sveltejs/adapter-static": "^3.0.10",

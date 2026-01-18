@@ -2,14 +2,12 @@
   import GenericMap from "$lib/components/GenericMap.svelte";
   import IpAddrInput from "$lib/components/IpAddrInput.svelte";
 
-  import { type LookupInfo, type Result } from "tauri-plugin-ipgeo-api";
-
-  import { renderLocationName } from "$lib/utils";
-
+  import { type LookupInfo } from "tauri-plugin-ipgeo-api";
   import database from "tauri-plugin-ipgeo-api";
 
   import { fade } from "svelte/transition";
   import { type MapComponent } from "$lib/page.svelte";
+  import { renderLocationName } from "$lib/utils";
 
   type LookupState = {
     info: LookupInfo;

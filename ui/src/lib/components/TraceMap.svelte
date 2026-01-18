@@ -3,6 +3,7 @@
 
   import database from "tauri-plugin-ipgeo-api";
   import { type Hop } from "tauri-plugin-pcap-api";
+
   import { fade, fly } from "svelte/transition";
   import { type MapComponent } from "$lib/page.svelte";
   import { renderLocationName } from "$lib/utils";

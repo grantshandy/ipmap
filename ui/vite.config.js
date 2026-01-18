@@ -17,19 +17,11 @@ export default defineConfig(async () => ({
           src: "node_modules/@openglobus/og/lib/res",
           dest: ".",
         },
-        // {
-        //   src: "node_modules/@openglobus/og/lib/assets/*",
-        //   dest: ".",
-        // },
       ],
     }),
   ],
 
-  // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
-  //
-  // 1. prevent vite from obscuring rust errors
   clearScreen: false,
-  // 2. tauri expects a fixed port, fail if that port is not available
   server: {
     port: 1420,
     strictPort: true,
@@ -42,12 +34,15 @@ export default defineConfig(async () => ({
         }
       : undefined,
     watch: {
-      // 3. tell vite to ignore watching `src-tauri`
-      ignored: ["**/src-tauri/**"],
+      ignored: ["**/crates/**"],
     },
 
     fs: {
-      allow: ["../crates/tauri-plugin-ipgeo", "../crates/tauri-plugin-pcap"],
+      allow: [
+        "../crates/tauri-plugin-ipgeo",
+        "../crates/tauri-plugin-pcap",
+        "../crates/desktop",
+      ],
     },
   },
 }));

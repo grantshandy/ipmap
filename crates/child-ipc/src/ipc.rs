@@ -141,12 +141,12 @@ mod parent {
                 }
             } else {
                 // Still running, so terminate it
-                tracing::debug!("Terminating the child process...");
+                tracing::trace!("Terminating the child process...");
                 child.kill()?;
                 child.wait()?; // Ensure it fully exits
             }
 
-            tracing::debug!("{child_path:?} finished exiting");
+            tracing::trace!("{child_path:?} finished exiting");
 
             Ok(())
         };

@@ -21,7 +21,7 @@ export const PLATFORM = "linux" as const;
 
 /** user-defined types **/
 
-
+export type Platform = "linux" | "windows" | "macos"
 
 /** tauri-specta globals **/
 

@@ -6,6 +6,12 @@ settings:
 
 importers:
 
+  crates/desktop/bindings:
+    dependencies:
+      '@tauri-apps/api':
+        specifier: ^2.9.1
+        version: 2.9.1
+
   crates/tauri-plugin-ipgeo:
     dependencies:
       '@tauri-apps/api':
@@ -82,6 +88,9 @@ importers:
       tauri-plugin-ipgeo-api:
         specifier: file:../crates/tauri-plugin-ipgeo
         version: link:../crates/tauri-plugin-ipgeo
+      tauri-plugin-ipmap-api:
+        specifier: file:../crates/desktop/bindings
+        version: link:../crates/desktop/bindings
       tauri-plugin-pcap-api:
         specifier: file:../crates/tauri-plugin-pcap
         version: link:../crates/tauri-plugin-pcap

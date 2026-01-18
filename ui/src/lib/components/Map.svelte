@@ -1,15 +1,15 @@
 <script lang="ts">
+  import { type ConnectionDirection } from "tauri-plugin-pcap-api";
+  import { type Coordinate } from "tauri-plugin-ipgeo-api";
+
   import "leaflet/dist/leaflet.css";
   import "leaflet";
+  import "leaflet-edgebuffer";
+
   import { LatLngBounds, type Marker, type Map } from "leaflet";
   import * as leaflet from "leaflet";
   import { GeodesicLine } from "leaflet.geodesic";
-  import "leaflet-edgebuffer";
-
-  import { type ConnectionDirection } from "tauri-plugin-pcap-api";
-  import { type Coordinate } from "tauri-plugin-ipgeo-api";
   import { CAPTURE_COLORS, CAPTURE_VARY_SIZE, lerp } from "$lib/utils";
-
   import { type MapArgs } from "$lib/page.svelte";
   import { fade } from "svelte/transition";
 

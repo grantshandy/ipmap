@@ -1,15 +1,14 @@
 <script lang="ts">
   import "@openglobus/og/styles";
   import {
-    Bing,
     control,
+    wgs84,
+    Bing,
     Entity,
     Globe,
     GlobusRgbTerrain,
     LonLat,
-    Vec3,
     Vector,
-    wgs84,
   } from "@openglobus/og";
   import { type MapArgs } from "$lib/page.svelte";
   import {
@@ -20,10 +19,8 @@
     OSCILATION_RANGE,
     type ArcRecord,
   } from "$lib/3d-arc";
-
   import { asset } from "$app/paths";
   import { lerp, CAPTURE_COLORS, CAPTURE_VARY_SIZE } from "$lib/utils";
-
   import { fade } from "svelte/transition";
 
   import { type ConnectionDirection } from "tauri-plugin-pcap-api";

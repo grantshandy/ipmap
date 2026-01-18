@@ -1,4 +1,4 @@
-import "@fontsource/inter";
+import "@fontsource/inter/latin.css";
 import "../app.css";
 
 export const prerender = true;

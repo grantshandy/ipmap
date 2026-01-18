@@ -1,14 +1,36 @@
-import type { Snippet } from "svelte";
 import type {
   CaptureSession,
   ConnectionDirection,
   Coordinate,
 } from "tauri-plugin-pcap-api";
 
-export const pageState: {
-  page: "capture" | "search" | "trace";
-  globe: boolean;
-} = $state({ page: "search", globe: false });
+export type PageView = "capture" | "search" | "trace";
+
+class PageStateManager {
+  page = $state<PageView>("search");
+  globe = $state(false);
+
+  constructor() {
+    const stored = localStorage.getItem("pageState");
+
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      this.page = parsed.page;
+      this.globe = parsed.globe;
+    }
+
+    $effect.root(() => {
+      $effect(() => {
+        localStorage.setItem(
+          "pageState",
+          JSON.stringify({ page: this.page, globe: this.globe }),
+        );
+      });
+    });
+  }
+}
+
+export const pageState = new PageStateManager();
 
 export interface MapArgs {
   capture?: CaptureSession | null;

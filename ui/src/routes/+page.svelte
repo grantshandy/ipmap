@@ -1,18 +1,18 @@
 <script lang="ts">
-  import Link from "$lib/components/Link.svelte";
-  import ErrorScreen from "$lib/components/ErrorScreen.svelte";
-
   import Search from "$lib/pages/Search.svelte";
   import Traceroute from "$lib/pages/Traceroute.svelte";
   import Capture from "$lib/pages/Capture.svelte";
 
-  import { openAboutWindow } from "$lib/bindings";
-  import { pageState } from "$lib/page.svelte";
+  import Link from "$lib/components/Link.svelte";
+  import ErrorScreen from "$lib/components/ErrorScreen.svelte";
+
+  import { openAboutWindow } from "tauri-plugin-ipmap-api";
   import database, { type DatabaseSource } from "tauri-plugin-ipgeo-api";
   import { Pcap } from "tauri-plugin-pcap-api";
 
-  let pcapResult = Pcap.init();
+  import { pageState } from "$lib/page.svelte";
 
+  let pcapResult = Pcap.init();
   let downloadSource: DatabaseSource = $state("dbipcombined");
 </script>
 
