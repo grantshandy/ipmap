@@ -42,7 +42,7 @@
     {@render searchbox?.()}
   </div>
 
-  <div class="absolute right-2 bottom-2 z-999">
+  <div class="absolute right-0 bottom-0 z-999">
     {@render infobox?.()}
   </div>
 
