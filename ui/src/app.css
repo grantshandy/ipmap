@@ -1,10 +1,10 @@
 @import "tailwindcss";
 
 @plugin "daisyui" {
-  themes: adw-dark --default;
+  themes: business --default;
 }
 
-@plugin "daisyui/theme" {
+/*@plugin "daisyui/theme" {
   name: "adw-dark";
   default: true;
   prefersdark: true;
@@ -17,11 +17,11 @@
   --color-primary: #3584e4;
   --color-primary-content: #ffffff;
 
-  /* --color-secondary: #f000b8;
-    --color-secondary-content: #ffffff;
+  --color-secondary: #f000b8;
+  --color-secondary-content: #ffffff;
 
-    --color-accent: #37cdbe;
-    --color-accent-content: #163835; */
+  --color-accent: #37cdbe;
+  --color-accent-content: #163835;
 
   --color-neutral: #3584e4;
   --color-neutral-content: #ffffff;
@@ -48,7 +48,7 @@
   --border: 1px;
   --depth: 0;
   --noise: 0;
-}
+}*/
 
 :root {
   --color-mixed: var(--color-warning);
@@ -59,14 +59,6 @@
 body {
   font-family: "Inter";
 }
-
-/* html,
-body {
-  height: 100%;
-  margin: 0;
-  padding: 0;
-  overflow: hidden;
-} */
 
 .marker-icon {
   @apply bg-primary text-primary-content rounded-full border text-center align-sub font-bold drop-shadow-lg;
@@ -107,4 +99,8 @@ path.trace {
   to {
     stroke-dashoffset: 0;
   }
+}
+
+.border-btn {
+  border-color: var(--btn-border);
 }

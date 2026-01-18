@@ -113,9 +113,14 @@
       </div>
 
       <label class="label" for="ipsearchbox">IP Address or Domain</label>
-      <IpAddrInput id="ipsearchbox" bind:value={ip} onchange={search} />
+      <IpAddrInput
+        id="ipsearchbox"
+        class="input-sm"
+        bind:value={ip}
+        onchange={search}
+      />
 
-      <button class="btn btn-primary mt-4" onclick={search} {disabled}>
+      <button class="btn btn-primary btn-sm mt-4" onclick={search} {disabled}>
         Search
       </button>
     </fieldset>

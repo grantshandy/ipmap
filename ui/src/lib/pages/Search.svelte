@@ -40,7 +40,11 @@
 <GenericMap bind:map {searchbox} {infobox} />
 
 {#snippet searchbox()}
-  <IpAddrInput class="join-item" bind:value={query} onchange={search} />
+  <IpAddrInput
+    class="join-item input-sm"
+    bind:value={query}
+    onchange={search}
+  />
 
   <button
     class="btn btn-sm btn-primary join-item"
@@ -71,7 +75,7 @@
 {#snippet locationinfo(result: LookupState)}
   <div
     transition:fade={{ duration: 200 }}
-    class="bg-base-200 rounded-box min-w-64 border p-2 text-right select-none"
+    class="bg-base-200 rounded-box min-w-64 p-2 text-right select-none"
   >
     <p class="text-2xl underline">{result.ip}</p>
     <p class="text-sm">{renderLocationName(result.info.loc)}</p>

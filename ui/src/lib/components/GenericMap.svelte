@@ -35,7 +35,7 @@
 
 <div class="relative grow">
   <div
-    class="join join-horizontal bg-base-200 absolute top-2 left-2 z-999 flex rounded-md"
+    class="join join-horizontal bg-base-200 border-btn rounded-field absolute top-2 left-2 z-999 flex"
   >
     <PageSelector />
     {@render searchbox?.()}
@@ -45,36 +45,31 @@
     {@render infobox?.()}
   </div>
 
-  <div
-    class="absolute top-2 right-2 z-999 flex flex-col items-end space-y-2 select-none"
-  >
+  <div class="absolute top-2 right-2 z-999 flex flex-col space-y-2 select-none">
     <div class="join join-vertical">
       <button
         onclick={() => map?.zoomIn()}
-        class="btn join-item btn-sm border-b-0 border-white text-xl font-bold"
+        class="btn join-item btn-sm border-btn border-b-0 text-xl font-bold"
         >+</button
       >
       <button
         onclick={() => map?.zoomOut()}
-        class="btn join-item btn-sm border-t-0 border-white text-xl font-bold"
+        class="btn join-item btn-sm border-btn border-t-0 text-xl font-bold"
         >&#x2212;</button
       >
     </div>
 
-    <button class="btn btn-sm text-xl" onclick={openAboutWindow}>?</button>
+    <button class="btn btn-sm border-btn w-full" onclick={openAboutWindow}>
+      ?
+    </button>
 
-    <div
-      class="bg-base-200 rounded-box flex items-center space-x-2 border border-white px-2 py-1 text-sm"
+    <button
+      class="btn btn-sm border-btn w-full"
+      class:btn-primary={pageState.globe}
+      onclick={() => (pageState.globe = !pageState.globe)}
     >
-      <label for="globe" class="flex h-full items-center text-xs">3D</label>
-
-      <input
-        id="globe"
-        type="checkbox"
-        bind:checked={pageState.globe}
-        class="toggle toggle-xs"
-      />
-    </div>
+      3D
+    </button>
   </div>
 
   {#if pageState.globe}

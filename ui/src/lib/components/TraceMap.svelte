@@ -45,7 +45,7 @@
 
 {#snippet searchbox()}
   <h1
-    class="bg-base-200 join-item flex items-center px-2 text-xl font-semibold"
+    class="bg-base-100 join-item flex items-center px-2 text-xl font-semibold"
   >
     {ip}
   </h1>
@@ -80,7 +80,7 @@
         Close
       </button>
       <div
-        class="bg-base-200 rounded-t-box flex h-64 w-full border-x border-t p-3"
+        class="bg-base-100 rounded-t-box flex h-64 w-full border-x border-t p-3"
       >
         <div class="grow space-y-1 overflow-y-scroll">
           {#each hops as hop, i}

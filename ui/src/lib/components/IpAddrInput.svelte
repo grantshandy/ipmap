@@ -3,7 +3,7 @@
   import { Address4, Address6 } from "ip-address";
   import type { FormEventHandler, HTMLInputAttributes } from "svelte/elements";
 
-  const DOMAIN_NAME =
+  const VALID_DOMAIN_NAME =
     /^((?!-))(xn--)?[a-z0-9][a-z0-9-_]{0,61}[a-z0-9]{0,1}\.(xn--)?([a-z0-9\-]{1,61}|[a-z0-9-]{1,30}\.[a-z]{2,})$/;
 
   let {
@@ -21,7 +21,7 @@
     const currentValue = rawValue;
     const trimmed = currentValue.replace(/\s/g, "");
 
-    if (DOMAIN_NAME.test(trimmed)) {
+    if (VALID_DOMAIN_NAME.test(trimmed)) {
       const res = await database.lookupHost(trimmed);
 
       if (currentValue != rawValue) {
@@ -54,7 +54,7 @@
 
 <input
   type="text"
-  class={`input input-sm ${restClass || ""}`}
+  class={`input ${restClass || ""}`}
   placeholder="IP Address"
   autocomplete="off"
   class:input-error={rawValue.length > 0 && value == null}
