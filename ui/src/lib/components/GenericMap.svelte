@@ -29,15 +29,14 @@
       case "-":
         map?.zoomOut();
         break;
-      case "3":
-        pageState.globe = !pageState.globe;
-        break;
     }
   };
 </script>
 
 <div class="relative grow">
-  <div class="join join-horizontal absolute top-0 left-0 z-999 flex p-2">
+  <div
+    class="join join-horizontal bg-base-200 absolute top-2 left-2 z-999 flex rounded-md"
+  >
     <PageSelector />
     {@render searchbox?.()}
   </div>
@@ -47,7 +46,7 @@
   </div>
 
   <div
-    class="absolute top-0 right-0 z-999 flex flex-col items-end space-y-2 p-2 select-none"
+    class="absolute top-2 right-2 z-999 flex flex-col items-end space-y-2 select-none"
   >
     <div class="join join-vertical">
       <button
