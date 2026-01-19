@@ -6,6 +6,7 @@ use treebitmap::IpLookupTable;
 
 use crate::{
     Coordinate, Error, GenericIp,
+    coordinate::PackedCoordinate,
     locations::{CountryCode, LocationIndices, LocationStore},
 };
 
@@ -24,7 +25,7 @@ pub const LONGITUDE_IDX: usize = 8;
 pub fn read<Ip: GenericIp>(
     read: impl Read,
     is_num: bool,
-    ips: &mut IpLookupTable<Ip, Coordinate>,
+    ips: &mut IpLookupTable<Ip, PackedCoordinate>,
     locations: &mut LocationStore,
 ) -> Result<(), crate::Error> {
     let ip_parser = if is_num {
@@ -56,14 +57,14 @@ pub fn coord_from_record(
 pub fn read_record<Ip: GenericIp>(
     record: &ByteRecord,
     ip_parser: fn(&[u8]) -> Result<Ip, crate::Error>,
-    ips: &mut IpLookupTable<Ip, Coordinate>,
+    ips: &mut IpLookupTable<Ip, PackedCoordinate>,
     locations: &mut LocationStore,
 ) -> Result<(), crate::Error> {
     if record.len() < NUM_RECORDS {
         return Err(Error::NotEnoughColumns);
     }
 
-    let coord = coord_from_record(record)?;
+    let coord: PackedCoordinate = coord_from_record(record)?.into();
 
     locations.insert(coord, &|strings| {
         Ok(LocationIndices {

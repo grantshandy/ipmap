@@ -9,21 +9,24 @@ use std::{
 use ipnet::{Ipv4Subnets, Ipv6Subnets};
 use ipnetwork::{IpNetwork, Ipv4Network, Ipv6Network};
 
+mod coordinate;
 mod database;
 mod detect;
-pub mod locations;
 mod reader;
+
+pub mod locations;
 pub(crate) mod rkyv_impl;
 
 #[cfg(feature = "download")]
 pub mod download;
 
+pub use coordinate::Coordinate;
 pub use database::{
     ArchivedCombinedDatabase, ArchivedSingleDatabase, CombinedDatabase, Ipv4Database, Ipv6Database,
     SingleDatabase,
 };
 pub use detect::{ArchivedGenericDatabase, GenericDatabase, detect};
-pub use locations::{Coordinate, Location, LookupInfo};
+pub use locations::{Location, LookupInfo};
 pub use treebitmap;
 
 /// A generic way of addressing a [`CombinedDatabase`], [`SingleDatabase`], or [`GenericDatabase`].

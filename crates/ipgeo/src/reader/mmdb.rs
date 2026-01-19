@@ -5,12 +5,13 @@ use treebitmap::IpLookupTable;
 
 use crate::{
     Coordinate, Error, GenericIp,
+    coordinate::PackedCoordinate,
     locations::{CountryCode, LocationIndices, LocationStore},
 };
 
 pub fn read<Ip: GenericIp, S: AsRef<[u8]>>(
     reader: Reader<S>,
-    ips: &mut IpLookupTable<Ip, Coordinate>,
+    ips: &mut IpLookupTable<Ip, PackedCoordinate>,
     locations: &mut LocationStore,
 ) -> Result<(), Error> {
     for res in reader
@@ -21,10 +22,11 @@ pub fn read<Ip: GenericIp, S: AsRef<[u8]>>(
         let net = lookup.network().map_err(Error::MaxMindDb)?;
         let ip = Ip::from_generic(net.ip()).ok_or(Error::MalformedMaxMindDb)?;
 
-        let coord = Coordinate {
+        let coord: PackedCoordinate = Coordinate {
             lat: decode::<_, f32>(&lookup, "latitude")?,
             lng: decode::<_, f32>(&lookup, "longitude")?,
-        };
+        }
+        .into();
 
         locations.insert(coord, &|strings| {
             Ok(LocationIndices {

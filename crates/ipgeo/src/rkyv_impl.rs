@@ -1,25 +1,19 @@
 use std::net::IpAddr;
 
-use rkyv::{option::ArchivedOption, rend::NonZeroU32_le};
+use rkyv::{
+    option::ArchivedOption,
+    rend::{NonZeroU32_le, u16_le},
+};
 
 use crate::{
     Coordinate, Database, GenericIp, Location,
+    coordinate::{ArchivedPackedCoordinate, PackedCoordinate},
     database::{ArchivedCombinedDatabase, ArchivedSingleDatabase},
     locations::{
-        ArchivedCoordinate, ArchivedCountryCode, ArchivedLocationIndices, ArchivedLocationStore,
-        ArchivedStringDict, CountryCode,
+        ArchivedCountryCode, ArchivedLocationIndices, ArchivedLocationStore, ArchivedStringDict,
+        CountryCode,
     },
 };
-
-impl ArchivedCoordinate {
-    fn as_bytes(&self) -> u64 {
-        let mut out = [0; 8];
-        let (one, two) = out.split_at_mut(4);
-        one.copy_from_slice(self.lat.to_native().to_ne_bytes().as_slice());
-        two.copy_from_slice(self.lng.to_native().to_ne_bytes().as_slice());
-        u64::from_ne_bytes(out)
-    }
-}
 
 impl From<&ArchivedCountryCode> for CountryCode {
     fn from(value: &ArchivedCountryCode) -> Self {
@@ -27,55 +21,22 @@ impl From<&ArchivedCountryCode> for CountryCode {
     }
 }
 
-impl From<&ArchivedCoordinate> for Coordinate {
-    fn from(value: &ArchivedCoordinate) -> Self {
+impl From<&ArchivedPackedCoordinate> for Coordinate {
+    fn from(value: &ArchivedPackedCoordinate) -> Self {
+        (&PackedCoordinate {
+            lat_u: value.lat_u.to_native(),
+            lng_u: value.lng_u.to_native(),
+        })
+            .into()
+    }
+}
+
+impl From<PackedCoordinate> for ArchivedPackedCoordinate {
+    fn from(value: PackedCoordinate) -> Self {
         Self {
-            lat: value.lat.to_native(),
-            lng: value.lng.to_native(),
+            lat_u: u16_le::from_native(value.lat_u),
+            lng_u: u16_le::from_native(value.lng_u),
         }
-    }
-}
-
-impl From<Coordinate> for ArchivedCoordinate {
-    fn from(value: Coordinate) -> Self {
-        Self {
-            lat: value.lat.into(),
-            lng: value.lng.into(),
-        }
-    }
-}
-
-impl From<ArchivedCoordinate> for Coordinate {
-    fn from(value: ArchivedCoordinate) -> Self {
-        Self {
-            lat: value.lat.to_native(),
-            lng: value.lng.to_native(),
-        }
-    }
-}
-
-impl PartialEq for ArchivedCoordinate {
-    fn eq(&self, other: &Self) -> bool {
-        self.as_bytes() == other.as_bytes()
-    }
-}
-impl Eq for ArchivedCoordinate {}
-
-impl PartialOrd for ArchivedCoordinate {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for ArchivedCoordinate {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.as_bytes().cmp(&other.as_bytes())
-    }
-}
-
-impl std::hash::Hash for ArchivedCoordinate {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.as_bytes().hash(state);
     }
 }
 
@@ -89,19 +50,15 @@ impl ArchivedStringDict {
 
 impl ArchivedLocationIndices {
     fn populate(&self, strings: &ArchivedStringDict) -> Location {
-        let city = match self.city {
-            ArchivedOption::Some(idx) => strings.get(idx),
-            ArchivedOption::None => None,
-        };
-
-        let region = match self.region {
-            ArchivedOption::Some(idx) => strings.get(idx),
-            ArchivedOption::None => None,
-        };
-
         Location {
-            city,
-            region,
+            city: match self.city {
+                ArchivedOption::Some(idx) => strings.get(idx),
+                ArchivedOption::None => None,
+            },
+            region: match self.region {
+                ArchivedOption::Some(idx) => strings.get(idx),
+                ArchivedOption::None => None,
+            },
             country_code: CountryCode::from(&self.country_code).to_string(),
         }
     }
@@ -109,8 +66,8 @@ impl ArchivedLocationIndices {
 
 impl ArchivedLocationStore {
     /// Get the location for an associated coordinate.
-    pub fn get(&self, coord: Coordinate) -> Option<Location> {
-        self.coordinates.get(&coord.into()).map(|i| {
+    pub fn get(&self, coord: ArchivedPackedCoordinate) -> Option<Location> {
+        self.coordinates.get(&coord).map(|i| {
             // UNWRAP: self.locations and self.coordinates are updated at the same time in Self::insert_location
             self.locations
                 .get_index(i.to_native() as usize)
@@ -126,7 +83,8 @@ impl<Ip: GenericIp> Database<Ip> for ArchivedSingleDatabase<Ip> {
     }
 
     fn get_location(&self, crd: Coordinate) -> Option<Location> {
-        self.locations.get(crd)
+        let crd: PackedCoordinate = crd.into();
+        self.locations.get(crd.into())
     }
 }
 
@@ -139,6 +97,7 @@ impl Database<IpAddr> for ArchivedCombinedDatabase {
     }
 
     fn get_location(&self, crd: Coordinate) -> Option<Location> {
-        self.locations.get(crd)
+        let crd: PackedCoordinate = crd.into();
+        self.locations.get(crd.into())
     }
 }
