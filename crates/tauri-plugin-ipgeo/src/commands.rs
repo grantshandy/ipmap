@@ -169,28 +169,36 @@ pub fn lookup_ip(state: State<'_, DbState>, ip: IpAddr) -> Option<LookupInfo> {
     state.get(ip)
 }
 
-/// Get a hostname with the system for a given [`IpAddr`].
-#[tauri::command]
-#[specta::specta]
-pub async fn lookup_dns(ip: IpAddr) -> Result<Option<String>, ()> {
-    let host = async { dns_lookup::lookup_addr(&ip).ok() };
-
-    tokio::time::timeout(DNS_LOOKUP_TIMEOUT, host)
+async fn blocking_timeout<F, T>(f: F) -> Option<T>
+where
+    F: FnOnce() -> T + Send + 'static,
+    T: Send + 'static,
+{
+    tokio::time::timeout(DNS_LOOKUP_TIMEOUT, tokio::task::spawn_blocking(f))
         .await
-        .map_err(|_| ())
+        .ok()?
+        .ok()
 }
 
 /// Get a hostname with the system for a given [`IpAddr`].
 #[tauri::command]
 #[specta::specta]
-pub async fn lookup_host(host: &str) -> Result<Option<IpAddr>, ()> {
-    let ip = async {
-        dns_lookup::lookup_host(host)
-            .ok()
-            .and_then(|mut i| i.next())
-    };
-
-    tokio::time::timeout(DNS_LOOKUP_TIMEOUT, ip)
+pub async fn lookup_dns(ip: IpAddr) -> Result<Option<String>, ()> {
+    blocking_timeout(move || dns_lookup::lookup_addr(&ip).ok())
         .await
-        .map_err(|_| ())
+        .ok_or(())
+}
+
+/// Get a hostname with the system for a given [`IpAddr`].
+#[tauri::command]
+#[specta::specta]
+pub async fn lookup_host(host: String) -> Result<Vec<IpAddr>, ()> {
+    blocking_timeout(move || {
+        dns_lookup::lookup_host(&host)
+            .ok()
+            .map(|r| r.collect::<Vec<_>>())
+    })
+    .await
+    .flatten()
+    .ok_or(())
 }

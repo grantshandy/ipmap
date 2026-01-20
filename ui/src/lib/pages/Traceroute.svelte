@@ -17,6 +17,7 @@
 
   let rounds: number = $state(5);
   let ip: string | null = $state(null);
+  let searchLoading: boolean = $state(false);
 
   let disabled = $derived(ip === null || rounds < 1 || rounds > MAX_ROUNDS);
 
@@ -112,11 +113,18 @@
         <p class="validator-hint text-xs">Must be between 1 to ${MAX_ROUNDS}</p>
       </div>
 
-      <label class="label" for="ipsearchbox">IP Address or Domain</label>
+      <label class="label" for="ipsearchbox">
+        <span class="grow">IP Address or Domain Name</span>
+        {#if searchLoading}
+          <span class="loading loading-spinner loading-xs"></span>
+        {/if}
+      </label>
       <IpAddrInput
         id="ipsearchbox"
         class="input-sm"
+        placeholder="wikipedia.org"
         bind:value={ip}
+        bind:loading={searchLoading}
         onchange={search}
       />
 

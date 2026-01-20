@@ -9,27 +9,34 @@
 
   let {
     value = $bindable(),
+    loading = $bindable(),
     class: restClass,
     ...restProps
   }: {
     value?: string | null;
+    loading?: boolean;
     class?: string;
   } & HTMLInputAttributes = $props();
 
   let rawValue = $state("");
 
   const oninput: FormEventHandler<HTMLInputElement> = async () => {
+    loading = false;
+
     const currentValue = rawValue;
     const trimmed = currentValue.replace(/\s/g, "");
 
     if (VALID_DOMAIN_NAME.test(trimmed)) {
+      loading = true;
       const res = await database.lookupHost(trimmed);
+      loading = false;
 
       if (currentValue != rawValue) {
         return;
       }
 
-      value = res.status == "error" ? null : res.data;
+      // TODO: let user select which IP address to use from dropdown/modal?
+      value = res.status == "error" ? null : res.data[0];
       return;
     }
 
@@ -56,7 +63,7 @@
 <input
   type="text"
   class={`input ${restClass || ""}`}
-  placeholder="IP Address"
+  placeholder={restProps.placeholder || "IP or DNS Address"}
   autocomplete="off"
   class:input-error={rawValue.length > 0 && value == null}
   bind:value={rawValue}

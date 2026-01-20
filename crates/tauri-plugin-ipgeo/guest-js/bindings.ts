@@ -74,7 +74,7 @@ async lookupDns(ip: string) : Promise<Result<string | null, null>> {
 /**
  * Get a hostname with the system for a given [`IpAddr`].
  */
-async lookupHost(host: string) : Promise<Result<string | null, null>> {
+async lookupHost(host: string) : Promise<Result<string[], null>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:ipgeo|lookup_host", { host }) };
 } catch (e) {
