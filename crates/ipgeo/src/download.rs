@@ -10,7 +10,8 @@ use std::{
 };
 
 use crate::{
-    CombinedDatabase, Coordinate, Error, GenericIp, SingleDatabase,
+    CombinedDatabase, Error, GenericIp, SingleDatabase,
+    coordinate::PackedCoordinate,
     locations::{
         CountryCode, LocationIndices, LocationKey, LocationStore, StringDict, StringDictKey,
     },
@@ -91,7 +92,7 @@ impl<Ip: GenericIp> SingleDatabase<Ip> {
                 return Err(anyhow::anyhow!("Not enough columns"));
             }
 
-            let coord = coord_from_record(&record)?;
+            let coord: PackedCoordinate = coord_from_record(&record)?.into();
 
             locations.insert(coord, &|strings| {
                 Ok(LocationIndices {
@@ -219,7 +220,7 @@ async fn concurrent_table_download<Ip: GenericIp>(
     locations: Arc<ConcurrentLocationStore>,
     len_report: impl Fn(u64) + Send + Sync,
     chunk_report: impl Fn(u64) + Send + Sync,
-) -> anyhow::Result<(IpLookupTable<Ip, Coordinate>, u64)> {
+) -> anyhow::Result<(IpLookupTable<Ip, PackedCoordinate>, u64)> {
     let ip_parser = if is_num {
         Ip::from_num_bytes
     } else {
@@ -251,7 +252,7 @@ async fn concurrent_table_download<Ip: GenericIp>(
             return Err(anyhow::anyhow!("Not enough columns"));
         }
 
-        let coord = coord_from_record(&record)?;
+        let coord: PackedCoordinate = coord_from_record(&record)?.into();
 
         locations.insert(coord, &|strings| {
             Ok(LocationIndices {
@@ -277,7 +278,7 @@ async fn concurrent_table_download<Ip: GenericIp>(
 /// A concurrent, thread-safe builder for LocationStore.
 #[derive(Default)]
 struct ConcurrentLocationStore {
-    coordinates: DashMap<Coordinate, LocationKey, FxBuildHasher>,
+    coordinates: DashMap<PackedCoordinate, LocationKey, FxBuildHasher>,
     loc_lookup: DashMap<LocationIndices, LocationKey, FxBuildHasher>,
     loc_storage: DashMap<LocationKey, LocationIndices, FxBuildHasher>,
     loc_counter: AtomicUsize,
@@ -287,7 +288,7 @@ struct ConcurrentLocationStore {
 impl ConcurrentLocationStore {
     fn insert(
         &self,
-        coord: Coordinate,
+        coord: PackedCoordinate,
         create_location: &dyn Fn(&ConcurrentStringDict) -> Result<LocationIndices, Error>,
     ) -> Result<(), Error> {
         if self.coordinates.contains_key(&coord) {

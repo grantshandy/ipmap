@@ -1,14 +1,16 @@
-use crate::Error;
-use compact_str::CompactString;
-use indexmap::IndexSet;
-use rustc_hash::FxBuildHasher;
-use serde::{Deserialize, Serialize};
-use specta::Type;
 use std::{
     collections::{HashMap, hash_map::Entry},
     fmt,
     num::NonZero,
 };
+
+use compact_str::CompactString;
+use indexmap::IndexSet;
+use rustc_hash::FxBuildHasher;
+use serde::{Deserialize, Serialize};
+use specta::Type;
+
+use crate::{Coordinate, Error, coordinate::PackedCoordinate};
 
 /// A memory-efficient store of named locations by their coordinates.
 #[derive(
@@ -22,7 +24,7 @@ use std::{
 )]
 pub(crate) struct LocationStore {
     /// Coordinate to a single identifiable "location" (city) key
-    pub(crate) coordinates: HashMap<Coordinate, LocationKey, FxBuildHasher>,
+    pub(crate) coordinates: HashMap<PackedCoordinate, LocationKey, FxBuildHasher>,
     /// Location key to associated string keys for city and region
     pub(crate) locations: IndexSet<LocationIndices, FxBuildHasher>,
     /// Deduplicated location name strings
@@ -33,7 +35,7 @@ impl LocationStore {
     /// Insert a new location into the store, only allocating/parsing/inserting strings when necessary
     pub(crate) fn insert(
         &mut self,
-        coord: Coordinate,
+        coord: PackedCoordinate,
         create_location: &dyn Fn(&mut StringDict) -> Result<LocationIndices, Error>,
     ) -> Result<(), Error> {
         // only allocating if the location is new saves millions of parses/allocations per database.
@@ -49,8 +51,8 @@ impl LocationStore {
     }
 
     /// Get the location for an associated coordinate.
-    pub fn get(&self, coord: Coordinate) -> Option<Location> {
-        self.coordinates.get(&coord).map(|i| {
+    pub fn get(&self, coord: &PackedCoordinate) -> Option<Location> {
+        self.coordinates.get(coord).map(|i| {
             // UNWRAP: self.locations and self.coordinates are updated at the same time in Self::insert_location
             self.locations
                 .get_index(*i)
@@ -107,22 +109,6 @@ impl StringDict {
     }
 }
 
-/// A [`Coordinate`]/[`Location`] pair.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
-pub struct LookupInfo {
-    pub crd: Coordinate,
-    pub loc: Location,
-}
-
-/// A [`Coordinate`]'s associated city, region, and country.
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Type, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Location {
-    pub city: Option<String>,
-    pub region: Option<String>,
-    pub country_code: String,
-}
-
 /// The city and region stored as indexes into a `StringDict` database.
 #[derive(
     Copy,
@@ -153,59 +139,27 @@ impl LocationIndices {
     }
 }
 
-/// A basic latitude/longitude pair.
-#[derive(
-    Copy,
-    Clone,
-    Debug,
-    Type,
-    Default,
-    serde::Serialize,
-    serde::Deserialize,
-    rkyv::Archive,
-    rkyv::Serialize,
-    rkyv::Deserialize,
-)]
-pub struct Coordinate {
-    /// Latitude
-    pub lat: f32,
-    /// Longitude
-    pub lng: f32,
+/// A [`Coordinate`]/[`Location`] pair.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
+pub struct LookupInfo {
+    pub crd: Coordinate,
+    pub loc: Location,
 }
 
-impl Coordinate {
-    fn as_bytes(&self) -> u64 {
-        let mut out = [0; 8];
-        let (one, two) = out.split_at_mut(4);
-        one.copy_from_slice(self.lat.to_ne_bytes().as_slice());
-        two.copy_from_slice(self.lng.to_ne_bytes().as_slice());
-        u64::from_ne_bytes(out)
+impl LookupInfo {
+    /// Returns true if the coordinates are equal within the packing error margin.
+    pub fn approx_eq(&self, other: &Self) -> bool {
+        self.crd.approx_eq(&other.crd) && self.loc == other.loc
     }
 }
 
-impl PartialEq for Coordinate {
-    fn eq(&self, other: &Self) -> bool {
-        self.as_bytes() == other.as_bytes()
-    }
-}
-impl Eq for Coordinate {}
-
-impl PartialOrd for Coordinate {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for Coordinate {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.as_bytes().cmp(&other.as_bytes())
-    }
-}
-
-impl std::hash::Hash for Coordinate {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.as_bytes().hash(state);
-    }
+/// A [`Coordinate`]'s associated city, region, and country.
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Type, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Location {
+    pub city: Option<String>,
+    pub region: Option<String>,
+    pub country_code: String,
 }
 
 /// An ISO 3166 2-digit ASCII country code.
