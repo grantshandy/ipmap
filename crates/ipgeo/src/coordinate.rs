@@ -2,8 +2,8 @@
 
 use std::hash;
 
-const LAT_MAX: f32 = 90.0;
-const LNG_MAX: f32 = 180.0;
+const LAT_RANGE: f32 = 90.0;
+const LNG_RANGE: f32 = 180.0;
 
 /// A basic latitude/longitude pair.
 #[derive(Copy, Clone, Debug, Default, specta::Type, serde::Serialize, serde::Deserialize)]
@@ -17,8 +17,8 @@ pub struct Coordinate {
 impl Coordinate {
     /// Returns true if the coordinates are equal within the precision of the database via `PackedCoordinate`.
     pub fn approx_eq(&self, other: &Self) -> bool {
-        pack_degree(self.lat, LAT_MAX) == pack_degree(other.lat, LAT_MAX)
-            && pack_degree(self.lng, LNG_MAX) == pack_degree(other.lng, LNG_MAX)
+        pack_degree(self.lat, LAT_RANGE) == pack_degree(other.lat, LAT_RANGE)
+            && pack_degree(self.lng, LNG_RANGE) == pack_degree(other.lng, LNG_RANGE)
     }
 
     fn as_bytes(&self) -> u64 {
@@ -45,14 +45,14 @@ impl hash::Hash for Coordinate {
 
 /// Converts from a packed u16 type to an f32 degree, given an absolute range (-abs_rng..=abs_rng).
 #[inline]
-const fn pack_degree(deg: f32, abs_rng: f32) -> u16 {
-    (((deg.clamp(-abs_rng, abs_rng) + abs_rng) / (abs_rng * 2.0)) * u16::MAX as f32).round() as u16
+const fn pack_degree(deg: f32, range: f32) -> u16 {
+    (((deg.clamp(-range, range) + range) / (range * 2.0)) * u16::MAX as f32).round() as u16
 }
 
 /// Converts from a packed u16 type to an f32 degree, given an absolute range (-abs_rng..=abs_rng).
 #[inline]
-const fn unpack_degree(deg_u: u16, abs_rng: f32) -> f32 {
-    (deg_u as f32 / u16::MAX as f32) * (abs_rng * 2.0) - abs_rng
+const fn unpack_degree(deg_u: u16, range: f32) -> f32 {
+    (deg_u as f32 / u16::MAX as f32) * (range * 2.0) - range
 }
 
 /// A packed 32-bit representation of a global coordinate.
@@ -92,8 +92,8 @@ pub(crate) struct PackedCoordinate {
 impl From<Coordinate> for PackedCoordinate {
     fn from(coord: Coordinate) -> Self {
         PackedCoordinate {
-            lat_u: pack_degree(coord.lat, LAT_MAX),
-            lng_u: pack_degree(coord.lng, LNG_MAX),
+            lat_u: pack_degree(coord.lat, LAT_RANGE),
+            lng_u: pack_degree(coord.lng, LNG_RANGE),
         }
     }
 }
@@ -101,8 +101,8 @@ impl From<Coordinate> for PackedCoordinate {
 impl From<&PackedCoordinate> for Coordinate {
     fn from(packed: &PackedCoordinate) -> Self {
         Coordinate {
-            lat: unpack_degree(packed.lat_u, LAT_MAX),
-            lng: unpack_degree(packed.lng_u, LNG_MAX),
+            lat: unpack_degree(packed.lat_u, LAT_RANGE),
+            lng: unpack_degree(packed.lng_u, LNG_RANGE),
         }
     }
 }
@@ -118,11 +118,11 @@ mod tests {
 
     #[test]
     fn packed_coordinate_max_error() {
-        let mut lat = -LAT_MAX;
-        let mut lng = -LNG_MAX;
+        let mut lat = -LAT_RANGE;
+        let mut lng = -LNG_RANGE;
 
-        while lat < LAT_MAX {
-            while lng < LNG_MAX {
+        while lat < LAT_RANGE {
+            while lng < LNG_RANGE {
                 let packed: PackedCoordinate = Coordinate { lat, lng }.into();
                 let Coordinate {
                     lat: lat_conv,
@@ -143,7 +143,7 @@ mod tests {
                 lng += TEST_STEP;
             }
 
-            lng = -LNG_MAX;
+            lng = -LNG_RANGE;
             lat += TEST_STEP;
         }
     }
