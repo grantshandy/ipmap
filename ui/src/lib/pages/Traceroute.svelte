@@ -12,6 +12,7 @@
   } from "tauri-plugin-pcap-api";
 
   import { Channel } from "@tauri-apps/api/core";
+  import AnimatedProgress from "$lib/components/AnimatedProgress.svelte";
 
   const MAX_ROUNDS: number = 200;
 
@@ -69,13 +70,7 @@
   <div class="flex grow items-center justify-center select-none">
     <div class="space-y-3 text-center">
       <p>Tracing...</p>
-
-      <div class="progress w-56 overflow-hidden rounded-full">
-        <div
-          class="h-full rounded-r-full bg-white transition-all duration-1000 ease-in-out"
-          style={`width: ${Math.min(100, (round / (rounds - 2)) * 100)}%`}
-        ></div>
-      </div>
+      <AnimatedProgress value={round / (round - 2)} class="w-56" />
     </div>
   </div>
 {/snippet}

@@ -8,6 +8,7 @@ use tauri::{AppHandle, Runtime, State, ipc::Channel};
 use crate::{DatabaseSource, DbState, DbStateInfo, DynamicDatabase};
 
 const DNS_LOOKUP_TIMEOUT: Duration = Duration::from_millis(300);
+const DOWNLOAD_REPORT_GAP: Duration = Duration::from_millis(200);
 
 #[cfg(debug_assertions)]
 macro_rules! ip_location_db {
@@ -82,7 +83,6 @@ async fn download_source_internal(
     source: &DatabaseSource,
 ) -> anyhow::Result<DynamicDatabase> {
     let cb = move |val: u64, max: u64| {
-        println!("{val}/{max}");
         let _ = progress_sender.send(val as f64 / max as f64);
     };
 
@@ -94,7 +94,7 @@ async fn download_source_internal(
                 is_num: true,
             };
 
-            CombinedDatabase::download(src, cb)
+            CombinedDatabase::download(src, DOWNLOAD_REPORT_GAP, cb)
                 .await
                 .map(DynamicDatabase::Combined)?
         }
@@ -105,7 +105,7 @@ async fn download_source_internal(
                 is_num: true,
             };
 
-            CombinedDatabase::download(src, cb)
+            CombinedDatabase::download(src, DOWNLOAD_REPORT_GAP, cb)
                 .await
                 .map(DynamicDatabase::Combined)?
         }

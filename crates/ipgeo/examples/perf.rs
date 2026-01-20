@@ -1,7 +1,7 @@
 use std::{
     fs::{self, File},
     net::Ipv4Addr,
-    time::Instant,
+    time::{Duration, Instant},
 };
 
 use ipgeo::{ArchivedSingleDatabase, Database, Ipv4Database};
@@ -63,6 +63,7 @@ async fn download() -> anyhow::Result<()> {
     let db = Ipv4Database::download(
         "http://0.0.0.0:8000/dbip-city/dbip-city-ipv4-num.csv.gz",
         true,
+        Duration::from_millis(500),
         |a, b| println!("{}%", (a as f64 / b as f64) * 100.0),
     )
     .await?;

@@ -3,6 +3,7 @@
   import Traceroute from "$lib/pages/Traceroute.svelte";
   import Capture from "$lib/pages/Capture.svelte";
 
+  import AnimatedProgress from "$lib/components/AnimatedProgress.svelte";
   import Link from "$lib/components/Link.svelte";
   import ErrorScreen from "$lib/components/ErrorScreen.svelte";
 
@@ -88,25 +89,17 @@
       </div>
 
       {#if database.loading != null}
-        <div class="mt-4">
-          {#if database.loading.progress == null}
-            <span class="loading loading-spinner loading-xs"></span>
-          {/if}
-
+        <div class="mt-4 flex flex-col items-center space-y-3">
           <p class="italic">
             Loading
-            {#if database.loading.name}
-              {database.loading.name}
-            {/if}
+            {database.loading.name ?? ""}
             ...
           </p>
 
           {#if database.loading.progress != null}
-            <progress
-              class="progress w-64"
-              value={database.loading.progress * 100}
-              max={100}
-            ></progress>
+            <AnimatedProgress value={database.loading.progress} class="w-64" />
+          {:else}
+            <span class="loading loading-spinner"></span>
           {/if}
         </div>
       {:else}

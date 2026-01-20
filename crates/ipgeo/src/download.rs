@@ -28,8 +28,6 @@ use rustc_hash::FxBuildHasher;
 use tokio_util::io::StreamReader;
 use unix_time::Instant;
 
-const REPORT_GAP: Duration = Duration::from_millis(500);
-
 #[derive(Debug)]
 pub struct CombinedDatabaseSource<'a> {
     pub ipv4_csv_url: Cow<'a, str>,
@@ -41,6 +39,7 @@ impl<Ip: GenericIp> SingleDatabase<Ip> {
     pub async fn download(
         csv_url: impl AsRef<str>,
         is_num: bool,
+        report_gap: Duration,
         progress_report: impl Fn(u64, u64) + Send + Sync + 'static,
     ) -> anyhow::Result<Self> {
         let ip_parser = if is_num {
@@ -62,7 +61,7 @@ impl<Ip: GenericIp> SingleDatabase<Ip> {
             count += v;
 
             if let Some(content_length) = content_length
-                && last_reported.elapsed() >= REPORT_GAP
+                && last_reported.elapsed() >= report_gap
             {
                 progress_report(count, content_length);
                 last_reported = Instant::now();
@@ -130,6 +129,7 @@ impl CombinedDatabase {
     #[cfg(feature = "download")]
     pub async fn download<'a>(
         source: CombinedDatabaseSource<'a>,
+        report_gap: Duration,
         progress_report: impl Fn(u64, u64) + Send + Sync + 'static,
     ) -> anyhow::Result<Self> {
         let start = std::time::Instant::now();
@@ -153,7 +153,7 @@ impl CombinedDatabase {
             let now = Instant::now();
             let last = Instant::at(secs.load(Ordering::SeqCst), nanos.load(Ordering::SeqCst));
 
-            if now.duration_since(last) >= REPORT_GAP {
+            if now.duration_since(last) >= report_gap {
                 // update last
                 secs.store(now.secs(), Ordering::SeqCst);
                 nanos.store(now.subsec_nanos(), Ordering::SeqCst);
