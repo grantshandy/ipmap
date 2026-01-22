@@ -1,7 +1,6 @@
 <script lang="ts">
   import "@openglobus/og/styles";
   import {
-    control,
     wgs84,
     Bing,
     Entity,
@@ -9,6 +8,7 @@
     GlobusRgbTerrain,
     LonLat,
     Vector,
+    Renderer,
   } from "@openglobus/og";
   import { type MapArgs } from "$lib/page.svelte";
   import {
@@ -16,7 +16,6 @@
     getPath,
     DASH_TO_GAP_RATIO,
     NUMBER_OF_DASHES,
-    OSCILATION_RANGE,
     type ArcRecord,
   } from "$lib/3d-arc";
   import { asset } from "$app/paths";
@@ -26,11 +25,18 @@
   import { type ConnectionDirection } from "tauri-plugin-pcap-api";
   import { type Coordinate } from "tauri-plugin-ipgeo-api";
 
+  // TODO: tweak
+  const ZOOM_SPEED = 0.05;
+  const MIN_DELTA = 0.1;
+  const MAX_DELTA = 1000_0000000;
+  const ZOOM_FACTOR = 0.05;
+
   let { capture, focused = $bindable() }: MapArgs = $props();
 
   let globe: Globe | null = $state(null);
   let arcRecords: Record<string, ArcRecord> = {};
   let markerRecords: Record<string, Entity> = {};
+  let zoomState = 0;
 
   const markers = new Vector("points");
   const arcs = new Vector("arcs");
@@ -42,39 +48,45 @@
       terrain: new GlobusRgbTerrain(),
       atmosphereEnabled: true,
       layers: [new Bing(null), markers, arcs],
-      controls: [new control.MouseNavigation()],
+      controls: [],
       attributionContainer: document.createElement("div"),
+      navigation: {
+        mode: "lockNorth",
+        disableRotation: true,
+      },
     });
 
     globe.start();
 
-    globe.planet.renderer?.handler.defaultClock.setInterval(10, () => {
-      if (capture != null && !CAPTURE_COLORS) return;
+    globe.planet?.renderer!.events.on("draw", (e: Renderer) => {
+      if (zoomState === 0 || !globe || !globe.planet.camera) return;
 
-      for (const crd in arcRecords) {
-        const locRecord = arcRecords[crd];
-        const { arc: ent, fullPath, direction } = locRecord;
+      const pos = globe.planet.getCartesianFromPixelTerrain(e.getCenter());
+      if (!pos) return;
 
-        locRecord.animIndex += 1;
+      const cam = globe.planet.camera;
+      let distance = cam.eye.distance(pos);
 
-        let offset;
+      let delta = Math.min(
+        MAX_DELTA,
+        Math.max(MIN_DELTA, ZOOM_FACTOR * Math.pow(distance, 0.9)),
+      );
 
-        // Determine the direction of movement
-        if (direction === "mixed") {
-          // Use a triangular wave function to create a back-and-forth motion
-          const doubledRange = OSCILATION_RANGE * 2;
-          offset = Math.abs(
-            (locRecord.animIndex % doubledRange) - OSCILATION_RANGE,
-          );
-        } else {
-          offset =
-            direction === "up" ? locRecord.animIndex : -locRecord.animIndex;
-        }
+      cam.eye.addA(cam.getForward().scale(zoomState * delta));
+      cam.checkTerrainCollision();
+      cam.update();
 
-        ent.polyline?.setPath3v(
-          getDashedPath(fullPath, NUMBER_OF_DASHES, DASH_TO_GAP_RATIO, offset),
-        );
+      if (zoomState > 0) {
+        zoomState -= ZOOM_SPEED;
+      } else {
+        zoomState += ZOOM_SPEED;
       }
+
+      if (Math.abs(zoomState) < 0.1) {
+        zoomState = 0;
+      }
+
+      console.log({ zoomState, distance, delta });
     });
 
     return {
@@ -201,17 +213,15 @@
   export const flyToPoint = (crd: Coordinate, zoom: number): void => {
     if (!globe?.planet) return;
 
-    globe?.planet.camera.flyLonLat(
-      new LonLat(crd.lng, crd.lat, lerp(zoom, 0, 1, 10_000_000, 250_000)),
-    );
+    globe?.planet.camera.flyLonLat(new LonLat(crd.lng, crd.lat));
   };
 
   export const zoomIn = (): void => {
-    // TODO: implement
+    zoomState = 1;
   };
 
   export const zoomOut = (): void => {
-    // TODO: implement
+    zoomState = -1;
   };
 </script>
 
