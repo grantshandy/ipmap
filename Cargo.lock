@@ -3049,6 +3049,7 @@ name = "pcap-dyn"
 version = "0.1.0"
 dependencies = [
  "child-ipc",
+ "crossbeam-channel",
  "dashmap",
  "dlopen2",
  "etherparse",
@@ -3057,6 +3058,7 @@ dependencies = [
  "libc",
  "specta",
  "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]

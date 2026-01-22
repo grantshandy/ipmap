@@ -1,15 +1,16 @@
-// use std::{collections::HashMap, net::IpAddr, thread, time::Duration};
-
-// use pcap_dyn::ConnectionInfo;
-
 use std::{thread, time::Duration};
 
 use pcap_dyn::Api;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    tracing_subscriber::fmt::init();
+
     let api = Api::init()?;
 
     let devices = api.devices()?;
+
+    println!("{devices:#?}");
+
     let device = devices
         .into_iter()
         .find(|d| d.name == "wlo1")
@@ -17,7 +18,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("{device:?}");
 
-    let cap = api.open_capture(device)?;
+    let mut cap = api.open_capture(device)?;
 
     let recv = cap.start();
 

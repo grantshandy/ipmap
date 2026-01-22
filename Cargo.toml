@@ -21,6 +21,7 @@ thiserror = "2.0.12"
 specta = { version = "=2.0.0-rc.22", features = ["derive", "function"] }
 serde = { version = "*", features = ["derive"] }
 tracing = "0.1.41"
+tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
 tauri-specta = { version = "=2.0.0-rc.21", features = ["derive", "typescript"] }
 dashmap = "6.1.0"
 ip_rfc = "0.1.0"

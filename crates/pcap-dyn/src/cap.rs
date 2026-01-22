@@ -1,14 +1,13 @@
 use std::{
     ffi::CString,
+    mem,
     net::IpAddr,
     slice,
-    sync::{
-        Arc,
-        mpsc::{self, Receiver, Sender},
-    },
-    thread,
+    sync::Arc,
+    thread::{self, JoinHandle},
 };
 
+use crossbeam_channel::{Receiver, Sender, bounded};
 use dlopen2::wrapper::Container;
 use etherparse::{NetHeaders, PacketHeaders};
 
@@ -17,14 +16,14 @@ use crate::{
     ffi::{self, PcapTSend, Raw, pcap_pkthdr},
 };
 
+// TODO: check if this filters out things we would have previously found.
+const BPF_FILTER: &str = include_str!(concat!(env!("OUT_DIR"), "/bpf_filter"));
+
 /// A session currently capturing packets from the network device.
 pub struct Capture {
-    /// The device being captured on.
-    pub device: Device,
     raw: Arc<Container<Raw>>,
     handle: PcapTSend,
-    // stop_tx: Sender<()>,
-    // stop_rx: Receiver<()>,
+    thread_handle: Option<JoinHandle<()>>,
 }
 
 impl Capture {
@@ -32,55 +31,56 @@ impl Capture {
         // open the device for live capture
         let device_name = CString::new(device.name.clone()).unwrap();
 
-        // TODO: Handle Warnings:
-        // pcap_open_live() returns a pcap_t * on success and NULL on
-        // failure.  If NULL is returned, errbuf is filled in with an
-        // appropriate error message.  errbuf may also be set to warning text
-        // when pcap_open_live() succeeds; to detect this case the caller
-        // should store a zero-length string in errbuf before calling
-        // pcap_open_live() and display the warning to the user if errbuf is
-        // no longer a zero-length string.
-
-        let handle = ffi::err_cap("pcap_open_live", |errbuf| unsafe {
-            raw.pcap_open_live(device_name.as_ptr(), 2048, 0, 0, errbuf)
+        let handle_ptr = ffi::err_cap("pcap_open_live", |errbuf| unsafe {
+            raw.pcap_open_live(device_name.as_ptr(), 65535, 1, 1, errbuf)
         })?;
 
-        if unsafe { raw.pcap_set_immediate_mode(handle, 1) } == Some(1) {
-            // this shouldn't happen afaik.
-            return Err(Error {
-                name: "pcap_set_immediate_mode",
-                message: "Failed to set immediate mode, handle is active?".into(),
-            });
+        let handle = PcapTSend(handle_ptr);
+
+        if unsafe { raw.pcap_set_immediate_mode(handle_ptr, 1) } == Some(1) {
+            tracing::warn!("Failed to set libpcap immediate mode");
+        }
+
+        unsafe {
+            // TODO: remove allocation, include cstr in executable inline.
+            let c_filter = CString::new(BPF_FILTER).unwrap();
+            let mut bpf_program = mem::zeroed();
+
+            // Compile the string into bytecode
+            if raw.pcap_compile(handle_ptr, &mut bpf_program, c_filter.as_ptr(), 1, 0) == 0 {
+                // Load the bytecode into the kernel
+                raw.pcap_setfilter(handle_ptr, &mut bpf_program);
+                raw.pcap_freecode(&mut bpf_program);
+            } else {
+                tracing::error!("BPF compilation failed, may be slightly less efficient");
+            }
         }
 
         Ok(Self {
-            device,
             raw,
-            handle: PcapTSend(handle),
+            handle,
+            thread_handle: None,
         })
     }
 
     /// Start the capture thread.
-    pub fn start(&self) -> Receiver<Packet> {
-        let (packet_tx, packet_rx) = mpsc::channel::<Packet>();
+    pub fn start(&mut self) -> Receiver<Packet> {
+        let (packet_tx, packet_rx) = bounded::<Packet>(10_000);
 
         let mut callback_state = CallbackState {
             packet_tx,
+            // We do NOT clone the raw handle here to own it.
+            // We pass a copy of the pointer, but the Main thread owns the lifecycle.
             handle: self.handle.clone(),
             raw: self.raw.clone(),
         };
 
-        // capture thread:
-        //
-        // This thread is responsible for calling pcap_loop, which will
-        // block until pcap_breakloop is called in Capture::stop. Libpcap
-        // doesn't like the callbacks to take very long, so we pass them into
-        // an mpsc channel and return immediately.
-        thread::spawn(move || {
-            // blocks until Self::stop calls pcap_breakloop
+        let join_handle = thread::spawn(move || {
             callback_state.start_loop();
-            tracing::trace!("pcap_loop stopped");
+            tracing::trace!("capture thread exited");
         });
+
+        self.thread_handle = Some(join_handle);
 
         packet_rx
     }
@@ -93,12 +93,17 @@ impl Capture {
 
 impl Drop for Capture {
     fn drop(&mut self) {
-        // stop the capture thread
+        // 1. Break the loop
         unsafe {
             self.raw.pcap_breakloop(self.handle.0);
         }
 
-        // close the handle
+        // 2. Wait for the loop thread to exit
+        if let Some(thread) = self.thread_handle.take() {
+            let _ = thread.join();
+        }
+
+        // 3. Now it is safe to close the handle
         unsafe {
             self.raw.pcap_close(self.handle.0);
         }
@@ -112,13 +117,14 @@ struct CallbackState {
 }
 
 impl CallbackState {
+    /// Send all packets to self.packet_tx, blocking on the current thread.
     pub fn start_loop(&mut self) {
         let raw = self.raw.clone();
 
         unsafe {
             raw.pcap_loop(
                 self.handle.0,
-                0, // infinite loop
+                -1, // infinite loop
                 Self::callback,
                 self as *mut Self as *mut _,
             );
@@ -130,19 +136,15 @@ impl CallbackState {
         header: *const pcap_pkthdr,
         packet: *const libc::c_uchar,
     ) {
+        // Safety: 'slf' is valid as long as the capture thread is running.
+        let state = unsafe { &mut *(slf as *mut Self) };
+
         unsafe {
-            let Some(packet) = Packet::from_raw(header, packet) else {
-                return;
-            };
-
-            let slf = slf as *mut Self;
-
-            if (*slf).packet_tx.send(packet).is_err() {
-                // If the packet_rx (in Capture) was dropped, try to break the loop if we can.
-                // I'm not sure why this would happen, but this should stop the edge case where
-                // Capture is dropped but the loop is still running. (no way to stop it otherwise)
-
-                (*slf).raw.pcap_breakloop((*slf).handle.0);
+            if let Some(packet) = Packet::from_raw(header, packet) {
+                if let Err(_) = state.packet_tx.send(packet) {
+                    // Channel closed, Stop the loop.
+                    state.raw.pcap_breakloop(state.handle.0);
+                }
             }
         }
     }

@@ -3,7 +3,7 @@
 use std::ffi::CStr;
 
 use dlopen2::wrapper::{Container, WrapperApi};
-use libc::{c_char, c_int, c_uchar, c_uint, sockaddr, timeval};
+use libc::{c_char, c_int, c_uchar, c_uint, c_ushort, sockaddr, timeval};
 
 #[cfg(all(unix, not(target_os = "macos")))]
 const FILE: &str = "libpcap.so";
@@ -22,6 +22,10 @@ pub struct Raw {
     pcap_findalldevs:        unsafe extern "C" fn(alldevsp: *mut *mut pcap_if_t, errbuf: *mut c_char) -> c_int,
     pcap_freealldevs:        unsafe extern "C" fn(alldevs: *mut pcap_if_t),
     pcap_lib_version:        unsafe extern "C" fn() -> *const c_char,
+
+    pcap_compile:            unsafe extern "C" fn(p: *mut pcap_t, fp: *mut bpf_program, str: *const c_char, optimize: c_int, netmask: c_uint) -> c_int,
+    pcap_setfilter:          unsafe extern "C" fn(p: *mut pcap_t, fp: *mut bpf_program) -> c_int,
+    pcap_freecode:           unsafe extern "C" fn(fp: *mut bpf_program),
 
     // This function became available in libpcap release 1.5.0, so it's only run if we have it
     pcap_set_immediate_mode: Option<unsafe extern "C" fn(p: *mut pcap_t, immediate_mode: c_int) -> c_int>,
@@ -59,7 +63,7 @@ impl Raw {
 // fn pcap_next_ex(arg1: *mut pcap_t,arg2: *mut *mut pcap_pkthdr, arg3: *mut *const c_uchar) -> c_int;
 // --> fn pcap_breakloop(arg1: *mut pcap_t);
 // fn pcap_stats(arg1: *mut pcap_t, arg2: *mut pcap_stat) -> c_int;
-// fn pcap_setfilter(arg1: *mut pcap_t, arg2: *mut bpf_program) -> c_int;
+// --> fn pcap_setfilter(arg1: *mut pcap_t, arg2: *mut bpf_program) -> c_int;
 // fn pcap_setdirection(arg1: *mut pcap_t, arg2: pcap_direction_t) -> c_int;
 // fn pcap_getnonblock(arg1: *mut pcap_t, arg2: *mut c_char) -> c_int;
 // fn pcap_setnonblock(arg1: *mut pcap_t, arg2: c_int, arg3: *mut c_char) -> c_int;
@@ -68,9 +72,9 @@ impl Raw {
 // fn pcap_strerror(arg1: c_int) -> *const c_char;
 // fn pcap_geterr(arg1: *mut pcap_t) -> *mut c_char;
 // fn pcap_perror(arg1: *mut pcap_t, arg2: *mut c_char);
-// fn pcap_compile(arg1: *mut pcap_t,arg2: *mut bpf_program,arg3: *const c_char,arg4: c_int, arg5: c_uint) -> c_int;
+// --> fn pcap_compile(arg1: *mut pcap_t,arg2: *mut bpf_program,arg3: *const c_char,arg4: c_int, arg5: c_uint) -> c_int;
 // fn pcap_compile_nopcap(arg1: c_int, arg2: c_int, arg3: *mut bpf_program, arg4: *const c_char, arg5: c_int, arg6: c_uint) -> c_int;
-// fn pcap_freecode(arg1: *mut bpf_program);
+// --> fn pcap_freecode(arg1: *mut bpf_program);
 // fn pcap_offline_filter(arg1: *const bpf_program,arg2: *const pcap_pkthdr,arg3: *const c_uchar) -> c_int;
 // fn pcap_datalink(arg1: *mut pcap_t) -> c_int;
 // fn pcap_datalink_ext(arg1: *mut pcap_t) -> c_int;
@@ -132,7 +136,7 @@ pub struct pcap_pkthdr {
 }
 
 #[repr(C)]
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone)]
 pub struct pcap_if_t {
     pub next: *mut pcap_if_t,
     pub name: *mut c_char,
@@ -142,13 +146,29 @@ pub struct pcap_if_t {
 }
 
 #[repr(C)]
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone)]
 pub struct pcap_addr_t {
     pub next: *mut pcap_addr_t,
     pub addr: *mut sockaddr,
     pub netmask: *mut sockaddr,
     pub broadaddr: *mut sockaddr,
     pub dstaddr: *mut sockaddr,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct bpf_program {
+    pub bf_len: c_uint,
+    pub bf_insns: *mut bpf_insn,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct bpf_insn {
+    pub code: c_ushort,
+    pub jt: c_uchar,
+    pub jf: c_uchar,
+    pub k: c_uint,
 }
 
 pub(crate) fn cstr_to_string(ptr: *const c_char) -> Option<String> {

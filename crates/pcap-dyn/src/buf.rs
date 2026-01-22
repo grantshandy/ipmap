@@ -21,7 +21,7 @@ pub struct CaptureTrafficMonitor {
 
 impl CaptureTrafficMonitor {
     // Start the capture and collect the state on another thread.
-    pub fn start(cap: Capture, connection_timeout: Duration) -> Self {
+    pub fn start(mut cap: Capture, connection_timeout: Duration) -> Self {
         let packet_recv = cap.start();
 
         let buf = Arc::new(TrafficMonitor::new(connection_timeout));
