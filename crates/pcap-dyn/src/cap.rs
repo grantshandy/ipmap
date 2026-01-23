@@ -1,5 +1,5 @@
 use std::{
-    ffi::CString,
+    ffi::{CStr, CString},
     mem,
     net::IpAddr,
     slice,
@@ -9,15 +9,18 @@ use std::{
 
 use crossbeam_channel::{Receiver, Sender, bounded};
 use dlopen2::wrapper::Container;
-use etherparse::{NetHeaders, PacketHeaders};
+use etherparse::{LaxNetSlice, LaxSlicedPacket};
 
 use crate::{
     Device, Error,
     ffi::{self, PcapTSend, Raw, pcap_pkthdr},
 };
 
-// TODO: check if this filters out things we would have previously found.
-const BPF_FILTER: &str = include_str!(concat!(env!("OUT_DIR"), "/bpf_filter"));
+const BPF_FILTER: &CStr =
+    match CStr::from_bytes_with_nul(include_bytes!(concat!(env!("OUT_DIR"), "/bpf_filter"))) {
+        Ok(filter) => filter,
+        Err(_) => panic!("build.rs produced invalid CStr"),
+    };
 
 /// A session currently capturing packets from the network device.
 pub struct Capture {
@@ -32,7 +35,7 @@ impl Capture {
         let device_name = CString::new(device.name.clone()).unwrap();
 
         let handle_ptr = ffi::err_cap("pcap_open_live", |errbuf| unsafe {
-            raw.pcap_open_live(device_name.as_ptr(), 65535, 1, 1, errbuf)
+            raw.pcap_open_live(device_name.as_ptr(), 64, 1, 1, errbuf)
         })?;
 
         let handle = PcapTSend(handle_ptr);
@@ -42,12 +45,10 @@ impl Capture {
         }
 
         unsafe {
-            // TODO: remove allocation, include cstr in executable inline.
-            let c_filter = CString::new(BPF_FILTER).unwrap();
             let mut bpf_program = mem::zeroed();
 
             // Compile the string into bytecode
-            if raw.pcap_compile(handle_ptr, &mut bpf_program, c_filter.as_ptr(), 1, 0) == 0 {
+            if raw.pcap_compile(handle_ptr, &mut bpf_program, BPF_FILTER.as_ptr(), 1, 0) == 0 {
                 // Load the bytecode into the kernel
                 raw.pcap_setfilter(handle_ptr, &mut bpf_program);
                 raw.pcap_freecode(&mut bpf_program);
@@ -153,8 +154,8 @@ impl CallbackState {
 /// A generic representation of a packet, mainly for statistical purposes.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Packet {
-    pub len: usize,
     pub ip: IpAddr,
+    pub len: usize,
     pub direction: PacketDirection,
 }
 
@@ -163,9 +164,15 @@ impl Packet {
         let header = unsafe { *header };
         let packet = unsafe { slice::from_raw_parts(packet, header.caplen as _) };
 
-        let (src, dst) = match PacketHeaders::from_ethernet_slice(packet).map(|h| h.net) {
-            Ok(Some(NetHeaders::Ipv4(h, _))) => (h.source.into(), h.destination.into()),
-            Ok(Some(NetHeaders::Ipv6(h, _))) => (h.source.into(), h.destination.into()),
+        let (src, dst) = match LaxSlicedPacket::from_ethernet(packet).map(|h| h.net) {
+            Ok(Some(LaxNetSlice::Ipv4(s))) => (
+                s.header().source_addr().into(),
+                s.header().destination_addr().into(),
+            ),
+            Ok(Some(LaxNetSlice::Ipv6(s))) => (
+                s.header().source_addr().into(),
+                s.header().destination_addr().into(),
+            ),
             _ => return None,
         };
 

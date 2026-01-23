@@ -5,7 +5,7 @@ use pcap_dyn::Api;
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt::init();
 
-    let api = Api::init()?;
+    let api: &'static Api = pcap_dyn::LIBRARY.as_ref()?;
 
     let devices = api.devices()?;
 
@@ -13,7 +13,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let device = devices
         .into_iter()
-        .find(|d| d.name == "wlo1")
+        .find(|d| d.name == "wlp3s0")
         .expect("no net device found");
 
     println!("{device:?}");
@@ -23,8 +23,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let recv = cap.start();
 
     thread::spawn(move || {
-        for p in recv {
-            println!("{p:?}");
+        for _ in recv {
+            // println!("{p:?}");
         }
 
         println!("stopped capturing");

@@ -204,6 +204,8 @@ pub(crate) fn err_cap<T>(
 /// Really bad practice, but it's a last-ditch effort if it can't find the library (e.g. on NixOS?)
 #[cfg(unix)]
 fn try_pkg_config_path(filename: &'static str) -> Option<Result<Container<Raw>, dlopen2::Error>> {
+    println!("trying pkg-config");
+
     std::process::Command::new("sh")
         .args([
             "pkg-config",

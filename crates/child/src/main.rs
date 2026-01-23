@@ -6,7 +6,7 @@ use child_ipc::{
     Error, ErrorKind, IpcService, PcapStatus, Response, RunCapture, RunTraceroute,
     ipc::{self},
 };
-use pcap_dyn::{Api, buf::CaptureTrafficMonitor};
+use pcap_dyn::buf::CaptureTrafficMonitor;
 
 fn main() {
     Service::execute();
@@ -16,7 +16,9 @@ pub struct Service;
 
 impl IpcService for Service {
     fn get_pcap_status() -> Result<PcapStatus, Error> {
-        let api = Api::init().map_err(|e| Error::message(ErrorKind::LibLoading, e.to_string()))?;
+        let api = pcap_dyn::LIBRARY
+            .as_ref()
+            .map_err(|e| Error::message(ErrorKind::LibLoading, e.to_string()))?;
 
         #[cfg(target_os = "linux")]
         if !Self::has_net_raw()? {
@@ -34,7 +36,7 @@ impl IpcService for Service {
     }
 
     fn start_capture(parent: &ipc::Parent, params: RunCapture) -> ! {
-        let api = match Api::init() {
+        let api = match pcap_dyn::LIBRARY.as_ref() {
             Ok(api) => api,
             Err(err) => {
                 ipc::exit_with_error(

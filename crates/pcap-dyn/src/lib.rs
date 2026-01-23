@@ -1,6 +1,9 @@
 #![doc = include_str!("../README.md")]
 
-use std::{fmt, ptr, sync::Arc};
+use std::{
+    fmt, ptr,
+    sync::{Arc, LazyLock},
+};
 
 use dlopen2::wrapper::Container;
 
@@ -12,6 +15,9 @@ pub use cap::{Capture, Packet, PacketDirection};
 use child_ipc::Device;
 use ffi::{Raw, pcap_if_t};
 
+/// The access point to the lazily-loaded libpcap connection.
+pub static LIBRARY: LazyLock<Result<Api, dlopen2::Error>> = LazyLock::new(Api::init);
+
 /// A handle to the libpcap library.
 #[derive(Clone)]
 pub struct Api {
@@ -20,7 +26,7 @@ pub struct Api {
 
 impl Api {
     /// Try to load libpcap.
-    pub fn init() -> Result<Self, dlopen2::Error> {
+    fn init() -> Result<Self, dlopen2::Error> {
         Raw::load().map(Arc::new).map(|raw| Self { raw })
     }
 
