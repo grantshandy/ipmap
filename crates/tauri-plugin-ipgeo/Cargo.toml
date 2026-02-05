@@ -18,7 +18,7 @@ rkyv.workspace = true
 serde.workspace = true
 
 memmap2 = "0.9.9"
-time = "0.3.44"
+time = "0.3.47"
 dns-lookup = "3.0.1"
 
 specta.workspace = true
