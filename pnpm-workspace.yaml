@@ -1,5 +1,8 @@
 packages:
-  - "crates/tauri-plugin-ipgeo"
-  - "crates/tauri-plugin-pcap"
-  - "crates/desktop/bindings"
-  - "ui"
+  - crates/tauri-plugin-ipgeo
+  - crates/tauri-plugin-pcap
+  - crates/desktop/bindings
+  - ui
+
+onlyBuiltDependencies:
+  - esbuild
