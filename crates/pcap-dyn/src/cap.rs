@@ -141,11 +141,11 @@ impl CallbackState {
         let state = unsafe { &mut *(slf as *mut Self) };
 
         unsafe {
-            if let Some(packet) = Packet::from_raw(header, packet) {
-                if let Err(_) = state.packet_tx.send(packet) {
-                    // Channel closed, Stop the loop.
-                    state.raw.pcap_breakloop(state.handle.0);
-                }
+            if let Some(packet) = Packet::from_raw(header, packet)
+                && state.packet_tx.send(packet).is_err()
+            {
+                // Channel closed, Stop the loop.
+                state.raw.pcap_breakloop(state.handle.0);
             }
         }
     }
