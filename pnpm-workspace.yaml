@@ -4,5 +4,8 @@ packages:
   - crates/desktop/bindings
   - ui
 
+allowBuilds:
+  esbuild: true
+
 onlyBuiltDependencies:
   - esbuild

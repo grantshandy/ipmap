@@ -14,7 +14,7 @@
   "license": "MIT",
   "dependencies": {
     "@fontsource/inter": "^5.2.8",
-    "@openglobus/og": "^0.28.5",
+    "@openglobus/og": "1.0.0-rc7",
     "@tailwindcss/vite": "^4.1.18",
     "@tauri-apps/api": "^2.10.1",
     "@tauri-apps/plugin-opener": "2.5.3",
